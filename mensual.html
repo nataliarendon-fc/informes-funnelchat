@@ -108,6 +108,11 @@ body{background:var(--navy);color:var(--text);font-family:'DM Sans',sans-serif;f
 .tipo-prev{background:rgba(96,165,250,.15);color:var(--blue);display:inline-block;font-size:10px;font-weight:600;letter-spacing:.04em;padding:2px 8px;border-radius:6px;text-transform:uppercase}
 .tipo-react{background:rgba(251,146,60,.15);color:var(--orange);display:inline-block;font-size:10px;font-weight:600;letter-spacing:.04em;padding:2px 8px;border-radius:6px;text-transform:uppercase}
 .data-note{background:rgba(45,212,191,.06);border:1px solid rgba(45,212,191,.2);border-radius:10px;padding:10px 16px;font-size:11px;color:var(--muted);margin-bottom:24px;display:flex;align-items:center;gap:8px}
+.tip{position:relative;display:inline-flex;align-items:center;cursor:help}
+.tip-icon{width:13px;height:13px;border-radius:50%;background:rgba(148,163,184,.2);color:var(--muted);font-size:9px;font-weight:700;display:inline-flex;align-items:center;justify-content:center;margin-left:4px;flex-shrink:0}
+.tip-box{display:none;position:absolute;bottom:calc(100% + 6px);left:50%;transform:translateX(-50%);background:#1a2744;border:1px solid rgba(45,212,191,.25);border-radius:8px;padding:8px 12px;font-size:10px;color:var(--muted);white-space:nowrap;z-index:200;min-width:220px;line-height:1.5;box-shadow:0 4px 20px rgba(0,0,0,.4)}
+.tip-box strong{color:#fff}
+.tip:hover .tip-box{display:block}
 .data-note span{color:var(--teal)}
 ::-webkit-scrollbar{width:5px}::-webkit-scrollbar-track{background:var(--navy)}::-webkit-scrollbar-thumb{background:var(--navy4);border-radius:3px}
 @media print{.month-nav,.data-note{display:none}.hdr{position:relative}}
@@ -533,6 +538,36 @@ function calcMonth(off){
   const expTPrev=topN(cancelPrevT,'Experiencia automatizando');
   const factTPrev=topN(cancelPrevT,'Facturación promedio mensual');
 
+  // ── Ranking history — últimos 3 meses ────────────────
+  // For each key, build a ranking per month to detect trends
+  const buildRankHistory = (key, isTrialMode) => {
+    const history = [];
+    for (let i = -2; i <= 0; i++) {
+      const r = getMonthRange(off + i);
+      const base = isTrialMode
+        ? C.filter(rr => rr['Vigencia del servicio']==='Cancelado' && isTrial(rr) && inRange(cancelDate(rr),r))
+        : canP.filter(rr => inRange(cancelDate(rr),r));
+      const ranked = topN(base, key, 10);
+      const posMap = {};
+      ranked.forEach((d,idx) => { posMap[d.label] = idx + 1; });
+      history.push(posMap);
+    }
+    return history; // [2m ago, 1m ago, this month]
+  };
+
+  const rankHistP = {
+    nicho: buildRankHistory('Tipo de negocio', false),
+    obj:   buildRankHistory('Objetivo con Funnelchat', false),
+    exp:   buildRankHistory('Experiencia automatizando', false),
+    fact:  buildRankHistory('Facturación promedio mensual', false),
+  };
+  const rankHistT = {
+    nicho: buildRankHistory('Tipo de negocio', true),
+    obj:   buildRankHistory('Objetivo con Funnelchat', true),
+    exp:   buildRankHistory('Experiencia automatizando', true),
+    fact:  buildRankHistory('Facturación promedio mensual', true),
+  };
+
   const ltBuckets={'0-30d':0,'31-60d':0,'61-90d':0,'91-180d':0,'181-365d':0,'+365d':0};
   cancelMes.forEach(r=>{
     const lt=parseFloat(r['LT']||'0');
@@ -659,6 +694,7 @@ function calcMonth(off){
     hist_sin_onb,hist_sin_flow,hist_sin_wa,hist_sin_ses,hist_sin_grupos,hist_sin_trial,
     cp_sin_grupos,cp_sin_trial,
     nichoCancelPrev,objCancelPrev,expCancelPrev,factCancelPrev,
+    rankHistP, rankHistT,
     expCancel,factCancel,
     nichoNuevas,objNuevas,expNuevas,factNuevas,
     nichoNuevasT,objNuevasT,expNuevasT,factNuevasT,
@@ -708,17 +744,37 @@ function render(m){
   const dC=dlt(m.cancelMes,m.prevCancel,true);
   const dCv=dlt(m.convMes,m.prevConv);
   document.getElementById('pulsoGrid').innerHTML=`
-    <div class="p-card c-teal"><div class="p-label">Activas pagas (hoy)</div>
+    <div class="p-card c-teal">
+      <div class="p-label">
+        <span class="tip">Activas pagas (hoy)
+          <span class="tip-icon">?</span>
+          <span class="tip-box"><strong>Solo cuentas Vigentes pagas</strong><br>Estado en tiempo real · excluye Atrasadas y canceladas</span>
+        </span>
+      </div>
       <div class="p-value" style="color:var(--teal)">${m.vigP.toLocaleString('es-CO')}</div>
-      <div class="p-context">Tiempo real · MRR activo: <strong>${fmt$(m.mrrActivo)}</strong></div></div>
-    <div class="p-card c-teal" style="opacity:.85"><div class="p-label">Activas inicio del mes</div>
+      <div class="p-context">MRR activo: <strong>${fmt$(m.mrrActivo)}</strong><br>Trial activos: ${m.vigT}</div>
+    </div>
+    <div class="p-card c-teal" style="opacity:.85">
+      <div class="p-label">
+        <span class="tip">Activas inicio del mes
+          <span class="tip-icon">?</span>
+          <span class="tip-box"><strong>Vigentes + Atrasadas + canceladas durante el mes</strong><br>Pagas creadas antes del ${new Date(m.range.start).toLocaleDateString('es-CO',{day:'numeric',month:'short'})} que no habían cancelado aún · base para calcular churn</span>
+        </span>
+      </div>
       <div class="p-value" style="color:var(--teal)">${m.activasInicioMes.toLocaleString('es-CO')}</div>
-      <div class="p-context">Base para calcular churn · ${m.activasInicioMes > m.vigP ? '▼ hubo pérdida neta' : '▲ hubo crecimiento neto'}</div></div>
+      <div class="p-context">Base para churn · neto: ${m.activasInicioMes > m.vigP ? '▼ pérdida' : '▲ crecimiento'} de ${Math.abs(m.activasInicioMes - m.vigP)}</div>
+    </div>
     <div class="p-card c-blue"><div class="p-label">Nuevas pagas del mes</div>
       <div class="p-value" style="color:var(--blue)">${m.nuevosMesP}</div>
       <div class="p-delta ${dN.cls}">${dN.txt}</div>
       <div class="p-context">Trial nuevos: ${m.nuevosMesT} · MRR: ${fmt$(m.mrrNuevo)}</div></div>
-    <div class="p-card c-red"><div class="p-label">Cancelaciones del mes</div>
+    <div class="p-card c-red">
+      <div class="p-label">
+        <span class="tip">Cancelaciones del mes
+          <span class="tip-icon">?</span>
+          <span class="tip-box"><strong>Solo cuentas pagas</strong><br>Fecha de cancelación = payment_till + 21 días dentro del mes · no incluye trials</span>
+        </span>
+      </div>
       <div class="p-value" style="color:var(--red)">${m.cancelMes}</div>
       <div class="p-delta ${dC.cls}">${dC.txt}</div>
       <div class="p-context">MRR perdido: <strong style="color:var(--red)">${fmt$(m.mrrPerdido)}</strong></div></div>
@@ -726,7 +782,13 @@ function render(m){
       <div class="p-value" style="color:var(--yellow)">${m.convMes}</div>
       <div class="p-delta ${dCv.cls}">${dCv.txt}</div>
       <div class="p-context">MRR generado: ${fmt$(m.mrrConv)}</div></div>
-    <div class="p-card c-orange"><div class="p-label">Atrasadas pagas</div>
+    <div class="p-card c-orange">
+      <div class="p-label">
+        <span class="tip">Atrasadas pagas
+          <span class="tip-icon">?</span>
+          <span class="tip-box"><strong>payment_till vencido · dentro de los 21 días de gracia</strong><br>Aún no confirmadas como canceladas · MRR en riesgo real</span>
+        </span>
+      </div>
       <div class="p-value" style="color:var(--orange)">${m.atrP}</div>
       <div class="p-delta neg">⚠ en riesgo</div>
       <div class="p-context">MRR en riesgo: ${fmt$(m.mrrRiesgo)}</div></div>
@@ -1100,7 +1162,7 @@ function renderQuienesMes(mode) {
     ? (m.nichoHistP.reduce((s,d)=>s+d.count,0) || 1)
     : (m.nichoHistT.reduce((s,d)=>s+d.count,0) || 1);
 
-  function renderDim(elId, mesCurr, histCurr, nuevasCurr, color) {
+  function renderDim(elId, mesCurr, histCurr, nuevasCurr, rankHist, color) {
     const el = document.getElementById(elId);
     if (!el) return;
     const totalNuevas = nuevasCurr.reduce((s,d)=>s+d.count,0) || 1;
@@ -1115,17 +1177,49 @@ function renderQuienesMes(mode) {
       const diff = mesPct - histPct;
       const diffTxt = diff === 0 ? '=' : diff > 0 ? `▲${diff}pp` : `▼${Math.abs(diff)}pp`;
       const diffColor = diff === 0 ? 'var(--muted)' : diff > 0 ? 'var(--red)' : 'var(--green2)';
-      // Signal: if newPct is similar to mesPct → organic churn; if mesPct >> newPct → losing existing base
+
+      // Position trend across 3 months
+      const pos2 = rankHist[0][lbl]; // 2 months ago
+      const pos1 = rankHist[1][lbl]; // 1 month ago
+      const pos0 = rankHist[2][lbl]; // this month
+      let trendTxt = '', trendColor = 'var(--muted)', trendTitle = '';
+      if (pos0) {
+        if (!pos1 && !pos2) {
+          trendTxt = '★ nuevo'; trendColor = 'var(--yellow)';
+          trendTitle = 'No aparecía en los 2 meses anteriores';
+        } else if (pos1 && pos0 < pos1 && pos2 && pos0 < pos2) {
+          const moved = pos1 - pos0;
+          trendTxt = `↑${moved} pos`; trendColor = 'var(--red)';
+          trendTitle = `Subió ${moved} posición(es) — viene escalando en cancelaciones`;
+        } else if (pos1 && pos0 > pos1) {
+          const moved = pos0 - pos1;
+          trendTxt = `↓${moved} pos`; trendColor = 'var(--green2)';
+          trendTitle = `Bajó ${moved} posición(es) — menos peso en cancelaciones`;
+        } else if (pos0 === pos1 && pos1 === pos2) {
+          trendTxt = `= #${pos0} 3m`; trendColor = 'var(--orange)';
+          trendTitle = `Lleva 3 meses en posición #${pos0} — tendencia estable`;
+        } else if (pos0 === pos1) {
+          trendTxt = `= #${pos0} 2m`; trendColor = 'var(--muted)';
+          trendTitle = `Lleva 2 meses en posición #${pos0}`;
+        } else {
+          trendTxt = `#${pos0}`; trendColor = 'var(--muted)';
+          trendTitle = `Posición #${pos0} este mes`;
+        }
+      }
+
+      // Signal llegadas vs salidas
       const signal = mesPct > 0 && newPct > 0
-        ? (mesPct - newPct > 10 ? '⚠ más cancelaciones que llegadas' : mesPct - newPct < -10 ? '✓ llegan más de los que se van' : '≈ proporción similar')
+        ? (mesPct - newPct > 10 ? '⚠ más cancel. que llegadas' : mesPct - newPct < -10 ? '✓ llegan más' : '≈ equilibrio')
         : '';
       const signalColor = mesPct - newPct > 10 ? 'var(--red)' : mesPct - newPct < -10 ? 'var(--green2)' : 'var(--muted)';
-      return `<div style="margin-bottom:13px">
-        <div style="display:flex;justify-content:space-between;margin-bottom:3px;align-items:center">
-          <span style="font-size:11px;color:var(--muted);max-width:140px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${lbl}">${lbl}</span>
-          <span style="font-size:10px;display:flex;align-items:center;gap:5px">
-            <strong style="color:${color}">${mesPct}%</strong>
-            <span style="color:${diffColor};font-size:9px;font-weight:600">${diffTxt} vs hist.</span>
+
+      return `<div style="margin-bottom:14px">
+        <div style="display:flex;justify-content:space-between;margin-bottom:3px;align-items:center;gap:4px">
+          <span style="font-size:11px;color:var(--muted);flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0" title="${lbl}">${lbl}</span>
+          <span style="display:flex;align-items:center;gap:5px;flex-shrink:0">
+            <strong style="color:${color};font-size:11px">${mesPct}%</strong>
+            <span style="color:${diffColor};font-size:9px;font-weight:600">${diffTxt}</span>
+            ${trendTxt ? `<span style="font-size:9px;font-weight:700;color:${trendColor};cursor:help" title="${trendTitle}">${trendTxt}</span>` : ''}
           </span>
         </div>
         <div style="height:6px;background:rgba(255,255,255,.05);border-radius:4px;overflow:hidden;position:relative">
@@ -1133,7 +1227,7 @@ function renderQuienesMes(mode) {
           <div style="width:${mesPct}%;height:100%;background:${color};border-radius:4px;position:absolute"></div>
         </div>
         <div style="display:flex;justify-content:space-between;margin-top:3px;align-items:center">
-          <span style="font-size:9px;color:var(--muted)">Nuevas mismo segmento: <strong style="color:var(--teal)">${newPct}%</strong> (${nc?.count||0})</span>
+          <span style="font-size:9px;color:var(--muted)">Nuevas: <strong style="color:var(--teal)">${newPct}%</strong> (${nc?.count||0})</span>
           ${signal?`<span style="font-size:9px;color:${signalColor};font-weight:600">${signal}</span>`:''}
         </div>
       </div>`;
@@ -1143,11 +1237,12 @@ function renderQuienesMes(mode) {
   const nuevasData = isP
     ? {nicho:m.nichoNuevas, obj:m.objNuevas, exp:m.expNuevas, fact:m.factNuevas}
     : {nicho:m.nichoNuevasT, obj:m.objNuevasT, exp:m.expNuevasT, fact:m.factNuevasT};
+  const rankData = isP ? m.rankHistP : m.rankHistT;
 
-  renderDim('nichoMes',   mesData.nicho, histData.nicho, nuevasData.nicho, 'var(--teal)');
-  renderDim('objetivoMes',mesData.obj,   histData.obj,   nuevasData.obj,   'var(--blue)');
-  renderDim('expMes',     mesData.exp,   histData.exp,   nuevasData.exp,   'var(--purple)');
-  renderDim('factMes',    mesData.fact,  histData.fact,  nuevasData.fact,  'var(--orange)');
+  renderDim('nichoMes',   mesData.nicho, histData.nicho, nuevasData.nicho, rankData.nicho, 'var(--teal)');
+  renderDim('objetivoMes',mesData.obj,   histData.obj,   nuevasData.obj,   rankData.obj,   'var(--blue)');
+  renderDim('expMes',     mesData.exp,   histData.exp,   nuevasData.exp,   rankData.exp,   'var(--purple)');
+  renderDim('factMes',    mesData.fact,  histData.fact,  nuevasData.fact,  rankData.fact,  'var(--orange)');
 }
 
 function impactTable(title, labelA, labelB, data, color) {
