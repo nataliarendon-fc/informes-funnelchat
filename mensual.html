@@ -1,0 +1,763 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Informe Mensual · Área de Clientes · Funnelchat</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,400&display=swap" rel="stylesheet">
+<style>
+:root{--navy:#0d1528;--navy2:#131e35;--navy3:#1a2744;--navy4:#1f2f52;--green:#4ade80;--green2:#22c55e;--pink:#f472b6;--orange:#fb923c;--red:#f87171;--blue:#60a5fa;--yellow:#fbbf24;--purple:#a78bfa;--teal:#2dd4bf;--text:#e2e8f0;--muted:#94a3b8;--border:rgba(255,255,255,0.07);--card:rgba(255,255,255,0.04)}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--navy);color:var(--text);font-family:'DM Sans',sans-serif;font-size:14px;line-height:1.6;min-height:100vh}
+.hdr{background:linear-gradient(135deg,#0d1528,#1a2744);border-bottom:1px solid var(--border);padding:20px 44px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100}
+.logo{display:flex;align-items:center;gap:12px}
+.logo-icon{width:32px;height:32px;background:var(--green2);clip-path:polygon(50% 0%,100% 25%,100% 75%,50% 100%,0% 75%,0% 25%)}
+.logo-text{font-family:'Syne',sans-serif;font-weight:700;font-size:17px;color:#fff}
+.logo-text span{color:var(--green)}
+.hdr-right{text-align:right}
+.hdr-period{font-family:'Syne',sans-serif;font-size:13px;font-weight:700;color:var(--teal);letter-spacing:.08em;text-transform:uppercase;background:rgba(45,212,191,.1);padding:5px 16px;border-radius:20px;border:1px solid rgba(45,212,191,.25)}
+.hdr-sub{font-size:11px;color:var(--muted);margin-top:4px}
+.hdr-badge{display:inline-block;font-size:10px;background:rgba(167,139,250,.15);color:var(--purple);border:1px solid rgba(167,139,250,.25);padding:2px 10px;border-radius:20px;margin-left:8px;letter-spacing:.04em}
+.loading{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:60vh;gap:16px}
+.spinner{width:40px;height:40px;border:3px solid var(--navy3);border-top-color:var(--teal);border-radius:50%;animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.loading-text{font-family:'Syne',sans-serif;color:var(--muted);font-size:13px}
+.main{padding:32px 44px 80px;max-width:1400px;margin:0 auto}
+.block{margin-bottom:48px}
+.month-nav{display:flex;align-items:center;gap:8px;margin-bottom:28px;flex-wrap:wrap}
+.mn-label{font-size:11px;color:var(--muted);letter-spacing:.06em;text-transform:uppercase;margin-right:4px}
+.mn-btn{font-size:11px;padding:5px 14px;border-radius:20px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer;font-family:'DM Sans',sans-serif;transition:all .15s;white-space:nowrap}
+.mn-btn:hover{border-color:var(--teal);color:var(--teal)}
+.mn-btn.active{background:rgba(45,212,191,.15);color:var(--teal);border-color:rgba(45,212,191,.4)}
+.mn-refresh{margin-left:auto;font-size:11px;padding:5px 14px;border-radius:20px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer;font-family:'DM Sans',sans-serif;display:flex;align-items:center;gap:6px;transition:all .15s}
+.mn-refresh:hover{border-color:var(--blue);color:var(--blue)}
+.sec-label{font-family:'Syne',sans-serif;font-size:10px;font-weight:700;letter-spacing:.18em;text-transform:uppercase;color:var(--muted);margin-bottom:14px;display:flex;align-items:center;gap:10px}
+.sec-label::after{content:'';flex:1;height:1px;background:var(--border)}
+.sec-num{background:var(--navy4);color:var(--teal);font-size:10px;font-weight:800;padding:2px 8px;border-radius:4px}
+.sec-desc{font-size:11px;color:var(--muted);font-family:'DM Sans',sans-serif;font-weight:400;letter-spacing:0;text-transform:none}
+.card{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:22px 26px;transition:border-color .2s}
+.card:hover{border-color:rgba(255,255,255,.1)}
+.pulso-grid{display:grid;grid-template-columns:repeat(6,1fr);gap:14px}
+.p-card{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:20px 18px;position:relative;overflow:hidden;transition:all .2s}
+.p-card:hover{transform:translateY(-1px);border-color:rgba(255,255,255,.12)}
+.p-card::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;border-radius:16px 16px 0 0}
+.p-card.c-teal::before{background:var(--teal)}
+.p-card.c-blue::before{background:var(--blue)}
+.p-card.c-red::before{background:var(--red)}
+.p-card.c-orange::before{background:var(--orange)}
+.p-card.c-yellow::before{background:var(--yellow)}
+.p-card.c-green::before{background:var(--green2)}
+.p-label{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:8px}
+.p-value{font-family:'Syne',sans-serif;font-size:32px;font-weight:800;line-height:1;margin-bottom:6px}
+.p-delta{display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:500;padding:2px 9px;border-radius:20px}
+.p-delta.pos{background:rgba(34,197,94,.15);color:var(--green2)}
+.p-delta.neg{background:rgba(248,113,113,.15);color:var(--red)}
+.p-delta.neu{background:rgba(148,163,184,.12);color:var(--muted)}
+.p-context{font-size:10px;color:var(--muted);margin-top:6px;line-height:1.5}
+.two-col{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.three-col{display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px}
+.col-4060{display:grid;grid-template-columns:1fr 1.5fr;gap:16px}
+.chart-title{font-family:'Syne',sans-serif;font-size:13px;font-weight:700;margin-bottom:4px;color:#fff}
+.chart-sub{font-size:11px;color:var(--muted);margin-bottom:14px}
+.chart-wrap{position:relative;height:220px}
+.chart-wrap-lg{position:relative;height:260px}
+.trend-row{display:flex;gap:10px;margin-top:14px;flex-wrap:wrap}
+.t-badge{background:var(--navy3);border:1px solid var(--border);border-radius:10px;padding:8px 14px}
+.t-badge .tl{font-size:10px;color:var(--muted);display:block;margin-bottom:2px}
+.t-badge .tv{font-family:'Syne',sans-serif;font-weight:700;font-size:15px}
+.motivo-row{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+.motivo-label{font-size:11px;color:var(--muted);width:190px;flex-shrink:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.motivo-track{flex:1;height:8px;background:rgba(255,255,255,.06);border-radius:4px;overflow:hidden}
+.motivo-fill{height:100%;border-radius:4px;transition:width .6s ease}
+.motivo-pct{font-family:'Syne',sans-serif;font-size:12px;font-weight:700;width:40px;text-align:right;flex-shrink:0}
+.motivo-n{font-size:10px;color:var(--muted);width:30px;text-align:right;flex-shrink:0}
+.insight{background:rgba(45,212,191,.05);border:1px solid rgba(45,212,191,.15);border-radius:10px;padding:12px 16px;font-size:12px;color:var(--muted);margin-top:12px;line-height:1.6}
+.insight strong{color:var(--teal)}
+.onb-funnel{display:flex;gap:0;margin:12px 0;background:rgba(255,255,255,.02);border-radius:12px;overflow:hidden}
+.onb-step{flex:1;text-align:center;padding:16px 8px;position:relative;border-right:1px solid var(--border)}
+.onb-step:last-child{border-right:none}
+.onb-step-val{font-family:'Syne',sans-serif;font-size:24px;font-weight:800;line-height:1}
+.onb-step-label{font-size:10px;color:var(--muted);margin-top:4px;text-transform:uppercase;letter-spacing:.06em}
+.onb-step-pct{font-size:11px;margin-top:3px;font-weight:600}
+.risk-grid-5{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:20px}
+.risk-mini{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:14px 16px}
+.risk-mini.urgent{border-color:rgba(248,113,113,.25);background:rgba(248,113,113,.04)}
+.risk-mini.moderate{border-color:rgba(251,146,60,.2);background:rgba(251,146,60,.03)}
+.risk-mini.low{border-color:rgba(251,191,36,.2);background:rgba(251,191,36,.03)}
+.rm-icon{font-size:18px;margin-bottom:4px}
+.rm-count{font-family:'Syne',sans-serif;font-size:26px;font-weight:800;color:var(--red);line-height:1}
+.risk-mini.moderate .rm-count{color:var(--orange)}
+.risk-mini.low .rm-count{color:var(--yellow)}
+.rm-label{font-size:10px;color:var(--muted);margin-top:4px;line-height:1.4}
+.rm-mrr{font-size:11px;font-weight:600;margin-top:6px;color:var(--red)}
+.risk-mini.moderate .rm-mrr{color:var(--orange)}
+.risk-mini.low .rm-mrr{color:var(--yellow)}
+.plan-table{width:100%;border-collapse:collapse}
+.plan-table th{text-align:left;font-size:10px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);padding:0 14px 10px;border-bottom:1px solid var(--border)}
+.plan-table td{padding:13px 14px;border-bottom:1px solid var(--border);font-size:13px;cursor:pointer;vertical-align:top}
+.plan-table td[contenteditable]:focus{outline:none;background:rgba(255,255,255,.03)}
+.plan-table tr:last-child td{border-bottom:none}
+.status-badge{display:inline-flex;align-items:center;gap:5px;font-size:10px;font-weight:600;padding:3px 10px;border-radius:20px;cursor:pointer;user-select:none;white-space:nowrap}
+.status-badge::before{content:'';width:5px;height:5px;border-radius:50%}
+.s-verde{background:rgba(34,197,94,.15);color:var(--green2)}.s-verde::before{background:var(--green2)}
+.s-amarillo{background:rgba(251,191,36,.15);color:var(--yellow)}.s-amarillo::before{background:var(--yellow)}
+.s-rojo{background:rgba(248,113,113,.15);color:var(--red)}.s-rojo::before{background:var(--red)}
+.s-gris{background:rgba(148,163,184,.12);color:var(--muted)}.s-gris::before{background:var(--muted)}
+.tipo-prev{background:rgba(96,165,250,.15);color:var(--blue);display:inline-block;font-size:10px;font-weight:600;letter-spacing:.04em;padding:2px 8px;border-radius:6px;text-transform:uppercase}
+.tipo-react{background:rgba(251,146,60,.15);color:var(--orange);display:inline-block;font-size:10px;font-weight:600;letter-spacing:.04em;padding:2px 8px;border-radius:6px;text-transform:uppercase}
+.data-note{background:rgba(45,212,191,.06);border:1px solid rgba(45,212,191,.2);border-radius:10px;padding:10px 16px;font-size:11px;color:var(--muted);margin-bottom:24px;display:flex;align-items:center;gap:8px}
+.data-note span{color:var(--teal)}
+::-webkit-scrollbar{width:5px}::-webkit-scrollbar-track{background:var(--navy)}::-webkit-scrollbar-thumb{background:var(--navy4);border-radius:3px}
+@media print{.month-nav,.data-note{display:none}.hdr{position:relative}}
+</style>
+</head>
+<body>
+
+<header class="hdr">
+  <div class="logo">
+    <div class="logo-icon"></div>
+    <div><div class="logo-text">Funnel<span>chat</span></div></div>
+  </div>
+  <div class="hdr-right">
+    <div class="hdr-period" id="hdrPeriod">Cargando...</div>
+    <div class="hdr-sub">Informe Mensual · Área de Clientes <span class="hdr-badge">ESTRATÉGICO</span></div>
+  </div>
+</header>
+
+<div id="loadingState" class="loading">
+  <div class="spinner"></div>
+  <div class="loading-text" id="loadingText">Conectando con Google Sheets...</div>
+  <div style="font-size:11px;color:#475569;margin-top:4px" id="loadingHint">Esto puede tardar hasta 30 segundos en la primera carga</div>
+</div>
+
+<main id="mainContent" class="main" style="display:none">
+  <div class="data-note"><span>ℹ</span> Datos en tiempo real desde Google Sheets. Selecciona el mes a analizar. El plan de acción es editable.</div>
+  <div class="month-nav">
+    <span class="mn-label">Mes</span>
+    <div id="monthBtns" style="display:flex;gap:8px;flex-wrap:wrap"></div>
+    <button class="mn-refresh" onclick="location.reload()">↻ Actualizar datos</button>
+  </div>
+
+  <!-- BLOQUE 1 -->
+  <div class="block">
+    <div class="sec-label"><span class="sec-num">01</span> Pulso del mes <span class="sec-desc">· Comparativo vs mes anterior · solo cuentas pagas</span></div>
+    <div class="pulso-grid" id="pulsoGrid"></div>
+  </div>
+
+  <!-- BLOQUE 2 -->
+  <div class="block">
+    <div class="sec-label"><span class="sec-num">02</span> Salud de la base <span class="sec-desc">· Tendencia 6 meses · churn por plan</span></div>
+    <div class="two-col">
+      <div class="card">
+        <div class="chart-title">Evolución mensual — últimos 6 meses</div>
+        <div class="chart-sub">Nuevas pagas · Canceladas · línea = activos al cierre (eje derecho)</div>
+        <div class="chart-wrap-lg"><canvas id="evolucionChart"></canvas></div>
+        <div class="trend-row" id="trendBadges"></div>
+      </div>
+      <div class="card">
+        <div class="chart-title">Tasa de churn mensual por plan</div>
+        <div class="chart-sub">Cancelaciones ÷ activos inicio mes · solo pagas · benchmark 5%</div>
+        <div class="chart-wrap-lg"><canvas id="churnMesChart"></canvas></div>
+        <div class="insight" id="churnInsight"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- BLOQUE 3 -->
+  <div class="block">
+    <div class="sec-label"><span class="sec-num">03</span> ¿Por qué se van? <span class="sec-desc">· Motivos de cancelación + perfil del cliente que cancela</span></div>
+    <div class="col-4060">
+      <div class="card">
+        <div class="chart-title">Motivos de cancelación del mes</div>
+        <div class="chart-sub" id="motivosSubtitle">—</div>
+        <div id="motivosBars" style="margin-top:8px"></div>
+        <div class="insight" id="motivosInsight"></div>
+      </div>
+      <div class="card">
+        <div class="chart-title">Perfil de los que cancelaron</div>
+        <div class="chart-sub">Características comunes · solo pagas · tiempo de vida promedio <span id="ltAvgBadge" style="color:var(--orange)"></span></div>
+        <div id="perfilGrid" style="display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-bottom:16px"></div>
+        <div class="chart-title" style="font-size:12px;margin-bottom:8px">Por nicho de negocio</div>
+        <div id="nichoMes"></div>
+        <div class="chart-title" style="font-size:12px;margin-bottom:8px;margin-top:14px">Por objetivo declarado</div>
+        <div id="objetivoMes"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- BLOQUE 4 -->
+  <div class="block">
+    <div class="sec-label"><span class="sec-num">04</span> Lo que el área hizo para retener <span class="sec-desc">· Resumen mensual con impacto económico</span></div>
+    <div class="card" style="margin-bottom:16px">
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:14px;gap:16px;flex-wrap:wrap">
+        <div>
+          <div class="chart-title" style="margin-bottom:2px">Onboarding del mes — embudo completo</div>
+          <div style="font-size:11px;color:var(--muted)">Propuesta → Agendó → Asistió · cobertura pagas y trial</div>
+        </div>
+        <div id="onbImpacto" style="text-align:right;flex-shrink:0"></div>
+      </div>
+      <div class="onb-funnel" id="onbFunnel"></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:14px" id="onbCobertura"></div>
+    </div>
+    <div class="two-col">
+      <div class="card">
+        <div class="chart-title">Sesiones en vivo — últimos 6 meses</div>
+        <div class="chart-sub">Total asistentes por mes</div>
+        <div class="chart-wrap"><canvas id="sesionesChart"></canvas></div>
+      </div>
+      <div class="card">
+        <div class="chart-title">Impacto económico del área este mes</div>
+        <div class="chart-sub">MRR generado + protegido vs perdido</div>
+        <div id="impactoGrid" style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:8px"></div>
+        <div class="insight" id="impactoInsight"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- BLOQUE 5 -->
+  <div class="block">
+    <div class="sec-label"><span class="sec-num">05</span> Análisis de riesgo <span class="sec-desc">· Estado al cierre del mes · pagas vigentes con señales de pre-churn</span></div>
+    <div class="risk-grid-5" id="riskMiniGrid"></div>
+    <div class="card">
+      <div class="chart-title">Distribución por tiempo de vida — cancelados del mes</div>
+      <div class="chart-sub">¿En qué momento del ciclo se van?</div>
+      <div class="chart-wrap"><canvas id="lifetimeChart"></canvas></div>
+      <div class="insight" id="lifetimeInsight"></div>
+    </div>
+  </div>
+
+  <!-- BLOQUE 6 -->
+  <div class="block">
+    <div class="sec-label"><span class="sec-num">06</span> Plan de acción — mes siguiente <span class="sec-desc">· Preventivas + Reactivación · editable</span></div>
+    <div class="card">
+      <table class="plan-table">
+        <thead>
+          <tr>
+            <th style="width:10%">Tipo</th>
+            <th style="width:34%">Acción comprometida</th>
+            <th style="width:12%">Responsable</th>
+            <th style="width:10%">Fecha</th>
+            <th style="width:11%">Estado</th>
+            <th style="width:23%">Contexto / dato que la origina</th>
+          </tr>
+        </thead>
+        <tbody id="planBody"></tbody>
+      </table>
+    </div>
+  </div>
+</main>
+
+<script>
+const API_URL='https://script.google.com/macros/s/AKfycbwNp-Hnmi1imEggg6Qz7xRP_fR57ZvcQb9hFR2WUPn1c-BdsN23x2vrnlU5zY6Rydrlng/exec';
+const ARPU=69;
+let RAW={cuentas:[],onboarding:[],sesiones:[]};
+let currentMonthOffset=0;
+let charts={};
+
+// DATE HELPERS
+function parseISO(s){
+  if(!s||!s.toString().trim())return null;
+  s=s.toString().trim();
+  if(/^\d{4}-\d{2}-\d{2}/.test(s)){const d=new Date(s);return isNaN(d)?null:d;}
+  const m=s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+  if(m){const d=new Date(parseInt(m[3]),parseInt(m[2])-1,parseInt(m[1]));return isNaN(d)?null:d;}
+  try{const d=new Date(s);return isNaN(d)?null:d;}catch{return null;}
+}
+function parseSpDate(s){
+  if(!s)return null;
+  const m=s.toString().match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+  if(m)return new Date(parseInt(m[3]),parseInt(m[2])-1,parseInt(m[1]));
+  return parseISO(s);
+}
+function parseSlash(s){
+  if(!s)return null;
+  const m=s.toString().match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+  if(!m)return null;
+  return new Date(parseInt(m[3]),parseInt(m[2])-1,parseInt(m[1]));
+}
+function getMonthRange(off=0){
+  const t=new Date();
+  const s=new Date(t.getFullYear(),t.getMonth()+off,1);s.setHours(0,0,0,0);
+  const e=new Date(t.getFullYear(),t.getMonth()+off+1,0,23,59,59,999);
+  return{start:s,end:e};
+}
+function inRange(d,r){return d&&d>=r.start&&d<=r.end;}
+function fmtMonth(d){return d.toLocaleDateString('es-CO',{month:'long',year:'numeric'});}
+function fmtMonthShort(d){return d.toLocaleDateString('es-CO',{month:'short',year:'2-digit'});}
+function cancelDate(r){
+  const pt=parseSpDate(r['payment_till']);
+  if(!pt)return null;
+  const d=new Date(pt);d.setDate(d.getDate()+21);return d;
+}
+function isPaga(r){const t=(r['trial']||'').toString().trim().toUpperCase();return t!=='TRUE'&&t!=='1'&&t!=='SI'&&t!=='SÍ';}
+function isTrial(r){return!isPaga(r);}
+function getCA(r){return parseISO(r['created_at'])||parseISO(r['Fecha creación']);}
+function getOnbDate(r){return parseISO(r['Fecha registro'])||parseISO(r['Fecha estado onboarding'])||null;}
+function getMRR(r){
+  const amt=parseFloat((r['payment_amount']||'0').toString().replace(/[^0-9.]/g,''))||0;
+  const t=parseInt((r['payment_type']||'0').toString())||0;
+  const d={0:1,1:3,2:6,3:12,4:0};
+  const div=d[t]!==undefined?d[t]:1;
+  return div===0?0:Math.round(amt/div*100)/100;
+}
+function avg(a){return a.length?Math.round(a.reduce((s,v)=>s+v,0)/a.length):0;}
+function pct(n,d){return Math.round(n/(d||1)*100);}
+function fmt$(n){return'$'+(n||0).toLocaleString('es-CO');}
+function topN(arr,key,n=5){
+  const c={};
+  arr.forEach(r=>{const v=(r[key]||'').toString().trim();if(v&&v!=='NA')c[v]=(c[v]||0)+1;});
+  return Object.entries(c).sort((a,b)=>b[1]-a[1]).slice(0,n).map(([l,ct])=>({label:l,count:ct}));
+}
+
+// LOAD
+async function loadAll(){
+  const setMsg=(t,h='')=>{document.getElementById('loadingText').textContent=t;document.getElementById('loadingHint').textContent=h;};
+  setMsg('Conectando con Google Sheets...','Puede tardar hasta 30 segundos');
+  const timeout=new Promise((_,rej)=>setTimeout(()=>rej(new Error('Tiempo agotado. Recarga la página.')),35000));
+  const fetchData=fetch(API_URL).then(async res=>{
+    setMsg('Descargando datos...','');
+    if(!res.ok)throw new Error('HTTP '+res.status);
+    const text=await res.text();
+    setMsg('Procesando...','');
+    let json;try{json=JSON.parse(text);}catch(e){throw new Error('Respuesta inválida. Redesplegar Apps Script.');}
+    return json;
+  });
+  const json=await Promise.race([fetchData,timeout]);
+  RAW.cuentas=(json.cuentas||[]).filter(r=>Object.keys(r).length>1);
+  RAW.onboarding=(json.onboarding||[]).filter(r=>Object.keys(r).length>0);
+  RAW.sesiones=(json.sesiones||[]).filter(r=>Object.keys(r).length>0);
+  if(!RAW.cuentas.length)throw new Error('Hoja de cuentas vacía. Verificar Apps Script.');
+}
+
+// CALC
+function calcMonth(off){
+  const range=getMonthRange(off);
+  const C=RAW.cuentas,O=RAW.onboarding,S=RAW.sesiones;
+
+  const vigP=C.filter(r=>r['Vigencia del servicio']==='Vigente'&&isPaga(r));
+  const vigT=C.filter(r=>r['Vigencia del servicio']==='Vigente'&&isTrial(r));
+  const canP=C.filter(r=>r['Vigencia del servicio']==='Cancelado'&&isPaga(r));
+  const atrP=C.filter(r=>r['Vigencia del servicio']==='Atrasado'&&isPaga(r));
+
+  const nuevosMesP=C.filter(r=>inRange(getCA(r),range)&&isPaga(r));
+  const nuevosMesT=C.filter(r=>inRange(getCA(r),range)&&isTrial(r));
+  const cancelMes=canP.filter(r=>inRange(cancelDate(r),range));
+
+  const PD={0:30,1:90,2:180,3:365,4:3};
+  const getConvD=r=>{const ca=getCA(r);if(!ca)return null;const d=new Date(ca);d.setDate(d.getDate()+3);return d;};
+  const convMes=C.filter(r=>{
+    if(!inRange(getConvD(r),range)||!isPaga(r))return false;
+    const ca=getCA(r),pt=parseSpDate(r['payment_till'])||parseISO(r['payment_till']);
+    if(!ca||!pt)return false;
+    const diff=(pt-ca)/86400000,period=PD[parseInt((r['payment_type']||'0').toString())||0]||30;
+    return diff-period>=1.5&&diff-period<=8;
+  });
+
+  const mrrActivo=Math.round(vigP.reduce((s,r)=>s+getMRR(r),0));
+  const mrrRiesgo=Math.round(atrP.reduce((s,r)=>s+getMRR(r),0));
+  const mrrNuevo=Math.round(nuevosMesP.reduce((s,r)=>s+getMRR(r),0));
+  const mrrPerdido=Math.round(cancelMes.reduce((s,r)=>s+getMRR(r),0));
+  const mrrConv=Math.round(convMes.reduce((s,r)=>s+getMRR(r),0));
+
+  const prevR=getMonthRange(off-1);
+  const prevNuevos=C.filter(r=>inRange(getCA(r),prevR)&&isPaga(r)).length;
+  const prevCancel=canP.filter(r=>inRange(cancelDate(r),prevR)).length;
+  const prevConv=C.filter(r=>{
+    if(!inRange(getConvD(r),prevR)||!isPaga(r))return false;
+    const ca=getCA(r),pt=parseSpDate(r['payment_till'])||parseISO(r['payment_till']);
+    if(!ca||!pt)return false;
+    const diff=(pt-ca)/86400000,period=PD[parseInt((r['payment_type']||'0').toString())||0]||30;
+    return diff-period>=1.5&&diff-period<=8;
+  }).length;
+
+  // 6-month trend
+  const trend6=Array.from({length:6},(_,i)=>{
+    const r=getMonthRange(off-5+i);
+    const nuevas=C.filter(rr=>inRange(getCA(rr),r)&&isPaga(rr)).length;
+    const cancels=canP.filter(rr=>inRange(cancelDate(rr),r)).length;
+    const activos=C.filter(rr=>{
+      if(!isPaga(rr))return false;
+      const ca=getCA(rr),cd=cancelDate(rr);
+      if(!ca||ca>r.end)return false;
+      return!cd||cd>r.end;
+    }).length;
+    return{label:fmtMonthShort(r.start),nuevas,cancels,activos};
+  });
+
+  const churnByPlan=['Plan Starter','Plan Growth','Plan Advanced'].map(plan=>({
+    plan,
+    data:Array.from({length:6},(_,i)=>{
+      const r=getMonthRange(off-5+i);
+      const base=C.filter(rr=>rr['Planes Funnelchat']===plan&&isPaga(rr));
+      const act=base.filter(rr=>rr['Vigencia del servicio']!=='Cancelado').length;
+      const can=base.filter(rr=>rr['Vigencia del servicio']==='Cancelado'&&inRange(cancelDate(rr),r)).length;
+      return act>0?Math.round(can/act*1000)/10:0;
+    })
+  }));
+
+  // Motivos
+  const cancelConMotivo=cancelMes.filter(r=>r['Motivo Cancelación']&&r['Motivo Cancelación'].toString().trim()!==''&&r['Motivo Cancelación'].toString().trim()!=='NA');
+  const mc={};cancelConMotivo.forEach(r=>{const m=r['Motivo Cancelación'].toString().trim();mc[m]=(mc[m]||0)+1;});
+  const motivos=Object.entries(mc).sort((a,b)=>b[1]-a[1]).slice(0,6).map(([l,c])=>({label:l,count:c}));
+
+  // Perfil cancelados
+  const cm=cancelMes.length||1;
+  const cp_sin_onb=pct(cancelMes.filter(r=>r['Onboarding']==='Sin onboarding').length,cm);
+  const cp_sin_flow=pct(cancelMes.filter(r=>r['Usa Flow 6']==='0'||r['Usa Flow 6']===0).length,cm);
+  const cp_sin_wa=pct(cancelMes.filter(r=>(r['Usa API']||'').includes('No usa')&&(r['Usa Business']||'').includes('No usa')).length,cm);
+  const cp_sin_ses=pct(cancelMes.filter(r=>r['Sesiones en vivo']==='No asistió').length,cm);
+  const cp_lt_avg=avg(cancelMes.map(r=>parseFloat(r['LT']||'0')).filter(n=>n>0));
+  const nichoCancel=topN(cancelMes,'Tipo de negocio');
+  const objCancel=topN(cancelMes,'Objetivo con Funnelchat');
+
+  const ltBuckets={'0-30d':0,'31-60d':0,'61-90d':0,'91-180d':0,'181-365d':0,'+365d':0};
+  cancelMes.forEach(r=>{
+    const lt=parseFloat(r['LT']||'0');
+    if(lt<=30)ltBuckets['0-30d']++;
+    else if(lt<=60)ltBuckets['31-60d']++;
+    else if(lt<=90)ltBuckets['61-90d']++;
+    else if(lt<=180)ltBuckets['91-180d']++;
+    else if(lt<=365)ltBuckets['181-365d']++;
+    else ltBuckets['+365d']++;
+  });
+
+  // Onboarding
+  const onbAll=O.filter(r=>inRange(getOnbDate(r),range));
+  const onbProp=onbAll.length;
+  const onbAgen=onbAll.filter(r=>['Agendó','Asistió','No show','No asistió'].includes(r['Estado del onboarding'])).length;
+  const onbAsist=onbAll.filter(r=>r['Estado del onboarding']==='Asistió').length;
+  const onbNoShow=onbAll.filter(r=>['No show','No asistió'].includes(r['Estado del onboarding'])).length;
+
+  const acctMap={};C.forEach(r=>{const id=(r['id']||'').toString().trim();if(id)acctMap[id]=isPaga(r)?'paga':'trial';});
+  const getOnbType=r=>{const uid=(r['user_id']||'').toString().trim();return uid?(acctMap[uid]||'unknown'):'unknown';};
+  const onbAsistP=onbAll.filter(r=>r['Estado del onboarding']==='Asistió'&&getOnbType(r)==='paga').length;
+  const onbAsistT=onbAll.filter(r=>r['Estado del onboarding']==='Asistió'&&getOnbType(r)==='trial').length;
+  const cobP=pct(onbAsistP,nuevosMesP.length);
+  const cobT=pct(onbAsistT,nuevosMesT.length);
+
+  const conOnbAll=C.filter(r=>r['Onboarding']==='Con onboarding'&&isPaga(r));
+  const sinOnbAll=C.filter(r=>r['Onboarding']==='Sin onboarding'&&isPaga(r));
+  const retCon=conOnbAll.length>0?conOnbAll.filter(r=>r['Vigencia del servicio']==='Vigente').length/conOnbAll.length:0;
+  const retSin=sinOnbAll.length>0?sinOnbAll.filter(r=>r['Vigencia del servicio']==='Vigente').length/sinOnbAll.length:0;
+  const retDiff=Math.max(0,retCon-retSin);
+  const mrrPerCli=vigP.length>0?mrrActivo/vigP.length:ARPU;
+  const mrrProtOnb=Math.max(0,Math.round(onbAsist*retDiff*mrrPerCli*12));
+
+  // Sessions 6m
+  const ses6=Array.from({length:6},(_,i)=>{
+    const r=getMonthRange(off-5+i);
+    return{label:fmtMonthShort(r.start),asist:S.filter(rr=>{const d=parseSlash(rr['FECHA ATENCIÓN']);return d&&inRange(d,r)&&(rr['Asistio?']==='1'||rr['Asistio?']===1);}).length};
+  });
+
+  // Risk
+  const sinWa=vigP.filter(r=>(r['Usa API']||'').includes('No usa')&&(r['Usa Business']||'').includes('No usa'));
+  const sinFlow=vigP.filter(r=>r['Usa Flow 6']==='0'||r['Usa Flow 6']===0);
+  const sinGrupos=vigP.filter(r=>r['Usa grupos 5']==='0'||r['Usa grupos 5']===0);
+  const sinLogin=vigP.filter(r=>{const ll=parseISO(r['last_login_at']);return!ll||(new Date()-ll)/86400000>14;});
+  const sinOnb=vigP.filter(r=>r['Onboarding']==='Sin onboarding');
+
+  return{
+    range,
+    vigP:vigP.length,vigT:vigT.length,
+    nuevosMesP:nuevosMesP.length,nuevosMesT:nuevosMesT.length,
+    cancelMes:cancelMes.length,convMes:convMes.length,atrP:atrP.length,
+    mrrActivo,mrrRiesgo,mrrNuevo,mrrPerdido,mrrConv,
+    retNeta:nuevosMesP.length-cancelMes.length,
+    prevNuevos,prevCancel,prevConv,
+    trend6,churnByPlan,
+    motivos,cancelConMotivo:cancelConMotivo.length,
+    cp_sin_onb,cp_sin_flow,cp_sin_wa,cp_sin_ses,cp_lt_avg,
+    nichoCancel,objCancel,ltBuckets,
+    onbProp,onbAgen,onbAsist,onbNoShow,
+    onbAsistP,onbAsistT,cobP,cobT,
+    nuevosMesP_n:nuevosMesP.length,nuevosMesT_n:nuevosMesT.length,
+    mrrProtOnb,pctRetCon:Math.round(retCon*100),pctRetSin:Math.round(retSin*100),
+    retDiff:Math.round(retDiff*100),
+    ses6,sesMes:ses6[5]?.asist||0,
+    sinWa:sinWa.length,sinFlow:sinFlow.length,sinGrupos:sinGrupos.length,
+    sinLogin:sinLogin.length,sinOnb:sinOnb.length,
+    mrrSinWa:Math.round(sinWa.reduce((s,r)=>s+getMRR(r),0)),
+    mrrSinFlow:Math.round(sinFlow.reduce((s,r)=>s+getMRR(r),0)),
+    mrrSinGrupos:Math.round(sinGrupos.reduce((s,r)=>s+getMRR(r),0)),
+    mrrSinLogin:Math.round(sinLogin.reduce((s,r)=>s+getMRR(r),0)),
+    mrrSinOnb:Math.round(sinOnb.reduce((s,r)=>s+getMRR(r),0))
+  };
+}
+
+// RENDER
+function render(m){
+  document.getElementById('hdrPeriod').textContent=fmtMonth(m.range.start).toUpperCase();
+  const dlt=(n,p,inv=false)=>{
+    if(p===0)return{txt:'— sin dato ant.',cls:'neu'};
+    const d=n-p,better=inv?d<0:d>0;
+    const a=d>0?'▲':d<0?'▼':'=';
+    return{txt:`${a} ${Math.abs(d)} vs mes ant.`,cls:d===0?'neu':better?'pos':'neg'};
+  };
+
+  // BLOQUE 1
+  const dN=dlt(m.nuevosMesP,m.prevNuevos);
+  const dC=dlt(m.cancelMes,m.prevCancel,true);
+  const dCv=dlt(m.convMes,m.prevConv);
+  document.getElementById('pulsoGrid').innerHTML=`
+    <div class="p-card c-teal"><div class="p-label">Cuentas activas pagas</div>
+      <div class="p-value" style="color:var(--teal)">${m.vigP.toLocaleString('es-CO')}</div>
+      <div class="p-context">MRR activo: <strong>${fmt$(m.mrrActivo)}</strong><br>Trial activos: ${m.vigT}</div></div>
+    <div class="p-card c-blue"><div class="p-label">Nuevas pagas del mes</div>
+      <div class="p-value" style="color:var(--blue)">${m.nuevosMesP}</div>
+      <div class="p-delta ${dN.cls}">${dN.txt}</div>
+      <div class="p-context">Trial nuevos: ${m.nuevosMesT} · MRR: ${fmt$(m.mrrNuevo)}</div></div>
+    <div class="p-card c-red"><div class="p-label">Cancelaciones del mes</div>
+      <div class="p-value" style="color:var(--red)">${m.cancelMes}</div>
+      <div class="p-delta ${dC.cls}">${dC.txt}</div>
+      <div class="p-context">MRR perdido: <strong style="color:var(--red)">${fmt$(m.mrrPerdido)}</strong></div></div>
+    <div class="p-card c-yellow"><div class="p-label">Trials convertidos</div>
+      <div class="p-value" style="color:var(--yellow)">${m.convMes}</div>
+      <div class="p-delta ${dCv.cls}">${dCv.txt}</div>
+      <div class="p-context">MRR generado: ${fmt$(m.mrrConv)}</div></div>
+    <div class="p-card c-orange"><div class="p-label">Atrasadas pagas</div>
+      <div class="p-value" style="color:var(--orange)">${m.atrP}</div>
+      <div class="p-delta neg">⚠ en riesgo</div>
+      <div class="p-context">MRR en riesgo: ${fmt$(m.mrrRiesgo)}</div></div>
+    <div class="p-card ${m.retNeta>=0?'c-green':'c-red'}"><div class="p-label">Retención neta</div>
+      <div class="p-value" style="color:${m.retNeta>=0?'var(--green2)':'var(--red)'}">${m.retNeta>=0?'+':''}${m.retNeta}</div>
+      <div class="p-delta ${m.retNeta>=0?'pos':'neg'}">${m.retNeta>=0?'▲ Crecimiento':'▼ Pérdida neta'}</div>
+      <div class="p-context">Nuevas (${m.nuevosMesP}) − Cancel. (${m.cancelMes})</div></div>`;
+
+  // BLOQUE 2
+  destroyChart('evolucionChart');
+  charts.ev=new Chart(document.getElementById('evolucionChart').getContext('2d'),{
+    type:'bar',
+    data:{labels:m.trend6.map(t=>t.label),datasets:[
+      {label:'Activos',data:m.trend6.map(t=>t.activos),type:'line',borderColor:'#2dd4bf',backgroundColor:'rgba(45,212,191,.15)',borderWidth:2,tension:.3,fill:true,pointRadius:3,yAxisID:'y'},
+      {label:'Nuevas',data:m.trend6.map(t=>t.nuevas),backgroundColor:'rgba(96,165,250,.7)',borderColor:'#60a5fa',borderWidth:1,borderRadius:4,yAxisID:'y1'},
+      {label:'Canceladas',data:m.trend6.map(t=>t.cancels),backgroundColor:'rgba(248,113,113,.7)',borderColor:'#f87171',borderWidth:1,borderRadius:4,yAxisID:'y1'}
+    ]},
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{position:'top',labels:{boxWidth:10,padding:12,color:'#94a3b8',font:{size:10}}},tooltip:{mode:'index',intersect:false}},
+      scales:{x:{grid:{color:'rgba(255,255,255,.03)'},ticks:{color:'#94a3b8',font:{size:9}}},
+        y:{grid:{color:'rgba(255,255,255,.03)'},ticks:{color:'#2dd4bf',font:{size:9}},position:'left'},
+        y1:{grid:{display:false},ticks:{color:'#94a3b8',font:{size:9}},position:'right',beginAtZero:true}}}
+  });
+  const last=m.trend6[5];
+  document.getElementById('trendBadges').innerHTML=`
+    <div class="t-badge"><span class="tl">Nuevas este mes</span><span class="tv" style="color:var(--blue)">${last.nuevas}</span></div>
+    <div class="t-badge"><span class="tl">Canceladas</span><span class="tv" style="color:var(--red)">${last.cancels}</span></div>
+    <div class="t-badge"><span class="tl">Neto</span><span class="tv" style="color:${last.nuevas-last.cancels>=0?'var(--green2)':'var(--red)'}">${last.nuevas-last.cancels>=0?'+':''}${last.nuevas-last.cancels}</span></div>`;
+
+  destroyChart('churnMesChart');
+  const clrs={'Plan Starter':'#60a5fa','Plan Growth':'#f472b6','Plan Advanced':'#4ade80'};
+  charts.churnM=new Chart(document.getElementById('churnMesChart').getContext('2d'),{
+    type:'line',
+    data:{labels:m.trend6.map(t=>t.label),datasets:m.churnByPlan.map(p=>({
+      label:p.plan.replace('Plan ',''),data:p.data,
+      borderColor:clrs[p.plan]||'#94a3b8',backgroundColor:(clrs[p.plan]||'#94a3b8')+'18',
+      borderWidth:2,pointRadius:3,tension:.3
+    })).concat([{label:'Benchmark 5%',data:Array(6).fill(5),borderColor:'rgba(148,163,184,.3)',borderDash:[4,4],borderWidth:1.5,pointRadius:0}])},
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{position:'top',labels:{boxWidth:10,padding:12,color:'#94a3b8',font:{size:10}}},
+        tooltip:{callbacks:{label:ctx=>` ${ctx.dataset.label}: ${ctx.parsed.y}%`}}},
+      scales:{x:{grid:{color:'rgba(255,255,255,.03)'},ticks:{color:'#94a3b8',font:{size:9}}},
+        y:{grid:{color:'rgba(255,255,255,.03)'},ticks:{color:'#94a3b8',font:{size:9},callback:v=>v+'%'},beginAtZero:true,
+          max:Math.max(10,...m.churnByPlan.flatMap(p=>p.data))*1.3|0}}}
+  });
+  const worst=m.churnByPlan.map(p=>({n:p.plan.replace('Plan ',''),v:p.data[5]})).sort((a,b)=>b.v-a.v)[0];
+  document.getElementById('churnInsight').innerHTML=worst?`Mayor churn del mes: <strong>${worst.n} (${worst.v}%)</strong>. ${worst.v>5?'Supera el benchmark del 5%.':'Dentro del benchmark.'}`:'Sin datos.';
+
+  // BLOQUE 3
+  const tr=m.cancelConMotivo;
+  document.getElementById('motivosSubtitle').textContent=`${tr} de ${m.cancelMes} cancelados respondieron (${pct(tr,m.cancelMes)}%)`;
+  const bclrs=['var(--red)','var(--orange)','var(--yellow)','var(--blue)','var(--purple)','var(--teal)'];
+  const maxM=m.motivos[0]?.count||1;
+  document.getElementById('motivosBars').innerHTML=m.motivos.length
+    ?m.motivos.map((mo,i)=>`
+      <div class="motivo-row">
+        <div class="motivo-label" title="${mo.label}">${mo.label}</div>
+        <div class="motivo-track"><div class="motivo-fill" style="width:${Math.round(mo.count/maxM*100)}%;background:${bclrs[i%bclrs.length]}"></div></div>
+        <div class="motivo-pct" style="color:${bclrs[i%bclrs.length]}">${pct(mo.count,tr||1)}%</div>
+        <div class="motivo-n">${mo.count}</div>
+      </div>`).join('')
+    :'<div style="color:var(--muted);font-size:12px;padding:8px 0">Sin motivos registrados este mes</div>';
+  document.getElementById('motivosInsight').innerHTML=m.motivos[0]
+    ?`Motivo principal: <strong>${m.motivos[0].label}</strong> (${m.motivos[0].count} casos · ${pct(m.motivos[0].count,tr||1)}% de respuestas). ${tr<m.cancelMes*0.3?'Solo el '+pct(tr,m.cancelMes)+'% respondió.':''}`
+    :'Sin datos de motivos.';
+
+  document.getElementById('ltAvgBadge').textContent=m.cp_lt_avg>0?`· ${m.cp_lt_avg} días promedio`:'';
+  document.getElementById('perfilGrid').innerHTML=[
+    {l:'Sin onboarding',p:m.cp_sin_onb,c:'var(--red)'},
+    {l:'Sin flow activo',p:m.cp_sin_flow,c:'var(--orange)'},
+    {l:'Sin WA conectado',p:m.cp_sin_wa,c:'var(--pink)'},
+    {l:'Sin sesión en vivo',p:m.cp_sin_ses,c:'var(--purple)'},
+  ].map(it=>`
+    <div style="background:rgba(255,255,255,.03);border:1px solid var(--border);border-radius:10px;padding:12px">
+      <div style="font-size:10px;color:var(--muted);margin-bottom:3px">${it.l}</div>
+      <div style="font-family:'Syne',sans-serif;font-size:22px;font-weight:800;color:${it.c}">${it.p}%</div>
+      <div style="font-size:9px;color:var(--muted)">de ${m.cancelMes} cancelados</div>
+    </div>`).join('');
+
+  const renderBars=(el,data,color='var(--teal)')=>{
+    const mx=data[0]?.count||1;
+    document.getElementById(el).innerHTML=data.map(n=>`
+      <div class="motivo-row">
+        <div class="motivo-label" title="${n.label}">${n.label}</div>
+        <div class="motivo-track"><div class="motivo-fill" style="width:${Math.round(n.count/mx*100)}%;background:${color}"></div></div>
+        <div class="motivo-n">${n.count}</div>
+      </div>`).join('');
+  };
+  renderBars('nichoMes',m.nichoCancel,'var(--teal)');
+  renderBars('objetivoMes',m.objCancel,'var(--blue)');
+
+  // BLOQUE 4
+  const convAg=m.onbAgen>0?Math.round(m.onbAsist/m.onbAgen*100):0;
+  document.getElementById('onbFunnel').innerHTML=[
+    {l:'Propuestas',v:m.onbProp,c:'var(--muted)',p:''},
+    {l:'Agendaron',v:m.onbAgen,c:'var(--blue)',p:pct(m.onbAgen,m.onbProp)+'%'},
+    {l:'Asistieron',v:m.onbAsist,c:'var(--green2)',p:convAg+'%'},
+    {l:'No show',v:m.onbNoShow,c:'var(--red)',p:pct(m.onbNoShow,m.onbAgen)+'%'},
+  ].map(s=>`
+    <div class="onb-step">
+      <div class="onb-step-val" style="color:${s.c}">${s.v}</div>
+      <div class="onb-step-label">${s.l}</div>
+      ${s.p?`<div class="onb-step-pct" style="color:${s.c}">${s.p}</div>`:''}
+    </div>`).join('');
+
+  document.getElementById('onbImpacto').innerHTML=`
+    <div style="font-family:'Syne',sans-serif;font-size:22px;font-weight:800;color:var(--green2)">${fmt$(m.mrrProtOnb)}</div>
+    <div style="font-size:10px;color:var(--muted)">MRR protegido est.</div>
+    <div style="font-size:9px;color:var(--muted);margin-top:2px">Ret. con ONB ${m.pctRetCon}% vs sin ${m.pctRetSin}%</div>`;
+
+  document.getElementById('onbCobertura').innerHTML=`
+    <div style="background:rgba(34,197,94,.08);border:1px solid rgba(34,197,94,.2);border-radius:10px;padding:14px">
+      <div style="font-size:10px;color:var(--muted);margin-bottom:4px">Cobertura pagas</div>
+      <div style="font-family:'Syne',sans-serif;font-size:24px;font-weight:800;color:var(--green2)">${m.cobP}%</div>
+      <div style="font-size:11px;color:var(--muted);margin-top:4px">${m.onbAsistP} de ${m.nuevosMesP_n} nuevas pagas asistieron</div>
+    </div>
+    <div style="background:rgba(96,165,250,.08);border:1px solid rgba(96,165,250,.2);border-radius:10px;padding:14px">
+      <div style="font-size:10px;color:var(--muted);margin-bottom:4px">Cobertura trial</div>
+      <div style="font-family:'Syne',sans-serif;font-size:24px;font-weight:800;color:var(--blue)">${m.cobT}%</div>
+      <div style="font-size:11px;color:var(--muted);margin-top:4px">${m.onbAsistT} de ${m.nuevosMesT_n} trials asistieron</div>
+    </div>`;
+
+  destroyChart('sesionesChart');
+  charts.ses=new Chart(document.getElementById('sesionesChart').getContext('2d'),{
+    type:'bar',
+    data:{labels:m.ses6.map(s=>s.label),datasets:[{label:'Asistentes',data:m.ses6.map(s=>s.asist),backgroundColor:'rgba(244,114,182,.6)',borderColor:'#f472b6',borderWidth:1,borderRadius:4}]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},
+      scales:{x:{grid:{color:'rgba(255,255,255,.03)'},ticks:{color:'#94a3b8',font:{size:9}}},
+        y:{grid:{color:'rgba(255,255,255,.03)'},ticks:{color:'#94a3b8',font:{size:9}},beginAtZero:true}}}
+  });
+
+  const netMRR=m.mrrNuevo+m.mrrConv+m.mrrProtOnb-m.mrrPerdido;
+  document.getElementById('impactoGrid').innerHTML=`
+    <div style="background:rgba(34,197,94,.08);border:1px solid rgba(34,197,94,.2);border-radius:10px;padding:14px">
+      <div style="font-size:10px;color:var(--muted);margin-bottom:4px">MRR protegido ONB</div>
+      <div style="font-family:'Syne',sans-serif;font-size:20px;font-weight:800;color:var(--green2)">${fmt$(m.mrrProtOnb)}</div>
+      <div style="font-size:9px;color:var(--muted);margin-top:3px">${m.onbAsist} asist. × ${m.retDiff}pp retención</div>
+    </div>
+    <div style="background:rgba(251,191,36,.08);border:1px solid rgba(251,191,36,.2);border-radius:10px;padding:14px">
+      <div style="font-size:10px;color:var(--muted);margin-bottom:4px">MRR conversiones trial</div>
+      <div style="font-family:'Syne',sans-serif;font-size:20px;font-weight:800;color:var(--yellow)">${fmt$(m.mrrConv)}</div>
+      <div style="font-size:9px;color:var(--muted);margin-top:3px">${m.convMes} trials convertidos</div>
+    </div>
+    <div style="background:rgba(96,165,250,.08);border:1px solid rgba(96,165,250,.2);border-radius:10px;padding:14px">
+      <div style="font-size:10px;color:var(--muted);margin-bottom:4px">MRR nuevo pagas</div>
+      <div style="font-family:'Syne',sans-serif;font-size:20px;font-weight:800;color:var(--blue)">${fmt$(m.mrrNuevo)}</div>
+      <div style="font-size:9px;color:var(--muted);margin-top:3px">${m.nuevosMesP} nuevas pagas</div>
+    </div>
+    <div style="background:rgba(248,113,113,.08);border:1px solid rgba(248,113,113,.2);border-radius:10px;padding:14px">
+      <div style="font-size:10px;color:var(--muted);margin-bottom:4px">MRR perdido</div>
+      <div style="font-family:'Syne',sans-serif;font-size:20px;font-weight:800;color:var(--red)">${fmt$(m.mrrPerdido)}</div>
+      <div style="font-size:9px;color:var(--muted);margin-top:3px">${m.cancelMes} cancelaciones</div>
+    </div>`;
+  document.getElementById('impactoInsight').innerHTML=`MRR neto estimado: <strong style="color:${netMRR>=0?'var(--green2)':'var(--red)'}">${netMRR>=0?'+':''}${fmt$(netMRR)}</strong> · Generado+Protegido: ${fmt$(m.mrrNuevo+m.mrrConv+m.mrrProtOnb)} · Perdido: ${fmt$(m.mrrPerdido)}`;
+
+  // BLOQUE 5
+  document.getElementById('riskMiniGrid').innerHTML=[
+    {icon:'📵',count:m.sinWa,mrr:m.mrrSinWa,label:'Sin WA conectado',sub:'sin API ni Business',cls:'urgent'},
+    {icon:'⚡',count:m.sinFlow,mrr:m.mrrSinFlow,label:'Sin flow activo',sub:'sin automatización',cls:'urgent'},
+    {icon:'🗂️',count:m.sinGrupos,mrr:m.mrrSinGrupos,label:'Sin grupos activos',sub:'grupos en 0',cls:''},
+    {icon:'😴',count:m.sinLogin,mrr:m.mrrSinLogin,label:'Sin login +14d',sub:'inactividad prolongada',cls:'moderate'},
+    {icon:'🎓',count:m.sinOnb,mrr:m.mrrSinOnb,label:'Sin onboarding',sub:'activas sin capacitar',cls:'low'},
+  ].map(r=>`
+    <div class="risk-mini ${r.cls}">
+      <div class="rm-icon">${r.icon}</div>
+      <div class="rm-count">${r.count}</div>
+      <div class="rm-label">${r.label}<br><small>${r.sub}</small></div>
+      <div class="rm-mrr">${fmt$(r.mrr)} MRR</div>
+    </div>`).join('');
+
+  destroyChart('lifetimeChart');
+  const ltL=Object.keys(m.ltBuckets),ltD=Object.values(m.ltBuckets);
+  charts.lt=new Chart(document.getElementById('lifetimeChart').getContext('2d'),{
+    type:'bar',
+    data:{labels:ltL,datasets:[{label:'Cancelados',data:ltD,
+      backgroundColor:['rgba(248,113,113,.8)','rgba(251,146,60,.7)','rgba(251,191,36,.7)','rgba(96,165,250,.7)','rgba(167,139,250,.7)','rgba(45,212,191,.7)'],
+      borderRadius:4}]},
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>' '+ctx.parsed.y+' clientes'}}},
+      scales:{x:{grid:{color:'rgba(255,255,255,.03)'},ticks:{color:'#94a3b8',font:{size:10}}},
+        y:{grid:{color:'rgba(255,255,255,.03)'},ticks:{color:'#94a3b8',font:{size:9}},beginAtZero:true}}}
+  });
+  const maxLt=ltL[ltD.indexOf(Math.max(...ltD))];
+  document.getElementById('lifetimeInsight').innerHTML=m.cancelMes>0
+    ?`Mayor concentración de cancelaciones en <strong>${maxLt}</strong>. ${m.cp_lt_avg>0?'Tiempo de vida promedio de cancelados: <strong>'+m.cp_lt_avg+' días</strong>.':''}`
+    :'Sin cancelaciones registradas este mes.';
+
+  // BLOQUE 6
+  if(!document.getElementById('planBody').innerHTML.trim()){
+    const nd=new Date(m.range.end.getFullYear(),m.range.end.getMonth()+1,15);
+    const fd=d=>d.toLocaleDateString('es-CO',{day:'numeric',month:'short'});
+    const rows=[];
+    if(m.sinWa>0)rows.push({t:'react',a:`Activar flujo de conexión WA para ${m.sinWa} cuentas activas sin WhatsApp — no pueden usar la plataforma`,r:'Onboarding',f:fd(nd),e:'s-rojo',l:'Urgente',n:`${fmt$(m.mrrSinWa)} MRR en riesgo.`});
+    if(m.cp_sin_onb>50)rows.push({t:'prev',a:`${m.cp_sin_onb}% de cancelados este mes no tuvo onboarding — incrementar cobertura mes siguiente`,r:'Onboarding',f:fd(nd),e:'s-amarillo',l:'En progreso',n:`Meta ≥50% cobertura pagas. Actual: ${m.cobP}%`});
+    if(m.sinLogin>0)rows.push({t:'react',a:`Reactivar ${m.sinLogin} cuentas sin login en +14 días antes de que pasen a atrasadas`,r:'CX',f:fd(nd),e:'s-amarillo',l:'En progreso',n:`${fmt$(m.mrrSinLogin)} en riesgo.`});
+    if(m.motivos[0])rows.push({t:'react',a:`Crear respuesta específica para el motivo de cancelación más frecuente: "${m.motivos[0].label}"`,r:'CX Lead',f:fd(nd),e:'s-gris',l:'Pendiente',n:`${m.motivos[0].count} casos este mes (${pct(m.motivos[0].count,m.cancelConMotivo||1)}% de respuestas).`});
+    rows.push({t:'prev',a:`Mantener cadencia sesiones en vivo y publicar agenda con anticipación`,r:'CX',f:fd(nd),e:'s-verde',l:'En curso',n:`Asistentes este mes: ${m.sesMes}`});
+    rows.push({t:'prev',a:'Agregar acción adicional...',r:'—',f:'—',e:'s-gris',l:'Pendiente',n:'—'});
+    document.getElementById('planBody').innerHTML=rows.map(r=>`
+      <tr>
+        <td><span class="${r.t==='react'?'tipo-react':'tipo-prev'}">${r.t==='react'?'Reactivación':'Preventiva'}</span></td>
+        <td contenteditable="true">${r.a}</td><td contenteditable="true">${r.r}</td>
+        <td contenteditable="true">${r.f}</td>
+        <td><span class="status-badge ${r.e}" onclick="rotateStatus(this)">${r.l}</span></td>
+        <td contenteditable="true">${r.n}</td>
+      </tr>`).join('');
+  }
+}
+
+function destroyChart(id){const c=Chart.getChart(id);if(c)c.destroy();}
+const SC=[{l:'Completado',c:'s-verde'},{l:'En curso',c:'s-verde'},{l:'En progreso',c:'s-amarillo'},{l:'En riesgo',c:'s-rojo'},{l:'Pendiente',c:'s-gris'}];
+function rotateStatus(el){const i=SC.findIndex(s=>s.l===el.textContent.trim()),n=SC[(i+1)%SC.length];el.textContent=n.l;el.className='status-badge '+n.c;}
+
+function buildMonthNav(){
+  const c=document.getElementById('monthBtns');c.innerHTML='';
+  for(let i=-5;i<=0;i++){
+    const r=getMonthRange(i);
+    const b=document.createElement('button');
+    b.className='mn-btn'+(i===currentMonthOffset?' active':'');
+    b.textContent=fmtMonth(r.start);
+    b.onclick=()=>{currentMonthOffset=i;buildMonthNav();document.getElementById('planBody').innerHTML='';render(calcMonth(i));};
+    c.appendChild(b);
+  }
+}
+
+(async()=>{
+  try{
+    await loadAll();
+    document.getElementById('loadingState').style.display='none';
+    document.getElementById('mainContent').style.display='block';
+    buildMonthNav();
+    render(calcMonth(currentMonthOffset));
+  }catch(err){
+    document.getElementById('loadingState').innerHTML=`
+      <div style="max-width:500px;margin:0 auto;background:rgba(248,113,113,.08);border:1px solid rgba(248,113,113,.25);border-radius:12px;padding:24px 28px">
+        <h3 style="color:#f87171;font-family:Syne,sans-serif;margin-bottom:10px">Error al cargar los datos</h3>
+        <p style="font-size:13px;margin-bottom:12px">${err.message||err}</p>
+        <button onclick="location.reload()" style="padding:8px 18px;background:#1a2744;border:1px solid rgba(255,255,255,.1);border-radius:8px;color:#e2e8f0;cursor:pointer;font-family:'DM Sans',sans-serif;font-size:12px">↻ Reintentar</button>
+      </div>`;
+  }
+})();
+</script>
+</body>
+</html>
