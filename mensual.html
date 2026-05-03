@@ -301,7 +301,7 @@ body{background:var(--navy);color:var(--text);font-family:'DM Sans',sans-serif;f
 <script>
 const API_URL='https://script.google.com/macros/s/AKfycbwNp-Hnmi1imEggg6Qz7xRP_fR57ZvcQb9hFR2WUPn1c-BdsN23x2vrnlU5zY6Rydrlng/exec';
 const ARPU=69;
-let RAW={cuentas:[],onboarding:[],sesiones:[],embudos:[]};
+let RAW={cuentas:[],onboarding:[],sesiones:[],embudos:[],cancelaciones:[]};
 let currentMonthOffset=0;
 let charts={};
 
@@ -378,6 +378,7 @@ async function loadAll(){
   RAW.onboarding=(json.onboarding||[]).filter(r=>Object.keys(r).length>0);
   RAW.sesiones=(json.sesiones||[]).filter(r=>Object.keys(r).length>0);
   RAW.embudos=(json.embudos||[]).filter(r=>Object.keys(r).length>0);
+  RAW.cancelaciones=(json.cancelaciones||[]).filter(r=>Object.keys(r).length>0);
   if(!RAW.cuentas.length)throw new Error('Hoja de cuentas vacía. Verificar Apps Script.');
 }
 
@@ -467,10 +468,18 @@ function calcMonth(off){
     })
   }));
 
-  // Motivos
-  const cancelConMotivo=cancelMes.filter(r=>r['Motivo Cancelación']&&r['Motivo Cancelación'].toString().trim()!==''&&r['Motivo Cancelación'].toString().trim()!=='NA');
-  const mc={};cancelConMotivo.forEach(r=>{const m=r['Motivo Cancelación'].toString().trim();mc[m]=(mc[m]||0)+1;});
+  // Motivos — from cancelaciones table filtered by created_at of survey response
+  const cancelSurveyMes = RAW.cancelaciones.filter(r => {
+    const fecha = parseISO(r['created_at']);
+    return fecha && inRange(fecha, range);
+  });
+  const mc={};
+  cancelSurveyMes.forEach(r => {
+    const m = (r['Macromotivo']||'').toString().trim();
+    if (m && m !== 'NA' && m !== '') mc[m] = (mc[m]||0) + 1;
+  });
   const motivos=Object.entries(mc).sort((a,b)=>b[1]-a[1]).slice(0,6).map(([l,c])=>({label:l,count:c}));
+  const cancelConMotivo = cancelSurveyMes.length;
 
   // Perfil cancelados
   const cm=cancelMes.length||1;
@@ -690,7 +699,7 @@ function calcMonth(off){
     retNeta:nuevosMesP.length-cancelMes.length,
     prevNuevos,prevCancel,prevConv,
     trend6,churnByPlan,
-    motivos,cancelConMotivo:cancelConMotivo.length,
+    motivos,cancelConMotivo,
     cp_sin_onb,cp_sin_flow,cp_sin_wa,cp_sin_ses,cp_lt_avg,
     nichoCancel,objCancel,ltBuckets,
     hist_sin_onb,hist_sin_flow,hist_sin_wa,hist_sin_ses,hist_sin_grupos,hist_sin_trial,
@@ -841,7 +850,8 @@ function render(m){
 
   // BLOQUE 3
   const tr=m.cancelConMotivo;
-  document.getElementById('motivosSubtitle').textContent=`${tr} de ${m.cancelMes} cancelados respondieron (${pct(tr,m.cancelMes)}%)`;
+  document.getElementById('motivosSubtitle').textContent=
+    `${tr} respuestas en el mes · ${m.cancelMes} cancelaciones confirmadas · ${tr>0?pct(tr,m.cancelMes):'—'}% tasa de respuesta`;
   const bclrs=['var(--red)','var(--orange)','var(--yellow)','var(--blue)','var(--purple)','var(--teal)'];
   const maxM=m.motivos[0]?.count||1;
   document.getElementById('motivosBars').innerHTML=m.motivos.length
@@ -895,7 +905,9 @@ function render(m){
     {l:'Agendaron',v:m.onbAgen,c:'var(--blue)',p:pct(m.onbAgen,m.onbProp)+'%'},
     {l:'Asistieron',v:m.onbAsist,c:'var(--green2)',p:convAg+'%'},
     {l:'No show',v:m.onbNoShow,c:'var(--red)',p:pct(m.onbNoShow,m.onbAgen)+'%',
-      note: m.onbNoShowReal > m.onbNoShow ? `Real: ${m.onbNoShowReal} (inc. pendientes)` : null},
+      note: m.onbNoShowReal > m.onbNoShow
+        ? `Real: ${m.onbNoShowReal} · ${Math.round(m.onbNoShowReal/(m.onbAgen||1)*100)}% de no show real`
+        : null},
   ].map(s=>`
     <div class="onb-step">
       <div class="onb-step-val" style="color:${s.c}">${s.v}</div>
