@@ -39,7 +39,7 @@ body{background:var(--navy);color:var(--text);font-family:'DM Sans',sans-serif;f
 .sec-desc{font-size:11px;color:var(--muted);font-family:'DM Sans',sans-serif;font-weight:400;letter-spacing:0;text-transform:none}
 .card{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:22px 26px;transition:border-color .2s}
 .card:hover{border-color:rgba(255,255,255,.1)}
-.pulso-grid{display:grid;grid-template-columns:repeat(6,1fr);gap:14px}
+.pulso-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:12px}
 .p-card{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:20px 18px;position:relative;overflow:hidden;transition:all .2s}
 .p-card:hover{transform:translateY(-1px);border-color:rgba(255,255,255,.12)}
 .p-card::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;border-radius:16px 16px 0 0}
@@ -386,6 +386,19 @@ function calcMonth(off){
   const canP=C.filter(r=>r['Vigencia del servicio']==='Cancelado'&&isPaga(r));
   const atrP=C.filter(r=>r['Vigencia del servicio']==='Atrasado'&&isPaga(r));
 
+  // Activas al inicio del mes: pagas creadas antes del mes que no habían cancelado aún
+  const activasInicioMes = C.filter(r => {
+    if (!isPaga(r)) return false;
+    const ca = getCA(r);
+    if (!ca || ca >= range.start) return false; // creada durante o después del mes
+    const vigencia = (r['Vigencia del servicio']||'').trim();
+    if (vigencia === 'Cancelado') {
+      const cd = cancelDate(r);
+      return cd && cd >= range.start; // canceló durante o después del mes
+    }
+    return true; // Vigente o Atrasado = estaba activa al inicio
+  }).length;
+
   const nuevosMesP=C.filter(r=>inRange(getCA(r),range)&&isPaga(r));
   const nuevosMesT=C.filter(r=>inRange(getCA(r),range)&&isTrial(r));
   const cancelMes=canP.filter(r=>inRange(cancelDate(r),range));
@@ -468,6 +481,17 @@ function calcMonth(off){
   const objCancel=topN(cancelMes,'Objetivo con Funnelchat');
   const expCancel=topN(cancelMes,'Experiencia automatizando');
   const factCancel=topN(cancelMes,'Facturación promedio mensual');
+
+  // Nuevas del mes por segmento — para comparar con cancelados
+  const nichoNuevas=topN(nuevosMesP,'Tipo de negocio');
+  const objNuevas=topN(nuevosMesP,'Objetivo con Funnelchat');
+  const expNuevas=topN(nuevosMesP,'Experiencia automatizando');
+  const factNuevas=topN(nuevosMesP,'Facturación promedio mensual');
+  // Trial nuevas too
+  const nichoNuevasT=topN(nuevosMesT,'Tipo de negocio');
+  const objNuevasT=topN(nuevosMesT,'Objetivo con Funnelchat');
+  const expNuevasT=topN(nuevosMesT,'Experiencia automatizando');
+  const factNuevasT=topN(nuevosMesT,'Facturación promedio mensual');
 
   // ── Trial cancelados este mes ───────────────────────
   const cancelMesTrial=C.filter(r=>r['Vigencia del servicio']==='Cancelado'&&isTrial(r)&&inRange(cancelDate(r),range));
@@ -622,7 +646,7 @@ function calcMonth(off){
 
   return{
     range,
-    vigP:vigP.length,vigT:vigT.length,
+    vigP:vigP.length,vigT:vigT.length,activasInicioMes,
     nuevosMesP:nuevosMesP.length,nuevosMesT:nuevosMesT.length,
     cancelMes:cancelMes.length,convMes:convMes.length,atrP:atrP.length,
     mrrActivo,mrrRiesgo,mrrNuevo,mrrPerdido,mrrConv,
@@ -636,6 +660,8 @@ function calcMonth(off){
     cp_sin_grupos,cp_sin_trial,
     nichoCancelPrev,objCancelPrev,expCancelPrev,factCancelPrev,
     expCancel,factCancel,
+    nichoNuevas,objNuevas,expNuevas,factNuevas,
+    nichoNuevasT,objNuevasT,expNuevasT,factNuevasT,
     cancelMesTrial:cancelMesTrial.length,
     nichoT,objT,expT,factT,
     nichoHistP,objHistP,expHistP,factHistP,
@@ -682,9 +708,12 @@ function render(m){
   const dC=dlt(m.cancelMes,m.prevCancel,true);
   const dCv=dlt(m.convMes,m.prevConv);
   document.getElementById('pulsoGrid').innerHTML=`
-    <div class="p-card c-teal"><div class="p-label">Cuentas activas pagas</div>
+    <div class="p-card c-teal"><div class="p-label">Activas pagas (hoy)</div>
       <div class="p-value" style="color:var(--teal)">${m.vigP.toLocaleString('es-CO')}</div>
-      <div class="p-context">MRR activo: <strong>${fmt$(m.mrrActivo)}</strong><br>Trial activos: ${m.vigT}</div></div>
+      <div class="p-context">Tiempo real · MRR activo: <strong>${fmt$(m.mrrActivo)}</strong></div></div>
+    <div class="p-card c-teal" style="opacity:.85"><div class="p-label">Activas inicio del mes</div>
+      <div class="p-value" style="color:var(--teal)">${m.activasInicioMes.toLocaleString('es-CO')}</div>
+      <div class="p-context">Base para calcular churn · ${m.activasInicioMes > m.vigP ? '▼ hubo pérdida neta' : '▲ hubo crecimiento neto'}</div></div>
     <div class="p-card c-blue"><div class="p-label">Nuevas pagas del mes</div>
       <div class="p-value" style="color:var(--blue)">${m.nuevosMesP}</div>
       <div class="p-delta ${dN.cls}">${dN.txt}</div>
@@ -1071,21 +1100,29 @@ function renderQuienesMes(mode) {
     ? (m.nichoHistP.reduce((s,d)=>s+d.count,0) || 1)
     : (m.nichoHistT.reduce((s,d)=>s+d.count,0) || 1);
 
-  function renderDim(elId, mesCurr, histCurr, color) {
+  function renderDim(elId, mesCurr, histCurr, nuevasCurr, color) {
     const el = document.getElementById(elId);
     if (!el) return;
+    const totalNuevas = nuevasCurr.reduce((s,d)=>s+d.count,0) || 1;
     const allLabels = [...new Set([...mesCurr.map(d=>d.label), ...histCurr.map(d=>d.label)])].slice(0,5);
     el.innerHTML = allLabels.map(lbl => {
       const mc = mesCurr.find(d=>d.label===lbl);
       const hc = histCurr.find(d=>d.label===lbl);
-      const mesPct = mc ? Math.round(mc.count / (total||1) * 100) : 0;
+      const nc = nuevasCurr.find(d=>d.label===lbl);
+      const mesPct  = mc ? Math.round(mc.count / (total||1) * 100) : 0;
       const histPct = hc ? Math.round(hc.count / allHistT * 100) : 0;
+      const newPct  = nc ? Math.round(nc.count / totalNuevas * 100) : 0;
       const diff = mesPct - histPct;
       const diffTxt = diff === 0 ? '=' : diff > 0 ? `▲${diff}pp` : `▼${Math.abs(diff)}pp`;
       const diffColor = diff === 0 ? 'var(--muted)' : diff > 0 ? 'var(--red)' : 'var(--green2)';
-      return `<div style="margin-bottom:11px">
+      // Signal: if newPct is similar to mesPct → organic churn; if mesPct >> newPct → losing existing base
+      const signal = mesPct > 0 && newPct > 0
+        ? (mesPct - newPct > 10 ? '⚠ más cancelaciones que llegadas' : mesPct - newPct < -10 ? '✓ llegan más de los que se van' : '≈ proporción similar')
+        : '';
+      const signalColor = mesPct - newPct > 10 ? 'var(--red)' : mesPct - newPct < -10 ? 'var(--green2)' : 'var(--muted)';
+      return `<div style="margin-bottom:13px">
         <div style="display:flex;justify-content:space-between;margin-bottom:3px;align-items:center">
-          <span style="font-size:11px;color:var(--muted);max-width:150px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${lbl}">${lbl}</span>
+          <span style="font-size:11px;color:var(--muted);max-width:140px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${lbl}">${lbl}</span>
           <span style="font-size:10px;display:flex;align-items:center;gap:5px">
             <strong style="color:${color}">${mesPct}%</strong>
             <span style="color:${diffColor};font-size:9px;font-weight:600">${diffTxt} vs hist.</span>
@@ -1095,14 +1132,22 @@ function renderQuienesMes(mode) {
           <div style="width:${histPct}%;height:100%;background:rgba(148,163,184,.3);border-radius:4px;position:absolute"></div>
           <div style="width:${mesPct}%;height:100%;background:${color};border-radius:4px;position:absolute"></div>
         </div>
+        <div style="display:flex;justify-content:space-between;margin-top:3px;align-items:center">
+          <span style="font-size:9px;color:var(--muted)">Nuevas mismo segmento: <strong style="color:var(--teal)">${newPct}%</strong> (${nc?.count||0})</span>
+          ${signal?`<span style="font-size:9px;color:${signalColor};font-weight:600">${signal}</span>`:''}
+        </div>
       </div>`;
     }).join('');
   }
 
-  renderDim('nichoMes',   mesData.nicho, histData.nicho, 'var(--teal)');
-  renderDim('objetivoMes',mesData.obj,   histData.obj,   'var(--blue)');
-  renderDim('expMes',     mesData.exp,   histData.exp,   'var(--purple)');
-  renderDim('factMes',    mesData.fact,  histData.fact,  'var(--orange)');
+  const nuevasData = isP
+    ? {nicho:m.nichoNuevas, obj:m.objNuevas, exp:m.expNuevas, fact:m.factNuevas}
+    : {nicho:m.nichoNuevasT, obj:m.objNuevasT, exp:m.expNuevasT, fact:m.factNuevasT};
+
+  renderDim('nichoMes',   mesData.nicho, histData.nicho, nuevasData.nicho, 'var(--teal)');
+  renderDim('objetivoMes',mesData.obj,   histData.obj,   nuevasData.obj,   'var(--blue)');
+  renderDim('expMes',     mesData.exp,   histData.exp,   nuevasData.exp,   'var(--purple)');
+  renderDim('factMes',    mesData.fact,  histData.fact,  nuevasData.fact,  'var(--orange)');
 }
 
 function impactTable(title, labelA, labelB, data, color) {
