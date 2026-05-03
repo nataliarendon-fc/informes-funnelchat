@@ -178,10 +178,17 @@ body{background:var(--navy);color:var(--text);font-family:'DM Sans',sans-serif;f
       <div class="card">
         <div class="chart-title">Perfil de los que cancelaron</div>
         <div class="chart-sub">Características comunes · solo pagas · tiempo de vida promedio <span id="ltAvgBadge" style="color:var(--orange)"></span></div>
-        <div id="perfilGrid" style="display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-bottom:16px"></div>
-        <div class="chart-title" style="font-size:12px;margin-bottom:8px">Por nicho de negocio</div>
+        <div id="perfilGrid" style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:16px"></div>
+
+        <div class="chart-title" style="font-size:12px;margin-bottom:6px;margin-top:4px">Comparativa mes vs histórico total</div>
+        <div style="font-size:10px;color:var(--muted);margin-bottom:10px">Barra naranja = este mes · barra gris = histórico total de cancelados pagas</div>
+        <div id="histBarsContainer"></div>
+
+        <div class="chart-title" style="font-size:12px;margin-bottom:8px;margin-top:14px">Por nicho de negocio</div>
+        <div style="font-size:10px;color:var(--muted);margin-bottom:8px">Este mes vs mes anterior</div>
         <div id="nichoMes"></div>
         <div class="chart-title" style="font-size:12px;margin-bottom:8px;margin-top:14px">Por objetivo declarado</div>
+        <div style="font-size:10px;color:var(--muted);margin-bottom:8px">Este mes vs mes anterior</div>
         <div id="objetivoMes"></div>
       </div>
     </div>
@@ -204,8 +211,9 @@ body{background:var(--navy);color:var(--text);font-family:'DM Sans',sans-serif;f
     <div class="two-col">
       <div class="card">
         <div class="chart-title">Sesiones en vivo — últimos 6 meses</div>
-        <div class="chart-sub">Total asistentes por mes</div>
+        <div class="chart-sub">Barras = asistentes (eje izq.) · línea = sesiones realizadas (eje der.)</div>
         <div class="chart-wrap"><canvas id="sesionesChart"></canvas></div>
+        <div style="margin-top:12px" id="sesBadge"></div>
       </div>
       <div class="card">
         <div class="chart-title">Impacto económico del área este mes</div>
@@ -377,11 +385,18 @@ function calcMonth(off){
     const r=getMonthRange(off-5+i);
     const nuevas=C.filter(rr=>inRange(getCA(rr),r)&&isPaga(rr)).length;
     const cancels=canP.filter(rr=>inRange(cancelDate(rr),r)).length;
+    // Activos al cierre: pagas creadas antes del fin del período que no habían cancelado aún
+    // Incluye Vigente y Atrasado (siguen siendo clientes activos durante ese mes)
     const activos=C.filter(rr=>{
       if(!isPaga(rr))return false;
-      const ca=getCA(rr),cd=cancelDate(rr);
-      if(!ca||ca>r.end)return false;
-      return!cd||cd>r.end;
+      const ca=getCA(rr);
+      if(!ca||ca>r.end)return false; // no existía aún
+      const vigencia=(rr['Vigencia del servicio']||'').trim();
+      if(vigencia==='Cancelado'){
+        const cd=cancelDate(rr);
+        return cd&&cd>r.end; // canceló después del período
+      }
+      return true; // Vigente o Atrasado = activo
     }).length;
     return{label:fmtMonthShort(r.start),nuevas,cancels,activos};
   });
@@ -408,9 +423,26 @@ function calcMonth(off){
   const cp_sin_flow=pct(cancelMes.filter(r=>r['Usa Flow 6']==='0'||r['Usa Flow 6']===0).length,cm);
   const cp_sin_wa=pct(cancelMes.filter(r=>(r['Usa API']||'').includes('No usa')&&(r['Usa Business']||'').includes('No usa')).length,cm);
   const cp_sin_ses=pct(cancelMes.filter(r=>r['Sesiones en vivo']==='No asistió').length,cm);
+  const cp_sin_grupos=pct(cancelMes.filter(r=>r['Usa grupos 5']==='0'||r['Usa grupos 5']===0).length,cm);
+  const cp_sin_trial=pct(cancelMes.filter(r=>(r['flow trial']||'').includes('No pasó')).length,cm);
   const cp_lt_avg=avg(cancelMes.map(r=>parseFloat(r['LT']||'0')).filter(n=>n>0));
   const nichoCancel=topN(cancelMes,'Tipo de negocio');
   const objCancel=topN(cancelMes,'Objetivo con Funnelchat');
+
+  // Historical bars (all cancelled pagas) — same as weekly report
+  const allCancelP=canP;
+  const allCm=allCancelP.length||1;
+  const hist_sin_onb=pct(allCancelP.filter(r=>r['Onboarding']==='Sin onboarding').length,allCm);
+  const hist_sin_flow=pct(allCancelP.filter(r=>r['Usa Flow 6']==='0'||r['Usa Flow 6']===0).length,allCm);
+  const hist_sin_wa=pct(allCancelP.filter(r=>(r['Usa API']||'').includes('No usa')&&(r['Usa Business']||'').includes('No usa')).length,allCm);
+  const hist_sin_ses=pct(allCancelP.filter(r=>r['Sesiones en vivo']==='No asistió').length,allCm);
+  const hist_sin_grupos=pct(allCancelP.filter(r=>r['Usa grupos 5']==='0'||r['Usa grupos 5']===0).length,allCm);
+  const hist_sin_trial=pct(allCancelP.filter(r=>(r['flow trial']||'').includes('No pasó')).length,allCm);
+
+  // Previous month nicho/objetivo for comparison
+  const cancelPrev=canP.filter(r=>inRange(cancelDate(r),prevR));
+  const nichoCancelPrev=topN(cancelPrev,'Tipo de negocio');
+  const objCancelPrev=topN(cancelPrev,'Objetivo con Funnelchat');
 
   const ltBuckets={'0-30d':0,'31-60d':0,'61-90d':0,'91-180d':0,'181-365d':0,'+365d':0};
   cancelMes.forEach(r=>{
@@ -448,15 +480,27 @@ function calcMonth(off){
   // Sessions 6m
   const ses6=Array.from({length:6},(_,i)=>{
     const r=getMonthRange(off-5+i);
-    return{label:fmtMonthShort(r.start),asist:S.filter(rr=>{const d=parseSlash(rr['FECHA ATENCIÓN']);return d&&inRange(d,r)&&(rr['Asistio?']==='1'||rr['Asistio?']===1);}).length};
+    const asistentes=S.filter(rr=>{const d=parseSlash(rr['FECHA ATENCIÓN']);return d&&inRange(d,r)&&(rr['Asistio?']==='1'||rr['Asistio?']===1);}).length;
+    const sesiones=new Set(S.filter(rr=>{const d=parseSlash(rr['FECHA ATENCIÓN']);return d&&inRange(d,r);}).map(rr=>rr['FECHA ATENCIÓN'])).size;
+    const porSesion=sesiones>0?Math.round(asistentes/sesiones*10)/10:0;
+    return{label:fmtMonthShort(r.start),asist:asistentes,sesiones,porSesion};
   });
+  const sesMesActual=ses6[5];
 
-  // Risk
+  // Risk — total acumulado (vigentes pagas)
   const sinWa=vigP.filter(r=>(r['Usa API']||'').includes('No usa')&&(r['Usa Business']||'').includes('No usa'));
   const sinFlow=vigP.filter(r=>r['Usa Flow 6']==='0'||r['Usa Flow 6']===0);
   const sinGrupos=vigP.filter(r=>r['Usa grupos 5']==='0'||r['Usa grupos 5']===0);
   const sinLogin=vigP.filter(r=>{const ll=parseISO(r['last_login_at']);return!ll||(new Date()-ll)/86400000>14;});
   const sinOnb=vigP.filter(r=>r['Onboarding']==='Sin onboarding');
+
+  // Risk — del período (nuevas pagas del mes con señales de riesgo)
+  const nuevosMesPSet=new Set(nuevosMesP.map(r=>(r['id']||'').toString()));
+  const sinWaMes=nuevosMesP.filter(r=>(r['Usa API']||'').includes('No usa')&&(r['Usa Business']||'').includes('No usa'));
+  const sinFlowMes=nuevosMesP.filter(r=>r['Usa Flow 6']==='0'||r['Usa Flow 6']===0);
+  const sinGruposMes=nuevosMesP.filter(r=>r['Usa grupos 5']==='0'||r['Usa grupos 5']===0);
+  const sinLoginMes=nuevosMesP.filter(r=>{const ll=parseISO(r['last_login_at']);return!ll||(new Date()-ll)/86400000>14;});
+  const sinOnbMes=nuevosMesP.filter(r=>r['Onboarding']==='Sin onboarding');
 
   return{
     range,
@@ -470,19 +514,30 @@ function calcMonth(off){
     motivos,cancelConMotivo:cancelConMotivo.length,
     cp_sin_onb,cp_sin_flow,cp_sin_wa,cp_sin_ses,cp_lt_avg,
     nichoCancel,objCancel,ltBuckets,
+    hist_sin_onb,hist_sin_flow,hist_sin_wa,hist_sin_ses,hist_sin_grupos,hist_sin_trial,
+    cp_sin_grupos,cp_sin_trial,
+    nichoCancelPrev,objCancelPrev,cancelPrevTotal:cancelPrev.length,
     onbProp,onbAgen,onbAsist,onbNoShow,
     onbAsistP,onbAsistT,cobP,cobT,
     nuevosMesP_n:nuevosMesP.length,nuevosMesT_n:nuevosMesT.length,
     mrrProtOnb,pctRetCon:Math.round(retCon*100),pctRetSin:Math.round(retSin*100),
     retDiff:Math.round(retDiff*100),
-    ses6,sesMes:ses6[5]?.asist||0,
+    ses6,sesMes:ses6[5]?.asist||0,sesSesiones:ses6[5]?.sesiones||0,sesPorSesion:ses6[5]?.porSesion||0,
     sinWa:sinWa.length,sinFlow:sinFlow.length,sinGrupos:sinGrupos.length,
     sinLogin:sinLogin.length,sinOnb:sinOnb.length,
     mrrSinWa:Math.round(sinWa.reduce((s,r)=>s+getMRR(r),0)),
     mrrSinFlow:Math.round(sinFlow.reduce((s,r)=>s+getMRR(r),0)),
     mrrSinGrupos:Math.round(sinGrupos.reduce((s,r)=>s+getMRR(r),0)),
     mrrSinLogin:Math.round(sinLogin.reduce((s,r)=>s+getMRR(r),0)),
-    mrrSinOnb:Math.round(sinOnb.reduce((s,r)=>s+getMRR(r),0))
+    mrrSinOnb:Math.round(sinOnb.reduce((s,r)=>s+getMRR(r),0)),
+    // Period risk
+    sinWaMes:sinWaMes.length,sinFlowMes:sinFlowMes.length,sinGruposMes:sinGruposMes.length,
+    sinLoginMes:sinLoginMes.length,sinOnbMes:sinOnbMes.length,
+    mrrSinWaMes:Math.round(sinWaMes.reduce((s,r)=>s+getMRR(r),0)),
+    mrrSinFlowMes:Math.round(sinFlowMes.reduce((s,r)=>s+getMRR(r),0)),
+    mrrSinGruposMes:Math.round(sinGruposMes.reduce((s,r)=>s+getMRR(r),0)),
+    mrrSinLoginMes:Math.round(sinLoginMes.reduce((s,r)=>s+getMRR(r),0)),
+    mrrSinOnbMes:Math.round(sinOnbMes.reduce((s,r)=>s+getMRR(r),0))
   };
 }
 
@@ -587,26 +642,68 @@ function render(m){
   document.getElementById('perfilGrid').innerHTML=[
     {l:'Sin onboarding',p:m.cp_sin_onb,c:'var(--red)'},
     {l:'Sin flow activo',p:m.cp_sin_flow,c:'var(--orange)'},
-    {l:'Sin WA conectado',p:m.cp_sin_wa,c:'var(--pink)'},
+    {l:'Sin WA conectado',p:m.cp_sin_wa,c:'var(--pink)',note:'sin API ni Business'},
     {l:'Sin sesión en vivo',p:m.cp_sin_ses,c:'var(--purple)'},
+    {l:'Sin uso de grupos',p:m.cp_sin_grupos,c:'var(--blue)'},
+    {l:'Sin flow en trial',p:m.cp_sin_trial,c:'var(--yellow)'},
   ].map(it=>`
     <div style="background:rgba(255,255,255,.03);border:1px solid var(--border);border-radius:10px;padding:12px">
       <div style="font-size:10px;color:var(--muted);margin-bottom:3px">${it.l}</div>
       <div style="font-family:'Syne',sans-serif;font-size:22px;font-weight:800;color:${it.c}">${it.p}%</div>
-      <div style="font-size:9px;color:var(--muted)">de ${m.cancelMes} cancelados</div>
+      <div style="font-size:9px;color:var(--muted)">de ${m.cancelMes} cancelados este mes</div>
     </div>`).join('');
 
-  const renderBars=(el,data,color='var(--teal)')=>{
-    const mx=data[0]?.count||1;
-    document.getElementById(el).innerHTML=data.map(n=>`
-      <div class="motivo-row">
-        <div class="motivo-label" title="${n.label}">${n.label}</div>
-        <div class="motivo-track"><div class="motivo-fill" style="width:${Math.round(n.count/mx*100)}%;background:${color}"></div></div>
-        <div class="motivo-n">${n.count}</div>
+  // Historical profile bars (all cancelled pagas — same as weekly)
+  const histBars=[
+    {label:'Sin onboarding',mes:m.cp_sin_onb,hist:m.hist_sin_onb,color:'var(--red)'},
+    {label:'Sin flow activo',mes:m.cp_sin_flow,hist:m.hist_sin_flow,color:'var(--orange)'},
+    {label:'Sin WA conectado',mes:m.cp_sin_wa,hist:m.hist_sin_wa,color:'var(--pink)'},
+    {label:'Sin sesión en vivo',mes:m.cp_sin_ses,hist:m.hist_sin_ses,color:'var(--purple)'},
+    {label:'Sin uso de grupos',mes:m.cp_sin_grupos,hist:m.hist_sin_grupos,color:'var(--blue)'},
+    {label:'Sin flow en trial',mes:m.cp_sin_trial,hist:m.hist_sin_trial,color:'var(--yellow)'},
+  ];
+  const histContainer=document.getElementById('histBarsContainer');
+  if(histContainer){
+    histContainer.innerHTML=histBars.map(b=>`
+      <div style="margin-bottom:10px">
+        <div style="display:flex;justify-content:space-between;margin-bottom:3px">
+          <span style="font-size:11px;color:var(--muted)">${b.label}</span>
+          <span style="font-size:10px;color:var(--muted)">este mes <strong style="color:${b.color}">${b.mes}%</strong> · histórico <strong style="color:rgba(148,163,184,.8)">${b.hist}%</strong></span>
+        </div>
+        <div style="height:6px;background:rgba(255,255,255,.05);border-radius:4px;overflow:hidden;position:relative">
+          <div style="width:${b.hist}%;height:100%;background:rgba(148,163,184,.3);border-radius:4px;position:absolute"></div>
+          <div style="width:${b.mes}%;height:100%;background:${b.color};border-radius:4px;position:absolute"></div>
+        </div>
       </div>`).join('');
+  }
+
+  const renderBarsComp=(el,curr,prev,color)=>{
+    if(!document.getElementById(el))return;
+    const allLabels=[...new Set([...curr.map(d=>d.label),...prev.map(d=>d.label)])].slice(0,5);
+    const mx=Math.max(...curr.map(d=>d.count),...prev.map(d=>d.count),1);
+    document.getElementById(el).innerHTML=allLabels.map(lbl=>{
+      const c=curr.find(d=>d.label===lbl),p=prev.find(d=>d.label===lbl);
+      const cv=c?.count||0,pv=p?.count||0;
+      const diff=cv-pv;
+      const diffTxt=diff===0?'=':diff>0?`▲${diff}`:`▼${Math.abs(diff)}`;
+      const diffColor=diff===0?'var(--muted)':diff>0?'var(--red)':'var(--green2)';
+      return`<div style="margin-bottom:10px">
+        <div style="display:flex;justify-content:space-between;margin-bottom:3px;align-items:center">
+          <span style="font-size:11px;color:var(--muted);max-width:160px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${lbl}">${lbl}</span>
+          <span style="font-size:10px;display:flex;align-items:center;gap:6px">
+            <strong style="color:${color}">${cv}</strong>
+            <span style="color:${diffColor};font-size:9px;font-weight:600">${diffTxt} vs ant.</span>
+          </span>
+        </div>
+        <div style="height:6px;background:rgba(255,255,255,.05);border-radius:4px;overflow:hidden;position:relative">
+          <div style="width:${Math.round(pv/mx*100)}%;height:100%;background:rgba(148,163,184,.25);border-radius:4px;position:absolute"></div>
+          <div style="width:${Math.round(cv/mx*100)}%;height:100%;background:${color};border-radius:4px;position:absolute"></div>
+        </div>
+      </div>`;
+    }).join('');
   };
-  renderBars('nichoMes',m.nichoCancel,'var(--teal)');
-  renderBars('objetivoMes',m.objCancel,'var(--blue)');
+  renderBarsComp('nichoMes',m.nichoCancel,m.nichoCancelPrev,'var(--teal)');
+  renderBarsComp('objetivoMes',m.objCancel,m.objCancelPrev,'var(--blue)');
 
   // BLOQUE 4
   const convAg=m.onbAgen>0?Math.round(m.onbAsist/m.onbAgen*100):0;
@@ -642,11 +739,35 @@ function render(m){
   destroyChart('sesionesChart');
   charts.ses=new Chart(document.getElementById('sesionesChart').getContext('2d'),{
     type:'bar',
-    data:{labels:m.ses6.map(s=>s.label),datasets:[{label:'Asistentes',data:m.ses6.map(s=>s.asist),backgroundColor:'rgba(244,114,182,.6)',borderColor:'#f472b6',borderWidth:1,borderRadius:4}]},
-    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},
-      scales:{x:{grid:{color:'rgba(255,255,255,.03)'},ticks:{color:'#94a3b8',font:{size:9}}},
-        y:{grid:{color:'rgba(255,255,255,.03)'},ticks:{color:'#94a3b8',font:{size:9}},beginAtZero:true}}}
+    data:{labels:m.ses6.map(s=>s.label),datasets:[
+      {label:'Asistentes',data:m.ses6.map(s=>s.asist),backgroundColor:'rgba(244,114,182,.55)',borderColor:'#f472b6',borderWidth:1,borderRadius:4,yAxisID:'y'},
+      {label:'Sesiones',data:m.ses6.map(s=>s.sesiones),type:'line',borderColor:'#fbbf24',backgroundColor:'rgba(251,191,36,.1)',borderWidth:2,pointRadius:3,tension:.3,yAxisID:'y1'},
+    ]},
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{position:'top',labels:{boxWidth:10,padding:12,color:'#94a3b8',font:{size:10}}}},
+      scales:{
+        x:{grid:{color:'rgba(255,255,255,.03)'},ticks:{color:'#94a3b8',font:{size:9}}},
+        y:{grid:{color:'rgba(255,255,255,.03)'},ticks:{color:'#94a3b8',font:{size:9}},position:'left',beginAtZero:true},
+        y1:{grid:{display:false},ticks:{color:'#fbbf24',font:{size:9}},position:'right',beginAtZero:true}
+      }}
   });
+  // Asistentes por sesión badge
+  const sesBadgeEl=document.getElementById('sesBadge');
+  if(sesBadgeEl){sesBadgeEl.innerHTML=`
+    <div style="background:rgba(244,114,182,.08);border:1px solid rgba(244,114,182,.2);border-radius:10px;padding:10px 14px;display:inline-flex;align-items:center;gap:10px">
+      <div>
+        <div style="font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em">Asistentes / sesión</div>
+        <div style="font-family:'Syne',sans-serif;font-size:20px;font-weight:800;color:var(--pink)">${m.sesPorSesion}</div>
+      </div>
+      <div>
+        <div style="font-size:9px;color:var(--muted)">Sesiones este mes</div>
+        <div style="font-family:'Syne',sans-serif;font-size:20px;font-weight:800;color:var(--yellow)">${m.sesSesiones}</div>
+      </div>
+      <div>
+        <div style="font-size:9px;color:var(--muted)">Total asistentes</div>
+        <div style="font-family:'Syne',sans-serif;font-size:20px;font-weight:800;color:var(--text)">${m.sesMes}</div>
+      </div>
+    </div>`;}
 
   const netMRR=m.mrrNuevo+m.mrrConv+m.mrrProtOnb-m.mrrPerdido;
   document.getElementById('impactoGrid').innerHTML=`
@@ -674,17 +795,17 @@ function render(m){
 
   // BLOQUE 5
   document.getElementById('riskMiniGrid').innerHTML=[
-    {icon:'📵',count:m.sinWa,mrr:m.mrrSinWa,label:'Sin WA conectado',sub:'sin API ni Business',cls:'urgent'},
-    {icon:'⚡',count:m.sinFlow,mrr:m.mrrSinFlow,label:'Sin flow activo',sub:'sin automatización',cls:'urgent'},
-    {icon:'🗂️',count:m.sinGrupos,mrr:m.mrrSinGrupos,label:'Sin grupos activos',sub:'grupos en 0',cls:''},
-    {icon:'😴',count:m.sinLogin,mrr:m.mrrSinLogin,label:'Sin login +14d',sub:'inactividad prolongada',cls:'moderate'},
-    {icon:'🎓',count:m.sinOnb,mrr:m.mrrSinOnb,label:'Sin onboarding',sub:'activas sin capacitar',cls:'low'},
+    {icon:'📵',mes:m.sinWaMes,tot:m.sinWa,mrrMes:m.mrrSinWaMes,mrrTot:m.mrrSinWa,label:'Sin WA conectado',sub:'sin API ni Business',cls:'urgent'},
+    {icon:'⚡',mes:m.sinFlowMes,tot:m.sinFlow,mrrMes:m.mrrSinFlowMes,mrrTot:m.mrrSinFlow,label:'Sin flow activo',sub:'sin automatización',cls:'urgent'},
+    {icon:'🗂️',mes:m.sinGruposMes,tot:m.sinGrupos,mrrMes:m.mrrSinGruposMes,mrrTot:m.mrrSinGrupos,label:'Sin grupos activos',sub:'grupos en 0',cls:''},
+    {icon:'😴',mes:m.sinLoginMes,tot:m.sinLogin,mrrMes:m.mrrSinLoginMes,mrrTot:m.mrrSinLogin,label:'Sin login +14d',sub:'inactividad',cls:'moderate'},
+    {icon:'🎓',mes:m.sinOnbMes,tot:m.sinOnb,mrrMes:m.mrrSinOnbMes,mrrTot:m.mrrSinOnb,label:'Sin onboarding',sub:'activas sin capacitar',cls:'low'},
   ].map(r=>`
     <div class="risk-mini ${r.cls}">
       <div class="rm-icon">${r.icon}</div>
-      <div class="rm-count">${r.count}</div>
-      <div class="rm-label">${r.label}<br><small>${r.sub}</small></div>
-      <div class="rm-mrr">${fmt$(r.mrr)} MRR</div>
+      <div class="rm-count">${r.mes}<span style="font-size:14px;font-weight:500;color:var(--muted);margin-left:6px">/ ${r.tot}</span></div>
+      <div class="rm-label">${r.label} · <small>${r.sub}</small><br><small style="color:var(--muted)">Este mes / total vigentes</small></div>
+      <div class="rm-mrr">${fmt$(r.mrrMes)} mes · <span style="font-size:10px">${fmt$(r.mrrTot)} total</span></div>
     </div>`).join('');
 
   destroyChart('lifetimeChart');
@@ -709,20 +830,31 @@ function render(m){
     const nd=new Date(m.range.end.getFullYear(),m.range.end.getMonth()+1,15);
     const fd=d=>d.toLocaleDateString('es-CO',{day:'numeric',month:'short'});
     const rows=[];
-    if(m.sinWa>0)rows.push({t:'react',a:`Activar flujo de conexión WA para ${m.sinWa} cuentas activas sin WhatsApp — no pueden usar la plataforma`,r:'Onboarding',f:fd(nd),e:'s-rojo',l:'Urgente',n:`${fmt$(m.mrrSinWa)} MRR en riesgo.`});
-    if(m.cp_sin_onb>50)rows.push({t:'prev',a:`${m.cp_sin_onb}% de cancelados este mes no tuvo onboarding — incrementar cobertura mes siguiente`,r:'Onboarding',f:fd(nd),e:'s-amarillo',l:'En progreso',n:`Meta ≥50% cobertura pagas. Actual: ${m.cobP}%`});
-    if(m.sinLogin>0)rows.push({t:'react',a:`Reactivar ${m.sinLogin} cuentas sin login en +14 días antes de que pasen a atrasadas`,r:'CX',f:fd(nd),e:'s-amarillo',l:'En progreso',n:`${fmt$(m.mrrSinLogin)} en riesgo.`});
-    if(m.motivos[0])rows.push({t:'react',a:`Crear respuesta específica para el motivo de cancelación más frecuente: "${m.motivos[0].label}"`,r:'CX Lead',f:fd(nd),e:'s-gris',l:'Pendiente',n:`${m.motivos[0].count} casos este mes (${pct(m.motivos[0].count,m.cancelConMotivo||1)}% de respuestas).`});
-    rows.push({t:'prev',a:`Mantener cadencia sesiones en vivo y publicar agenda con anticipación`,r:'CX',f:fd(nd),e:'s-verde',l:'En curso',n:`Asistentes este mes: ${m.sesMes}`});
+
+    // ── SECCIÓN A: Acciones sobre la base del período (nuevos clientes del mes) ──
+    rows.push({t:'sep',a:'── ACCIONES SOBRE LA BASE DEL PERÍODO ── (clientes nuevos y cancelados de este mes)',r:'',f:'',e:'s-gris',l:'',n:'Impacto directo en retención de los clientes que llegaron o se fueron este mes'});
+    if(m.sinWaMes>0)rows.push({t:'prev',a:`Contactar ${m.sinWaMes} cuentas nuevas de este mes sin WhatsApp conectado — acompañar activación antes de que terminen el trial`,r:'Onboarding',f:fd(nd),e:'s-rojo',l:'Urgente',n:`${fmt$(m.mrrSinWaMes)} MRR de nuevos en riesgo. Sin WA no pueden usar la plataforma.`});
+    if(m.sinOnbMes>0)rows.push({t:'prev',a:`Proponer onboarding a ${m.sinOnbMes} cuentas nuevas del mes sin sesión agendada`,r:'Onboarding',f:fd(nd),e:'s-amarillo',l:'En progreso',n:`Cobertura actual: ${m.cobP}% pagas · ${m.cobT}% trial. Meta ≥ 50% pagas.`});
+    if(m.convMes>0)rows.push({t:'prev',a:`Dar seguimiento a los ${m.convMes} trials convertidos este mes — asegurar que activen funcionalidades clave en los primeros 15 días`,r:'CX',f:fd(nd),e:'s-amarillo',l:'En progreso',n:`Conversiones = ${fmt$(m.mrrConv)} MRR nuevo. El riesgo de churn temprano es alto sin activación.`});
+    if(m.motivos[0])rows.push({t:'react',a:`Diseñar respuesta para el motivo principal de cancelación del mes: "${m.motivos[0].label}"`,r:'CX Lead',f:fd(nd),e:'s-gris',l:'Pendiente',n:`${m.motivos[0].count} casos este mes. Identificar si es prevenible desde el onboarding o requiere ajuste de producto.`});
+
+    // ── SECCIÓN B: Acciones sobre la base activa histórica vigente ──
+    rows.push({t:'sep',a:'── ACCIONES SOBRE LA BASE ACTIVA TOTAL ── (todos los clientes vigentes)',r:'',f:'',e:'s-gris',l:'',n:'Retención preventiva y reactivación de clientes en riesgo de la base completa'});
+    if(m.sinWa>0)rows.push({t:'react',a:`Activar flujo de conexión WA para ${m.sinWa} cuentas vigentes sin WhatsApp conectado`,r:'Onboarding',f:fd(nd),e:'s-rojo',l:'Urgente',n:`${fmt$(m.mrrSinWa)} MRR total en riesgo. Priorizar las de mayor plan.`});
+    if(m.sinLogin>0)rows.push({t:'react',a:`Reactivar ${m.sinLogin} cuentas vigentes sin login en +14 días`,r:'CX',f:fd(nd),e:'s-amarillo',l:'En progreso',n:`${fmt$(m.mrrSinLogin)} MRR en riesgo. Inactividad predice churn en los próximos 30 días.`});
+    rows.push({t:'prev',a:`Mantener sesiones en vivo y publicar agenda con anticipación — meta: aumentar asistentes/sesión`,r:'CX',f:fd(nd),e:'s-verde',l:'En curso',n:`Actual: ${m.sesPorSesion} asist./sesión · ${m.sesSesiones} sesiones este mes.`});
     rows.push({t:'prev',a:'Agregar acción adicional...',r:'—',f:'—',e:'s-gris',l:'Pendiente',n:'—'});
-    document.getElementById('planBody').innerHTML=rows.map(r=>`
-      <tr>
+
+    document.getElementById('planBody').innerHTML=rows.map(r=>{
+      if(r.t==='sep')return`<tr style="background:rgba(255,255,255,.02)"><td colspan="6" style="padding:10px 14px;font-size:10px;color:var(--muted);font-weight:600;letter-spacing:.05em;border-bottom:1px solid var(--border)"><span style="color:var(--teal)">${r.a}</span><br><span style="font-weight:400;color:#475569">${r.n}</span></td></tr>`;
+      return`<tr>
         <td><span class="${r.t==='react'?'tipo-react':'tipo-prev'}">${r.t==='react'?'Reactivación':'Preventiva'}</span></td>
         <td contenteditable="true">${r.a}</td><td contenteditable="true">${r.r}</td>
         <td contenteditable="true">${r.f}</td>
         <td><span class="status-badge ${r.e}" onclick="rotateStatus(this)">${r.l}</span></td>
         <td contenteditable="true">${r.n}</td>
-      </tr>`).join('');
+      </tr>`;
+    }).join('');
   }
 }
 
