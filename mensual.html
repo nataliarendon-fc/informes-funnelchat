@@ -1329,11 +1329,9 @@ function downloadCSV(key, label) {
     headers.join(','),
     ...rows.map(r => headers.map(h => {
       const val = (r[h]||'').toString().replace(/"/g,'""');
-      return val.includes(',') || val.includes('"') || val.includes('
-') ? `"${val}"` : val;
+      return val.includes(',') || val.includes('"') ? '"' + val + '"' : val;
     }).join(','))
-  ].join('
-');
+  ].join('\n');
   const blob = new Blob(['﻿' + csv], {type:'text/csv;charset=utf-8;'});
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
