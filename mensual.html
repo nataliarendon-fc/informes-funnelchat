@@ -234,6 +234,7 @@ body{background:var(--navy);color:var(--text);font-family:'DM Sans',sans-serif;f
       </div>
       <div class="onb-funnel" id="onbFunnel"></div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:14px" id="onbCobertura"></div>
+      <div id="onbImpactTable" style="margin-top:14px"></div>
     </div>
     <!-- Embudos -->
     <div class="card" style="margin-bottom:16px">
@@ -248,6 +249,7 @@ body{background:var(--navy);color:var(--text);font-family:'DM Sans',sans-serif;f
         <div class="chart-sub">Barras = asistentes (eje izq.) · línea = sesiones realizadas (eje der.)</div>
         <div class="chart-wrap"><canvas id="sesionesChart"></canvas></div>
         <div style="margin-top:12px" id="sesBadge"></div>
+        <div id="sesImpactTable" style="margin-top:12px"></div>
       </div>
       <div class="card">
         <div class="chart-title">Impacto económico del área este mes</div>
@@ -540,6 +542,51 @@ function calcMonth(off){
   const mrrPerCli=vigP.length>0?mrrActivo/vigP.length:ARPU;
   const mrrProtOnb=Math.max(0,Math.round(onbAsist*retDiff*mrrPerCli*12));
 
+  // ── Impact comparison metrics ─────────────────────
+  const getLTavg=arr=>avg(arr.map(r=>parseFloat(r['LT']||'0')).filter(n=>n>0));
+  const getLTVavg=arr=>avg(arr.filter(isPaga).map(r=>{
+    const amt=parseFloat((r['payment_amount']||'0').toString().replace(/[^0-9.]/g,''))||0;
+    return amt;
+  }).filter(n=>n>0));
+
+  // Onboarding impact
+  const onbImpact={
+    conRet:Math.round(retCon*100), sinRet:Math.round(retSin*100),
+    conLT:getLTavg(conOnbAll), sinLT:getLTavg(sinOnbAll),
+    conLTV:getLTVavg(conOnbAll), sinLTV:getLTVavg(sinOnbAll),
+    conN:conOnbAll.length, sinN:sinOnbAll.length
+  };
+
+  // Sessions impact — cross ref sessions table with cuentas
+  const sesUserIds=new Set(RAW.sesiones.map(r=>(r['id']||'').toString().trim()).filter(Boolean));
+  // Match by email/username — sesiones table has username, cuentas has id
+  // Use sessions flag already in cuentas: "Sesiones en vivo" column
+  const conSesAll=C.filter(r=>r['Sesiones en vivo']==='Asistió'&&isPaga(r));
+  const sinSesAll=C.filter(r=>r['Sesiones en vivo']==='No asistió'&&isPaga(r));
+  const sesImpact={
+    conRet:conSesAll.length>0?Math.round(conSesAll.filter(r=>r['Vigencia del servicio']==='Vigente').length/conSesAll.length*100):0,
+    sinRet:sinSesAll.length>0?Math.round(sinSesAll.filter(r=>r['Vigencia del servicio']==='Vigente').length/sinSesAll.length*100):0,
+    conLT:getLTavg(conSesAll), sinLT:getLTavg(sinSesAll),
+    conLTV:getLTVavg(conSesAll), sinLTV:getLTVavg(sinSesAll),
+    conN:conSesAll.length, sinN:sinSesAll.length
+  };
+
+  // Embudos impact — using user_id cross-reference
+  const acctById={};C.forEach(r=>{const id=(r['id']||'').toString().trim();if(id)acctById[id]=r;});
+  const embImpactData={};
+  ['Pago Atrasado','TRIAL SIN WA','TRIAL SIN FLOW','Cancelación'].forEach(f=>{
+    const impactedIds=new Set(RAW.embudos.filter(r=>(r['Flujo']||'').trim()===f)
+      .map(r=>(r['user_id']||'').toString().trim()).filter(Boolean));
+    const impacted=C.filter(r=>impactedIds.has((r['id']||'').toString().trim())&&isPaga(r));
+    const notImpacted=C.filter(r=>!impactedIds.has((r['id']||'').toString().trim())&&isPaga(r));
+    embImpactData[f]={
+      conRet:impacted.length>0?Math.round(impacted.filter(r=>r['Vigencia del servicio']==='Vigente').length/impacted.length*100):0,
+      sinRet:notImpacted.length>0?Math.round(notImpacted.filter(r=>r['Vigencia del servicio']==='Vigente').length/notImpacted.length*100):0,
+      conLT:getLTavg(impacted), sinLT:getLTavg(notImpacted),
+      conN:impacted.length, sinN:notImpacted.length
+    };
+  });
+
   // Sessions 6m
   const ses6=Array.from({length:6},(_,i)=>{
     const r=getMonthRange(off-5+i);
@@ -591,6 +638,7 @@ function calcMonth(off){
     onbAsistP,onbAsistT,cobP,cobT,
     nuevosMesP_n:nuevosMesP.length,nuevosMesT_n:nuevosMesT.length,
     mrrProtOnb,pctRetCon:Math.round(retCon*100),pctRetSin:Math.round(retSin*100),
+    onbImpact,sesImpact,embImpactData,
     retDiff:Math.round(retDiff*100),
     ses6,sesMes:ses6[5]?.asist||0,sesSesiones:ses6[5]?.sesiones||0,sesPorSesion:ses6[5]?.porSesion||0,
     sinWa:sinWa.length,sinFlow:sinFlow.length,sinGrupos:sinGrupos.length,
@@ -758,6 +806,12 @@ function render(m){
     <div style="font-size:10px;color:var(--muted)">MRR protegido est.</div>
     <div style="font-size:9px;color:var(--muted);margin-top:2px">Ret. con ONB ${m.pctRetCon}% vs sin ${m.pctRetSin}%</div>`;
 
+  // Impact comparison table for onboarding
+  const onbImpEl=document.getElementById('onbImpactTable');
+  if(onbImpEl){
+    onbImpEl.innerHTML=impactTable('Onboarding','Con ONB','Sin ONB',m.onbImpact,'var(--green2)');
+  }
+
   document.getElementById('onbCobertura').innerHTML=`
     <div style="background:rgba(34,197,94,.08);border:1px solid rgba(34,197,94,.2);border-radius:10px;padding:14px">
       <div style="font-size:10px;color:var(--muted);margin-bottom:4px">Cobertura pagas</div>
@@ -825,6 +879,21 @@ function render(m){
           <div style="font-size:9px;color:var(--muted)">${vigentes} de ${mesUsers.size} siguen activos</div>
         </div>
         <div style="font-size:9px;color:var(--muted);margin-top:6px">MRR impactado: ${fmt$(mrrImp)}</div>
+      ${m.embImpactData[f]?`
+      <div style="margin-top:8px;padding-top:8px;border-top:1px solid var(--border)">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">
+          <div>
+            <div style="font-size:9px;color:var(--muted)">LT impactados</div>
+            <div style="font-family:'Syne',sans-serif;font-size:13px;font-weight:700;color:${color}">${m.embImpactData[f].conLT}d</div>
+            <div style="font-size:9px;color:var(--muted)">vs ${m.embImpactData[f].sinLT}d no impactados</div>
+          </div>
+          <div>
+            <div style="font-size:9px;color:var(--muted)">Ret. impactados</div>
+            <div style="font-family:'Syne',sans-serif;font-size:13px;font-weight:700;color:${m.embImpactData[f].conRet>=m.embImpactData[f].sinRet?'var(--green2)':'var(--red)'}">${m.embImpactData[f].conRet}%</div>
+            <div style="font-size:9px;color:var(--muted)">vs ${m.embImpactData[f].sinRet}% no impactados</div>
+          </div>
+        </div>
+      </div>`:''}
       </div>`;
     }).join('');
   })();
@@ -845,6 +914,8 @@ function render(m){
       }}
   });
   // Asistentes por sesión badge
+  const sesImpEl=document.getElementById('sesImpactTable');
+  if(sesImpEl){sesImpEl.innerHTML=impactTable('Sesiones en vivo','Con sesión','Sin sesión',m.sesImpact,'var(--pink)');}
   const sesBadgeEl=document.getElementById('sesBadge');
   if(sesBadgeEl){sesBadgeEl.innerHTML=`
     <div style="background:rgba(244,114,182,.08);border:1px solid rgba(244,114,182,.2);border-radius:10px;padding:10px 14px;display:inline-flex;align-items:center;gap:10px">
@@ -1024,6 +1095,40 @@ function renderQuienesMes(mode) {
   renderDim('objetivoMes',mesData.obj,   histData.obj,   'var(--blue)');
   renderDim('expMes',     mesData.exp,   histData.exp,   'var(--purple)');
   renderDim('factMes',    mesData.fact,  histData.fact,  'var(--orange)');
+}
+
+function impactTable(title, labelA, labelB, data, color) {
+  if (!data || (!data.conN && !data.sinN)) return '';
+  const metrics = [
+    { label: 'Retención', a: data.conRet+'%', b: data.sinRet+'%',
+      better: data.conRet >= data.sinRet, diff: data.conRet - data.sinRet, unit: 'pp' },
+    { label: 'LT promedio', a: data.conLT+'d', b: data.sinLT+'d',
+      better: data.conLT >= data.sinLT, diff: data.conLT - data.sinLT, unit: 'd' },
+    { label: 'LTV promedio', a: '$'+data.conLTV.toLocaleString('es-CO'), b: '$'+data.sinLTV.toLocaleString('es-CO'),
+      better: data.conLTV >= data.sinLTV, diff: data.conLTV - data.sinLTV, unit: '' },
+  ];
+  return `<div style="background:rgba(255,255,255,.02);border:1px solid var(--border);border-radius:10px;padding:12px 14px">
+    <div style="font-size:10px;font-weight:700;color:var(--muted);letter-spacing:.08em;text-transform:uppercase;margin-bottom:10px">
+      Impacto de ${title} en retención y valor
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px">
+      ${metrics.map(mt => `<div>
+        <div style="font-size:10px;color:var(--muted);margin-bottom:4px">${mt.label}</div>
+        <div style="display:flex;align-items:baseline;gap:6px;flex-wrap:wrap">
+          <span style="font-family:'Syne',sans-serif;font-size:16px;font-weight:800;color:${color}">${mt.a}</span>
+          <span style="font-size:10px;color:var(--muted)">${labelA}</span>
+        </div>
+        <div style="display:flex;align-items:baseline;gap:6px;margin-top:3px;flex-wrap:wrap">
+          <span style="font-family:'Syne',sans-serif;font-size:14px;font-weight:700;color:var(--muted)">${mt.b}</span>
+          <span style="font-size:10px;color:var(--muted)">${labelB}</span>
+        </div>
+        <div style="font-size:10px;margin-top:4px;font-weight:600;color:${mt.better?'var(--green2)':'var(--red)'}">
+          ${mt.diff===0?'= igual':mt.better?`▲ +${Math.abs(mt.diff)}${mt.unit}`:`▼ -${Math.abs(mt.diff)}${mt.unit}`}
+        </div>
+      </div>`).join('')}
+    </div>
+    <div style="font-size:9px;color:var(--muted);margin-top:8px">${labelA}: ${data.conN} clientes · ${labelB}: ${data.sinN} clientes</div>
+  </div>`;
 }
 
 function destroyChart(id){const c=Chart.getChart(id);if(c)c.destroy();}
