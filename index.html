@@ -508,17 +508,27 @@ function calc(weekOffset) {
     d.setDate(d.getDate() + 3);
     return d;
   };
+  // Period days by payment_type
+  const periodDays = {0: 30, 1: 90, 2: 180, 3: 365, 4: 3};
+
   const convertidos_sem = C.filter(r => {
+    // Conversion date must fall in the week range
     const convDate = getConversionDate(r);
     if (!inRange(convDate, range)) return false;
-    // Must be a paying account now (trial converted to paga)
+    // Must be a paying account now
     if (!isPaga(r)) return false;
-    // payment_till must be at least 3 days after created_at (they paid, not just trial)
     const ca = getCreatedAt(r);
     const pt = parseSpanishDate(r['payment_till']) || parseISO(r['payment_till']);
     if (!ca || !pt) return false;
     const diffDays = (pt - ca) / 86400000;
-    return diffDays >= 3;
+    // Get expected period in days based on payment type
+    const ptType = parseInt((r['payment_type']||'0').toString()) || 0;
+    const period = periodDays[ptType] || 30;
+    // Trial converter: payment_till - created_at ≈ period + 3 days (1 to 7 day tolerance)
+    // Direct payer:    payment_till - created_at ≈ period (within ±1 day)
+    // So trial converter has an offset of roughly 2–8 days above the base period
+    const offset = diffDays - period;
+    return offset >= 1.5 && offset <= 8;
   });
   const cancel_sem       = cancel_pagas.filter(r => inRange(cancelDate(r), range));
 
@@ -673,7 +683,11 @@ function calc(weekOffset) {
     const ca = getCreatedAt(r);
     const pt = parseSpanishDate(r['payment_till']) || parseISO(r['payment_till']);
     if (!ca || !pt) return false;
-    return (pt - ca) / 86400000 >= 3;
+    const diffDays = (pt - ca) / 86400000;
+    const ptType = parseInt((r['payment_type']||'0').toString()) || 0;
+    const period = periodDays[ptType] || 30;
+    const offset = diffDays - period;
+    return offset >= 1.5 && offset <= 8;
   }).length;
   const prev_cancel    = cancel_pagas.filter(r => inRange(cancelDate(r),prevRange)).length;
   const prev_onb_asist = O.filter(r => r['Estado del onboarding']==='Asistió'&&inRange(getOnbDate(r),prevRange)).length;
@@ -746,8 +760,6 @@ function calc(weekOffset) {
     cancelados_pagas: cancel_pagas.length, cancelados_trial: cancel_trial.length,
     atrasados_pagas: atrasados_pagas.length,
     nuevos_sem_pagas: nuevos_sem_pagas.length, nuevos_sem_trial: nuevos_sem_trial.length,
-    convertidos_sem: convertidos_sem.length,
-    mrr_convertidos_sem: Math.round(convertidos_sem.reduce((s,r)=>s+getMonthlyMRR(r),0)),
     convertidos_sem: convertidos_sem.length,
     mrr_convertidos_sem: Math.round(convertidos_sem.reduce((s,r)=>s+getMonthlyMRR(r),0)),
     cancel_sem: cancel_sem.length,
