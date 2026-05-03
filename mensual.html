@@ -178,18 +178,35 @@ body{background:var(--navy);color:var(--text);font-family:'DM Sans',sans-serif;f
       <div class="card">
         <div class="chart-title">Perfil de los que cancelaron</div>
         <div class="chart-sub">Características comunes · solo pagas · tiempo de vida promedio <span id="ltAvgBadge" style="color:var(--orange)"></span></div>
-        <div id="perfilGrid" style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:16px"></div>
-
-        <div class="chart-title" style="font-size:12px;margin-bottom:6px;margin-top:4px">Comparativa mes vs histórico total</div>
-        <div style="font-size:10px;color:var(--muted);margin-bottom:10px">Barra naranja = este mes · barra gris = histórico total de cancelados pagas</div>
+        <div class="chart-title" style="font-size:12px;margin-bottom:6px">Comparativa mes vs histórico total</div>
+        <div style="font-size:10px;color:var(--muted);margin-bottom:10px">Barra de color = este mes · barra gris = histórico total cancelados pagas</div>
         <div id="histBarsContainer"></div>
 
-        <div class="chart-title" style="font-size:12px;margin-bottom:8px;margin-top:14px">Por nicho de negocio</div>
-        <div style="font-size:10px;color:var(--muted);margin-bottom:8px">Este mes vs mes anterior</div>
+
+      </div>
+    </div>
+
+    <!-- 4 dimensiones horizontales -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:16px">
+      <div class="card">
+        <div class="chart-title" style="margin-bottom:4px">Por tipo de negocio</div>
+        <div style="font-size:10px;color:var(--muted);margin-bottom:10px">Este mes vs mes anterior</div>
         <div id="nichoMes"></div>
-        <div class="chart-title" style="font-size:12px;margin-bottom:8px;margin-top:14px">Por objetivo declarado</div>
-        <div style="font-size:10px;color:var(--muted);margin-bottom:8px">Este mes vs mes anterior</div>
+      </div>
+      <div class="card">
+        <div class="chart-title" style="margin-bottom:4px">Por objetivo declarado</div>
+        <div style="font-size:10px;color:var(--muted);margin-bottom:10px">Este mes vs mes anterior</div>
         <div id="objetivoMes"></div>
+      </div>
+      <div class="card">
+        <div class="chart-title" style="margin-bottom:4px">Por experiencia automatizando</div>
+        <div style="font-size:10px;color:var(--muted);margin-bottom:10px">Este mes vs mes anterior</div>
+        <div id="expMes"></div>
+      </div>
+      <div class="card">
+        <div class="chart-title" style="margin-bottom:4px">Por facturación mensual</div>
+        <div style="font-size:10px;color:var(--muted);margin-bottom:10px">Este mes vs mes anterior</div>
+        <div id="factMes"></div>
       </div>
     </div>
   </div>
@@ -428,6 +445,8 @@ function calcMonth(off){
   const cp_lt_avg=avg(cancelMes.map(r=>parseFloat(r['LT']||'0')).filter(n=>n>0));
   const nichoCancel=topN(cancelMes,'Tipo de negocio');
   const objCancel=topN(cancelMes,'Objetivo con Funnelchat');
+  const expCancel=topN(cancelMes,'Experiencia automatizando');
+  const factCancel=topN(cancelMes,'Facturación promedio mensual');
 
   // Historical bars (all cancelled pagas) — same as weekly report
   const allCancelP=canP;
@@ -443,6 +462,8 @@ function calcMonth(off){
   const cancelPrev=canP.filter(r=>inRange(cancelDate(r),prevR));
   const nichoCancelPrev=topN(cancelPrev,'Tipo de negocio');
   const objCancelPrev=topN(cancelPrev,'Objetivo con Funnelchat');
+  const expCancelPrev=topN(cancelPrev,'Experiencia automatizando');
+  const factCancelPrev=topN(cancelPrev,'Facturación promedio mensual');
 
   const ltBuckets={'0-30d':0,'31-60d':0,'61-90d':0,'91-180d':0,'181-365d':0,'+365d':0};
   cancelMes.forEach(r=>{
@@ -516,7 +537,8 @@ function calcMonth(off){
     nichoCancel,objCancel,ltBuckets,
     hist_sin_onb,hist_sin_flow,hist_sin_wa,hist_sin_ses,hist_sin_grupos,hist_sin_trial,
     cp_sin_grupos,cp_sin_trial,
-    nichoCancelPrev,objCancelPrev,cancelPrevTotal:cancelPrev.length,
+    nichoCancelPrev,objCancelPrev,expCancelPrev,factCancelPrev,cancelPrevTotal:cancelPrev.length,
+    expCancel,factCancel,
     onbProp,onbAgen,onbAsist,onbNoShow,
     onbAsistP,onbAsistT,cobP,cobT,
     nuevosMesP_n:nuevosMesP.length,nuevosMesT_n:nuevosMesT.length,
@@ -639,19 +661,6 @@ function render(m){
     :'Sin datos de motivos.';
 
   document.getElementById('ltAvgBadge').textContent=m.cp_lt_avg>0?`· ${m.cp_lt_avg} días promedio`:'';
-  document.getElementById('perfilGrid').innerHTML=[
-    {l:'Sin onboarding',p:m.cp_sin_onb,c:'var(--red)'},
-    {l:'Sin flow activo',p:m.cp_sin_flow,c:'var(--orange)'},
-    {l:'Sin WA conectado',p:m.cp_sin_wa,c:'var(--pink)',note:'sin API ni Business'},
-    {l:'Sin sesión en vivo',p:m.cp_sin_ses,c:'var(--purple)'},
-    {l:'Sin uso de grupos',p:m.cp_sin_grupos,c:'var(--blue)'},
-    {l:'Sin flow en trial',p:m.cp_sin_trial,c:'var(--yellow)'},
-  ].map(it=>`
-    <div style="background:rgba(255,255,255,.03);border:1px solid var(--border);border-radius:10px;padding:12px">
-      <div style="font-size:10px;color:var(--muted);margin-bottom:3px">${it.l}</div>
-      <div style="font-family:'Syne',sans-serif;font-size:22px;font-weight:800;color:${it.c}">${it.p}%</div>
-      <div style="font-size:9px;color:var(--muted)">de ${m.cancelMes} cancelados este mes</div>
-    </div>`).join('');
 
   // Historical profile bars (all cancelled pagas — same as weekly)
   const histBars=[
@@ -704,6 +713,8 @@ function render(m){
   };
   renderBarsComp('nichoMes',m.nichoCancel,m.nichoCancelPrev,'var(--teal)');
   renderBarsComp('objetivoMes',m.objCancel,m.objCancelPrev,'var(--blue)');
+  renderBarsComp('expMes',m.expCancel,m.expCancelPrev,'var(--purple)');
+  renderBarsComp('factMes',m.factCancel,m.factCancelPrev,'var(--orange)');
 
   // BLOQUE 4
   const convAg=m.onbAgen>0?Math.round(m.onbAsist/m.onbAgen*100):0;
@@ -794,19 +805,23 @@ function render(m){
   document.getElementById('impactoInsight').innerHTML=`MRR neto estimado: <strong style="color:${netMRR>=0?'var(--green2)':'var(--red)'}">${netMRR>=0?'+':''}${fmt$(netMRR)}</strong> · Generado+Protegido: ${fmt$(m.mrrNuevo+m.mrrConv+m.mrrProtOnb)} · Perdido: ${fmt$(m.mrrPerdido)}`;
 
   // BLOQUE 5
+  const periodBase=m.nuevosMesP||1;
   document.getElementById('riskMiniGrid').innerHTML=[
     {icon:'📵',mes:m.sinWaMes,tot:m.sinWa,mrrMes:m.mrrSinWaMes,mrrTot:m.mrrSinWa,label:'Sin WA conectado',sub:'sin API ni Business',cls:'urgent'},
     {icon:'⚡',mes:m.sinFlowMes,tot:m.sinFlow,mrrMes:m.mrrSinFlowMes,mrrTot:m.mrrSinFlow,label:'Sin flow activo',sub:'sin automatización',cls:'urgent'},
     {icon:'🗂️',mes:m.sinGruposMes,tot:m.sinGrupos,mrrMes:m.mrrSinGruposMes,mrrTot:m.mrrSinGrupos,label:'Sin grupos activos',sub:'grupos en 0',cls:''},
     {icon:'😴',mes:m.sinLoginMes,tot:m.sinLogin,mrrMes:m.mrrSinLoginMes,mrrTot:m.mrrSinLogin,label:'Sin login +14d',sub:'inactividad',cls:'moderate'},
-    {icon:'🎓',mes:m.sinOnbMes,tot:m.sinOnb,mrrMes:m.mrrSinOnbMes,mrrTot:m.mrrSinOnb,label:'Sin onboarding',sub:'activas sin capacitar',cls:'low'},
-  ].map(r=>`
-    <div class="risk-mini ${r.cls}">
+    {icon:'🎓',mes:m.sinOnbMes,tot:m.sinOnb,mrrMes:m.mrrSinOnbMes,mrrTot:m.mrrSinOnb,label:'Sin onboarding',sub:'sin capacitar',cls:'low'},
+  ].map(r=>{
+    const pctPeriod=m.nuevosMesP>0?Math.round(r.mes/m.nuevosMesP*100):0;
+    return`<div class="risk-mini ${r.cls}">
       <div class="rm-icon">${r.icon}</div>
       <div class="rm-count">${r.mes}<span style="font-size:14px;font-weight:500;color:var(--muted);margin-left:6px">/ ${r.tot}</span></div>
-      <div class="rm-label">${r.label} · <small>${r.sub}</small><br><small style="color:var(--muted)">Este mes / total vigentes</small></div>
-      <div class="rm-mrr">${fmt$(r.mrrMes)} mes · <span style="font-size:10px">${fmt$(r.mrrTot)} total</span></div>
-    </div>`).join('');
+      <div style="font-family:'Syne',sans-serif;font-size:13px;font-weight:700;margin:3px 0" class="rm-mrr">${pctPeriod}% <span style="font-size:10px;font-weight:400;color:var(--muted)">de nuevas pagas</span></div>
+      <div class="rm-label">${r.label}<br><small>${r.sub}</small><br><small style="color:var(--muted)">Este mes / total vigentes</small></div>
+      <div class="rm-mrr" style="font-size:10px;margin-top:4px">${fmt$(r.mrrMes)} mes · ${fmt$(r.mrrTot)} total</div>
+    </div>`;
+  }).join('');
 
   destroyChart('lifetimeChart');
   const ltL=Object.keys(m.ltBuckets),ltD=Object.values(m.ltBuckets);
