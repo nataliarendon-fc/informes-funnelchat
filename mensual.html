@@ -698,6 +698,22 @@ function calcMonth(off){
   const sinLogin=vigP.filter(r=>{const ll=parseISO(r['last_login_at']);return!ll||(new Date()-ll)/86400000>14;});
   const sinOnb=vigP.filter(r=>r['Onboarding']==='Sin onboarding');
 
+  // Export columns for each risk group
+  const exportCols=['id','country_name','Planes Funnelchat','payment_type','payment_amount',
+    'last_login_at','created_at','Tipo de negocio','Objetivo con Funnelchat','Onboarding','Sesiones en vivo'];
+  const toExport=(arr,tag)=>arr.map(r=>{
+    const row={Señal:tag};
+    exportCols.forEach(c=>{row[c]=r[c]||'';});
+    return row;
+  });
+  const exportData={
+    sinWa:     toExport(sinWa,     'Sin WA conectado'),
+    sinFlow:   toExport(sinFlow,   'Sin flow activo'),
+    sinGrupos: toExport(sinGrupos, 'Sin grupos activos'),
+    sinLogin:  toExport(sinLogin,  'Sin login +14 días'),
+    sinOnb:    toExport(sinOnb,    'Sin onboarding'),
+  };
+
   // Risk — del período (nuevas pagas del mes con señales de riesgo)
   const nuevosMesPSet=new Set(nuevosMesP.map(r=>(r['id']||'').toString()));
   const sinWaMes=nuevosMesP.filter(r=>(r['Usa API']||'').includes('No usa')&&(r['Usa Business']||'').includes('No usa'));
@@ -740,6 +756,7 @@ function calcMonth(off){
     onbImpact,sesImpact,embImpactData,
     retDiff:Math.round(retDiff*100),
     ses6,sesMes:ses6[5]?.asist||0,sesSesiones:ses6[5]?.sesiones||0,sesPorSesion:ses6[5]?.porSesion||0,
+    exportData,
     sinWa:sinWa.length,sinFlow:sinFlow.length,sinGrupos:sinGrupos.length,
     sinLogin:sinLogin.length,sinOnb:sinOnb.length,
     mrrSinWa:Math.round(sinWa.reduce((s,r)=>s+getMRR(r),0)),
@@ -1111,11 +1128,11 @@ function render(m){
   // BLOQUE 5
   const periodBase=m.nuevosMesP||1;
   document.getElementById('riskMiniGrid').innerHTML=[
-    {icon:'📵',mes:m.sinWaMes,tot:m.sinWa,mrrMes:m.mrrSinWaMes,mrrTot:m.mrrSinWa,label:'Sin WA conectado',sub:'sin API ni Business',cls:'urgent'},
-    {icon:'⚡',mes:m.sinFlowMes,tot:m.sinFlow,mrrMes:m.mrrSinFlowMes,mrrTot:m.mrrSinFlow,label:'Sin flow activo',sub:'sin automatización',cls:'urgent'},
-    {icon:'🗂️',mes:m.sinGruposMes,tot:m.sinGrupos,mrrMes:m.mrrSinGruposMes,mrrTot:m.mrrSinGrupos,label:'Sin grupos activos',sub:'grupos en 0',cls:''},
-    {icon:'😴',mes:m.sinLoginMes,tot:m.sinLogin,mrrMes:m.mrrSinLoginMes,mrrTot:m.mrrSinLogin,label:'Sin login +14d',sub:'inactividad',cls:'moderate'},
-    {icon:'🎓',mes:m.sinOnbMes,tot:m.sinOnb,mrrMes:m.mrrSinOnbMes,mrrTot:m.mrrSinOnb,label:'Sin onboarding',sub:'sin capacitar',cls:'low'},
+    {icon:'📵',key:'sinWa',    mes:m.sinWaMes,    tot:m.sinWa,    mrrMes:m.mrrSinWaMes,    mrrTot:m.mrrSinWa,    label:'Sin WA conectado',   sub:'sin API ni Business', cls:'urgent'},
+    {icon:'⚡',key:'sinFlow',  mes:m.sinFlowMes,  tot:m.sinFlow,  mrrMes:m.mrrSinFlowMes,  mrrTot:m.mrrSinFlow,  label:'Sin flow activo',     sub:'sin automatización',  cls:'urgent'},
+    {icon:'🗂️',key:'sinGrupos',mes:m.sinGruposMes,tot:m.sinGrupos,mrrMes:m.mrrSinGruposMes,mrrTot:m.mrrSinGrupos,label:'Sin grupos activos',   sub:'grupos en 0',         cls:''},
+    {icon:'😴',key:'sinLogin', mes:m.sinLoginMes, tot:m.sinLogin, mrrMes:m.mrrSinLoginMes, mrrTot:m.mrrSinLogin, label:'Sin login +14d',       sub:'inactividad',         cls:'moderate'},
+    {icon:'🎓',key:'sinOnb',   mes:m.sinOnbMes,   tot:m.sinOnb,   mrrMes:m.mrrSinOnbMes,   mrrTot:m.mrrSinOnb,   label:'Sin onboarding',      sub:'sin capacitar',       cls:'low'},
   ].map(r=>{
     const pctPeriod=m.nuevosMesP>0?Math.round(r.mes/m.nuevosMesP*100):0;
     return`<div class="risk-mini ${r.cls}">
@@ -1124,6 +1141,15 @@ function render(m){
       <div style="font-family:'Syne',sans-serif;font-size:13px;font-weight:700;margin:3px 0" class="rm-mrr">${pctPeriod}% <span style="font-size:10px;font-weight:400;color:var(--muted)">de nuevas pagas</span></div>
       <div class="rm-label">${r.label}<br><small>${r.sub}</small><br><small style="color:var(--muted)">Este mes / total vigentes</small></div>
       <div class="rm-mrr" style="font-size:10px;margin-top:4px">${fmt$(r.mrrMes)} mes · ${fmt$(r.mrrTot)} total</div>
+      <button onclick="downloadCSV('${r.key}','${r.label}')"
+        style="margin-top:8px;width:100%;padding:5px 0;font-size:10px;font-weight:600;
+               background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);
+               border-radius:6px;color:var(--muted);cursor:pointer;font-family:'DM Sans',sans-serif;
+               transition:all .15s"
+        onmouseover="this.style.background='rgba(45,212,191,.15)';this.style.color='var(--teal)';this.style.borderColor='rgba(45,212,191,.3)'"
+        onmouseout="this.style.background='rgba(255,255,255,.06)';this.style.color='var(--muted)';this.style.borderColor='rgba(255,255,255,.1)'">
+        ↓ Descargar lista (${r.tot})
+      </button>
     </div>`;
   }).join('');
 
@@ -1295,6 +1321,30 @@ function renderQuienesMes(mode) {
   renderDim('objetivoMes',mesData.obj,   histData.obj,   nuevasData.obj,   rankData.obj,   'var(--blue)');
   renderDim('expMes',     mesData.exp,   histData.exp,   nuevasData.exp,   rankData.exp,   'var(--purple)');
   renderDim('factMes',    mesData.fact,  histData.fact,  nuevasData.fact,  rankData.fact,  'var(--orange)');
+}
+
+function downloadCSV(key, label) {
+  const m = window._mesMet;
+  if (!m || !m.exportData || !m.exportData[key]) return;
+  const rows = m.exportData[key];
+  if (!rows.length) { alert('Sin cuentas en esta categoría'); return; }
+  const headers = Object.keys(rows[0]);
+  const csv = [
+    headers.join(','),
+    ...rows.map(r => headers.map(h => {
+      const val = (r[h]||'').toString().replace(/"/g,'""');
+      return val.includes(',') || val.includes('"') || val.includes('
+') ? `"${val}"` : val;
+    }).join(','))
+  ].join('
+');
+  const blob = new Blob(['﻿' + csv], {type:'text/csv;charset=utf-8;'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `funnelchat_riesgo_${key}_${new Date().toISOString().slice(0,10)}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
 }
 
 function impactTable(title, labelA, labelB, data, color) {
