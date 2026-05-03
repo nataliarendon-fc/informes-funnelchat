@@ -542,48 +542,56 @@ function calcMonth(off){
   const mrrPerCli=vigP.length>0?mrrActivo/vigP.length:ARPU;
   const mrrProtOnb=Math.max(0,Math.round(onbAsist*retDiff*mrrPerCli*12));
 
-  // ── Impact comparison metrics ─────────────────────
+  // ── Impact comparison metrics — últimos 12 meses ──
+  // Filter to last 12 months to avoid bias from pre-implementation accounts
+  const range12m = { start: new Date(range.end.getFullYear()-1, range.end.getMonth(), 1), end: range.end };
+  const C12 = C.filter(r => { const ca=getCA(r); return ca && ca >= range12m.start; });
+
   const getLTavg=arr=>avg(arr.map(r=>parseFloat(r['LT']||'0')).filter(n=>n>0));
   const getLTVavg=arr=>avg(arr.filter(isPaga).map(r=>{
     const amt=parseFloat((r['payment_amount']||'0').toString().replace(/[^0-9.]/g,''))||0;
     return amt;
   }).filter(n=>n>0));
 
-  // Onboarding impact
+  // Helper: calc impact stats for a filtered set
+  const calcImpact=(conArr,sinArr)=>({
+    conRet: conArr.length>0?Math.round(conArr.filter(r=>r['Vigencia del servicio']==='Vigente').length/conArr.length*100):0,
+    sinRet: sinArr.length>0?Math.round(sinArr.filter(r=>r['Vigencia del servicio']==='Vigente').length/sinArr.length*100):0,
+    conLT: getLTavg(conArr), sinLT: getLTavg(sinArr),
+    conLTV: getLTVavg(conArr), sinLTV: getLTVavg(sinArr),
+    conN: conArr.length, sinN: sinArr.length
+  });
+
+  // Onboarding impact — 12m
+  const conOnb12=C12.filter(r=>r['Onboarding']==='Con onboarding'&&isPaga(r));
+  const sinOnb12=C12.filter(r=>r['Onboarding']==='Sin onboarding'&&isPaga(r));
   const onbImpact={
-    conRet:Math.round(retCon*100), sinRet:Math.round(retSin*100),
-    conLT:getLTavg(conOnbAll), sinLT:getLTavg(sinOnbAll),
-    conLTV:getLTVavg(conOnbAll), sinLTV:getLTVavg(sinOnbAll),
-    conN:conOnbAll.length, sinN:sinOnbAll.length
+    ...calcImpact(conOnb12, sinOnb12),
+    // Historical for context
+    histConRet: Math.round(retCon*100), histSinRet: Math.round(retSin*100),
+    histConN: conOnbAll.length, histSinN: sinOnbAll.length
   };
 
-  // Sessions impact — cross ref sessions table with cuentas
-  const sesUserIds=new Set(RAW.sesiones.map(r=>(r['id']||'').toString().trim()).filter(Boolean));
-  // Match by email/username — sesiones table has username, cuentas has id
-  // Use sessions flag already in cuentas: "Sesiones en vivo" column
-  const conSesAll=C.filter(r=>r['Sesiones en vivo']==='Asistió'&&isPaga(r));
-  const sinSesAll=C.filter(r=>r['Sesiones en vivo']==='No asistió'&&isPaga(r));
+  // Sessions impact — 12m (using Sesiones en vivo column)
+  const conSes12=C12.filter(r=>r['Sesiones en vivo']==='Asistió'&&isPaga(r));
+  const sinSes12=C12.filter(r=>r['Sesiones en vivo']==='No asistió'&&isPaga(r));
   const sesImpact={
-    conRet:conSesAll.length>0?Math.round(conSesAll.filter(r=>r['Vigencia del servicio']==='Vigente').length/conSesAll.length*100):0,
-    sinRet:sinSesAll.length>0?Math.round(sinSesAll.filter(r=>r['Vigencia del servicio']==='Vigente').length/sinSesAll.length*100):0,
-    conLT:getLTavg(conSesAll), sinLT:getLTavg(sinSesAll),
-    conLTV:getLTVavg(conSesAll), sinLTV:getLTVavg(sinSesAll),
-    conN:conSesAll.length, sinN:sinSesAll.length
+    ...calcImpact(conSes12, sinSes12),
+    histConN: C.filter(r=>r['Sesiones en vivo']==='Asistió'&&isPaga(r)).length,
+    histSinN: C.filter(r=>r['Sesiones en vivo']==='No asistió'&&isPaga(r)).length
   };
 
-  // Embudos impact — using user_id cross-reference
+  // Embudos impact — 12m only
   const acctById={};C.forEach(r=>{const id=(r['id']||'').toString().trim();if(id)acctById[id]=r;});
   const embImpactData={};
   ['Pago Atrasado','TRIAL SIN WA','TRIAL SIN FLOW','Cancelación'].forEach(f=>{
     const impactedIds=new Set(RAW.embudos.filter(r=>(r['Flujo']||'').trim()===f)
       .map(r=>(r['user_id']||'').toString().trim()).filter(Boolean));
-    const impacted=C.filter(r=>impactedIds.has((r['id']||'').toString().trim())&&isPaga(r));
-    const notImpacted=C.filter(r=>!impactedIds.has((r['id']||'').toString().trim())&&isPaga(r));
+    // Use 12m base for fair comparison
+    const impacted12  = C12.filter(r=>impactedIds.has((r['id']||'').toString().trim())&&isPaga(r));
+    const notImpacted12=C12.filter(r=>!impactedIds.has((r['id']||'').toString().trim())&&isPaga(r));
     embImpactData[f]={
-      conRet:impacted.length>0?Math.round(impacted.filter(r=>r['Vigencia del servicio']==='Vigente').length/impacted.length*100):0,
-      sinRet:notImpacted.length>0?Math.round(notImpacted.filter(r=>r['Vigencia del servicio']==='Vigente').length/notImpacted.length*100):0,
-      conLT:getLTavg(impacted), sinLT:getLTavg(notImpacted),
-      conN:impacted.length, sinN:notImpacted.length
+      ...calcImpact(impacted12, notImpacted12)
     };
   });
 
@@ -1127,7 +1135,10 @@ function impactTable(title, labelA, labelB, data, color) {
         </div>
       </div>`).join('')}
     </div>
-    <div style="font-size:9px;color:var(--muted);margin-top:8px">${labelA}: ${data.conN} clientes · ${labelB}: ${data.sinN} clientes</div>
+    <div style="font-size:9px;color:var(--muted);margin-top:8px">
+      Base: últimos 12 meses · ${labelA}: ${data.conN} · ${labelB}: ${data.sinN}
+      ${data.histConN?` · (histórico total — con: ${data.histConN}, sin: ${data.histSinN})`:''}
+    </div>
   </div>`;
 }
 
