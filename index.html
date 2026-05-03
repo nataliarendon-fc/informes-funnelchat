@@ -451,11 +451,24 @@ function isPaga(r) {
 }
 function isTrial(r) { return !isPaga(r); }
 function getMonthlyMRR(r) {
-  const amt = parseFloat((r['payment_amount']||'0').toString().replace(/[^0-9.]/g,'')) || 0;
-  const type = parseInt((r['payment_type']||'0').toString());
+  const rawAmt = (r['payment_amount'] !== undefined && r['payment_amount'] !== null)
+    ? r['payment_amount'].toString().trim() : '0';
+  const amt = parseFloat(rawAmt.replace(/[^0-9.]/g,'')) || 0;
+  const rawType = (r['payment_type'] !== undefined && r['payment_type'] !== null)
+    ? r['payment_type'].toString().trim() : '0';
+  const type = parseInt(rawType) || 0;
   const divs = {0:1, 1:3, 2:6, 3:12, 4:0};
-  const d = divs[type] !== undefined ? divs[type] : 1;
-  return d === 0 ? 0 : amt / d;
+  const d = (divs[type] !== undefined) ? divs[type] : 1;
+  return d === 0 ? 0 : Math.round((amt / d) * 100) / 100;
+}
+
+function getLTV(r) {
+  // Try multiple possible column name variants (Apps Script may add spaces)
+  const val = r['LTV'] ?? r[' LTV'] ?? r['LTV '] ?? r['ltv'] ?? r['Ltv'] ?? null;
+  if (val === null || val === undefined) return 0;
+  const raw = val.toString().trim();
+  if (raw === '' || raw === '0' || raw === '-') return 0;
+  return parseFloat(raw.replace(/[^0-9.]/g,'')) || 0;
 }
 function topN(arr, key, n=5) {
   const counts = {};
@@ -531,10 +544,14 @@ function calc(weekOffset) {
   const ct_sin_grupos = cancel_trial.filter(r => r['Usa grupos 5']==='0'||r['Usa grupos 5']===0).length;
 
   // LT (días) — pagas only
-  const ltVig    = vigentes_pagas.map(r => parseFloat(r['LT'])).filter(n => !isNaN(n)&&n>0);
-  const ltCan    = cancel_pagas.map(r => parseFloat(r['LT'])).filter(n => !isNaN(n)&&n>0);
-  const ltConOnb = C.filter(r => r['Onboarding']==='Con onboarding'&&isPaga(r)).map(r => parseFloat(r['LTV'])).filter(n=>!isNaN(n)&&n>0);
-  const ltSinOnb = C.filter(r => r['Onboarding']==='Sin onboarding'&&isPaga(r)).map(r => parseFloat(r['LTV'])).filter(n=>!isNaN(n)&&n>0);
+  const parseLT = r => { const v = parseFloat((r['LT']||'0').toString()); return isNaN(v) ? 0 : v; };
+  const ltVig    = vigentes_pagas.map(parseLT).filter(n => n > 0);
+  const ltCan    = cancel_pagas.map(parseLT).filter(n => n > 0);
+  // LTV con/sin onboarding — only accounts with actual payment (LTV > 0)
+  const ltConOnb = C.filter(r => r['Onboarding']==='Con onboarding' && isPaga(r))
+    .map(getLTV).filter(n => n > 0);
+  const ltSinOnb = C.filter(r => r['Onboarding']==='Sin onboarding' && isPaga(r))
+    .map(getLTV).filter(n => n > 0);
 
   // 5-week trend (pagas only)
   const weekKeys5 = [];
@@ -564,11 +581,56 @@ function calc(weekOffset) {
     return d1 || d2 || null;
   };
   const onb_sem        = O.filter(r => inRange(getOnbDate(r), range));
-  const onb_propuestas = onb_sem.filter(r => r['Estado del onboarding']==='Propuesta enviada').length;
-  const onb_agendados  = onb_sem.filter(r => r['Estado del onboarding']==='Agendó').length;
+  // La tabla muestra el ÚLTIMO estado de cada usuario — lógica correcta:
+  // Propuestas = todos (a todos se les propuso)
+  // Agendados  = quienes en algún momento agendaron (Agendó + Asistió + No show + No asistió)
+  // Asistentes = último estado = Asistió
+  // No show    = último estado = No show | No asistió
+  const onb_propuestas = onb_sem.length; // todos recibieron propuesta
+  const onb_agendados  = onb_sem.filter(r =>
+    ['Agendó','Asistió','No show','No asistió'].includes(r['Estado del onboarding'])
+  ).length;
   const onb_asistio    = onb_sem.filter(r => r['Estado del onboarding']==='Asistió').length;
-  const onb_noshow     = onb_sem.filter(r => ['No show','No asistió'].includes(r['Estado del onboarding'])).length;
-  const onb_asistio_mes= O.filter(r => r['Estado del onboarding']==='Asistió'&&inRange(getOnbDate(r),{start:monthStart,end:monthEnd})).length;
+  const onb_noshow     = onb_sem.filter(r =>
+    ['No show','No asistió'].includes(r['Estado del onboarding'])
+  ).length;
+  const onb_mes_all     = O.filter(r => inRange(getOnbDate(r),{start:monthStart,end:monthEnd}));
+  const onb_asistio_mes = onb_mes_all.filter(r => r['Estado del onboarding']==='Asistió').length;
+  const onb_propuestas_mes = onb_mes_all.length;
+  const onb_agendados_mes  = onb_mes_all.filter(r =>
+    ['Agendó','Asistió','No show','No asistió'].includes(r['Estado del onboarding'])
+  ).length;
+
+  // Coverage split pagas vs trial using user_id cross-reference
+  // Build lookup map: user_id -> account type
+  const acctMap = {};
+  C.forEach(r => {
+    const id = (r['id']||'').toString().trim();
+    if (id) acctMap[id] = isPaga(r) ? 'paga' : 'trial';
+  });
+  const getOnbType = r => {
+    const uid = (r['user_id']||'').toString().trim();
+    return uid ? (acctMap[uid] || 'unknown') : 'unknown';
+  };
+
+  // Monthly coverage by type
+  const onb_asistio_mes_pagas = onb_mes_all.filter(r =>
+    r['Estado del onboarding']==='Asistió' && getOnbType(r)==='paga'
+  ).length;
+  const onb_asistio_mes_trial = onb_mes_all.filter(r =>
+    r['Estado del onboarding']==='Asistió' && getOnbType(r)==='trial'
+  ).length;
+  const totalNewMonth_trial = C.filter(r =>
+    inRange(getCreatedAt(r),{start:monthStart,end:monthEnd}) && isTrial(r)
+  ).length;
+
+  // Weekly coverage by type
+  const onb_asistio_sem_pagas = onb_sem.filter(r =>
+    r['Estado del onboarding']==='Asistió' && getOnbType(r)==='paga'
+  ).length;
+  const onb_asistio_sem_trial = onb_sem.filter(r =>
+    r['Estado del onboarding']==='Asistió' && getOnbType(r)==='trial'
+  ).length;
   const totalNewMonth  = C.filter(r => inRange(getCreatedAt(r),{start:monthStart,end:monthEnd})&&isPaga(r)).length;
 
   // Sessions
@@ -645,6 +707,18 @@ function calc(weekOffset) {
     sin_wa_sem: sin_wa_sem.length, sin_flow_sem: sin_flow_sem.length,
     sin_grupos_sem: sin_grupos_sem.length, sin_login_sem: sin_login_sem.length,
     sin_onb_sem: sin_onb_sem.length, nuevos_vig_sem: nuevos_vig_sem.length,
+    // MRR real de cuentas en riesgo esta semana
+    mrr_sin_wa_sem:     Math.round(sin_wa_sem.reduce((s,r)=>s+getMonthlyMRR(r),0)),
+    mrr_sin_flow_sem:   Math.round(sin_flow_sem.reduce((s,r)=>s+getMonthlyMRR(r),0)),
+    mrr_sin_grupos_sem: Math.round(sin_grupos_sem.reduce((s,r)=>s+getMonthlyMRR(r),0)),
+    mrr_sin_login_sem:  Math.round(sin_login_sem.reduce((s,r)=>s+getMonthlyMRR(r),0)),
+    mrr_sin_onb_sem:    Math.round(sin_onb_sem.reduce((s,r)=>s+getMonthlyMRR(r),0)),
+    // MRR acumulado por grupo de riesgo
+    mrr_sin_wa_tot:     Math.round(sin_wa.reduce((s,r)=>s+getMonthlyMRR(r),0)),
+    mrr_sin_flow_tot:   Math.round(sin_flow.reduce((s,r)=>s+getMonthlyMRR(r),0)),
+    mrr_sin_grupos_tot: Math.round(sin_grupos.reduce((s,r)=>s+getMonthlyMRR(r),0)),
+    mrr_sin_login_tot:  Math.round(sin_login.reduce((s,r)=>s+getMonthlyMRR(r),0)),
+    mrr_sin_onb_tot:    Math.round(sin_onb_vig.reduce((s,r)=>s+getMonthlyMRR(r),0)),
     cp_pct_sin_onb: pct(cp_sin_onb,canP), cp_pct_sin_flow: pct(cp_sin_flow,canP),
     cp_pct_sin_wa:  pct(cp_sin_wa,canP),  cp_pct_sin_ses:  pct(cp_sin_ses,canP),
     cp_pct_sin_trial: pct(cp_sin_trial,canP), cp_pct_sin_grupos: pct(cp_sin_grupos,canP),
@@ -656,6 +730,10 @@ function calc(weekOffset) {
     trend, mrr_activo: Math.round(mrr_activo), mrr_riesgo: Math.round(mrr_riesgo),
     mrr_protegido_sem,
     onb_propuestas, onb_agendados, onb_asistio, onb_noshow,
+    onb_propuestas_mes, onb_agendados_mes,
+    onb_asistio_mes_pagas, onb_asistio_mes_trial,
+    onb_asistio_sem_pagas, onb_asistio_sem_trial,
+    totalNewMonth_trial,
     onb_asistio_mes, totalNewMonth,
     ses_asistentes, ses_sesiones: ses_fechas.size, ses_asist_mes,
     prev_nuevos, prev_trial, prev_cancel, prev_onb_asist, prev_ses,
@@ -780,38 +858,37 @@ function render(m) {
 
   // ── Bloque 3: Riesgo ─────────────────────────────
   // Helper: MRR label using real MRR / total vigentes ratio as proxy
-  const mrrPerClient = m.vigentes_pagas > 0 ? Math.round(m.mrr_activo / m.vigentes_pagas) : ARPU;
-  const riskMrr = n => '$' + (n * mrrPerClient).toLocaleString('es-CO');
+  const fmt$ = n => '$' + (n||0).toLocaleString('es-CO');
   document.getElementById('riskGrid').innerHTML = `
     <div class="risk-card">
       <div class="risk-icon">📵</div>
       <div class="risk-count">${m.sin_wa_sem}<span style="font-size:16px;font-weight:500;color:var(--muted);margin-left:6px">/ ${m.sin_wa}</span></div>
       <div class="risk-label">Sin WhatsApp conectado<br><small style="color:var(--muted)">Esta semana / total · sin API ni Business</small></div>
-      <div class="risk-mrr">~${riskMrr(m.sin_wa)} MRR acumulado en riesgo</div>
+      <div class="risk-mrr">${fmt$(m.mrr_sin_wa_sem)} MRR sem. · ${fmt$(m.mrr_sin_wa_tot)} total</div>
     </div>
     <div class="risk-card">
       <div class="risk-icon">⚡</div>
       <div class="risk-count">${m.sin_flow_sem}<span style="font-size:16px;font-weight:500;color:var(--muted);margin-left:6px">/ ${m.sin_flow}</span></div>
       <div class="risk-label">Sin ningún flow activo<br><small style="color:var(--muted)">Esta semana / total · sin automatización</small></div>
-      <div class="risk-mrr">~${riskMrr(m.sin_flow)} MRR acumulado en riesgo</div>
+      <div class="risk-mrr">${fmt$(m.mrr_sin_flow_sem)} MRR sem. · ${fmt$(m.mrr_sin_flow_tot)} total</div>
     </div>
     <div class="risk-card">
       <div class="risk-icon">🗂️</div>
       <div class="risk-count">${m.sin_grupos_sem}<span style="font-size:16px;font-weight:500;color:var(--muted);margin-left:6px">/ ${m.sin_grupos}</span></div>
       <div class="risk-label">Sin ningún grupo activo<br><small style="color:var(--muted)">Esta semana / total · grupos en 0</small></div>
-      <div class="risk-mrr">~${riskMrr(m.sin_grupos)} MRR acumulado en riesgo</div>
+      <div class="risk-mrr">${fmt$(m.mrr_sin_grupos_sem)} MRR sem. · ${fmt$(m.mrr_sin_grupos_tot)} total</div>
     </div>
     <div class="risk-card moderate">
       <div class="risk-icon">😴</div>
       <div class="risk-count">${m.sin_login_sem}<span style="font-size:16px;font-weight:500;color:var(--muted);margin-left:6px">/ ${m.sin_login}</span></div>
       <div class="risk-label">Inactividad reciente<br><small style="color:var(--muted)">Nuevas inactivas esta sem. / sin login +14d</small></div>
-      <div class="risk-mrr">~${riskMrr(m.sin_login)} MRR acumulado en riesgo</div>
+      <div class="risk-mrr">${fmt$(m.mrr_sin_login_sem)} MRR sem. · ${fmt$(m.mrr_sin_login_tot)} total</div>
     </div>
     <div class="risk-card low">
       <div class="risk-icon">🎓</div>
       <div class="risk-count">${m.sin_onb_sem}<span style="font-size:16px;font-weight:500;color:var(--muted);margin-left:6px">/ ${m.sin_onb_vig}</span></div>
       <div class="risk-label">Sin onboarding<br><small style="color:var(--muted)">Esta semana / total activas sin capacitar</small></div>
-      <div class="risk-mrr">~${riskMrr(m.sin_onb_vig)} MRR acumulado en riesgo</div>
+      <div class="risk-mrr">${fmt$(m.mrr_sin_onb_sem)} MRR sem. · ${fmt$(m.mrr_sin_onb_tot)} total</div>
     </div>`;
 
   // Churn chart by plan
@@ -838,24 +915,70 @@ function render(m) {
   // ── Bloque 4: Acciones ───────────────────────────
   const dOnb = delta(m.onb_asistio, m.prev_onb_asist);
   const dSes = delta(m.ses_asistentes, m.prev_ses);
-  const cob_pct = m.totalNewMonth > 0 ? Math.round(m.onb_asistio_mes / m.totalNewMonth * 100) : 0;
+  const cob_pct       = m.totalNewMonth > 0
+    ? Math.round(m.onb_asistio_mes_pagas / m.totalNewMonth * 100) : 0;
+  const cob_pct_trial = m.totalNewMonth_trial > 0
+    ? Math.round(m.onb_asistio_mes_trial / m.totalNewMonth_trial * 100) : 0;
+
+  // Derived onboarding metrics
+  const onb_conv_rate = m.onb_agendados > 0
+    ? Math.round(m.onb_asistio / m.onb_agendados * 100) : 0;
+  const ltv_diff = m.ltv_con_onb - m.ltv_sin_onb;
+  const ltv_note = m.ltv_con_onb > 0
+    ? `LTV con ONB: $${m.ltv_con_onb} · sin ONB: $${m.ltv_sin_onb} (+$${ltv_diff})`
+    : 'LTV: calculando — verificar columna LTV en tabla de cuentas';
 
   document.getElementById('accionesBody').innerHTML = `
     <tr>
       <td><span class="tag t-onb">Onboarding</span></td>
-      <td><strong>Onboarding clientes nuevos</strong><br><small style="color:var(--muted)">Propuestas: ${m.onb_propuestas} · Agendados: ${m.onb_agendados} · No show: ${m.onb_noshow}</small></td>
-      <td style="font-family:'Syne',sans-serif;font-weight:700;font-size:16px">${m.onb_asistio}</td>
+      <td>
+        <strong>Onboarding clientes nuevos</strong>
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:4px;margin-top:6px">
+          <div style="background:rgba(255,255,255,.04);border-radius:6px;padding:5px 8px;font-size:10px">
+            <div style="color:var(--muted)">Propuestas</div>
+            <div style="font-weight:700;font-size:13px">${m.onb_propuestas}</div>
+          </div>
+          <div style="background:rgba(255,255,255,.04);border-radius:6px;padding:5px 8px;font-size:10px">
+            <div style="color:var(--muted)">Agendaron</div>
+            <div style="font-weight:700;font-size:13px">${m.onb_agendados}</div>
+          </div>
+          <div style="background:rgba(74,222,128,.08);border-radius:6px;padding:5px 8px;font-size:10px">
+            <div style="color:var(--muted)">Asistieron</div>
+            <div style="font-weight:700;font-size:13px;color:var(--green2)">${m.onb_asistio}</div>
+          </div>
+          <div style="background:rgba(248,113,113,.08);border-radius:6px;padding:5px 8px;font-size:10px">
+            <div style="color:var(--muted)">No show</div>
+            <div style="font-weight:700;font-size:13px;color:var(--red)">${m.onb_noshow}</div>
+          </div>
+        </div>
+      </td>
+      <td style="font-family:'Syne',sans-serif;font-weight:700;font-size:16px;color:var(--green2)">${m.onb_asistio}</td>
       <td class="${dOnb.cls === 'pos' ? 'delta-pos' : dOnb.cls === 'neg' ? 'delta-neg' : 'delta-neu'}">${dOnb.txt}</td>
-      <td>${m.onb_asistio_mes} asist.<br><small style="color:var(--muted)">${cob_pct}% cobertura</small></td>
-      <td style="color:var(--muted);font-size:12px">LTV con ONB: $${m.ltv_con_onb} vs sin ONB: $${m.ltv_sin_onb}</td>
+      <td>
+        <div style="font-size:10px;color:var(--muted);margin-bottom:4px">Cobertura mes</div>
+        <div style="display:flex;flex-direction:column;gap:4px">
+          <div style="background:rgba(34,197,94,.08);border-radius:6px;padding:4px 8px">
+            <span style="font-size:9px;color:var(--muted)">Pagas </span>
+            <strong style="font-size:12px;color:var(--green2)">${m.onb_asistio_mes_pagas}</strong>
+            <span style="font-size:10px;color:var(--muted)"> / ${m.totalNewMonth} · ${cob_pct}%</span>
+          </div>
+          <div style="background:rgba(96,165,250,.08);border-radius:6px;padding:4px 8px">
+            <span style="font-size:9px;color:var(--muted)">Trial </span>
+            <strong style="font-size:12px;color:var(--blue)">${m.onb_asistio_mes_trial}</strong>
+            <span style="font-size:10px;color:var(--muted)"> / ${m.totalNewMonth_trial} · ${cob_pct_trial}%</span>
+          </div>
+          <div style="font-size:9px;color:var(--muted);margin-top:2px">Propuestas mes: ${m.onb_propuestas_mes}</div>
+        </div>
+      </td>
+      <td style="color:var(--muted);font-size:11px">${ltv_note}<br>Conversión agenda→asistencia: ${onb_conv_rate}%</td>
     </tr>
     <tr>
       <td><span class="tag t-ses">Sesión vivo</span></td>
       <td><strong>Sesiones en vivo educativas</strong><br><small style="color:var(--muted)">${m.ses_sesiones} sesión(es) esta semana</small></td>
       <td style="font-family:'Syne',sans-serif;font-weight:700;font-size:16px">${m.ses_asistentes}</td>
       <td class="${dSes.cls === 'pos' ? 'delta-pos' : dSes.cls === 'neg' ? 'delta-neg' : 'delta-neu'}">${dSes.txt}</td>
-      <td>${m.ses_asist_mes} asist. mes</td>
-      <td style="color:var(--muted);font-size:12px">Clientes con sesión tienen LT promedio mayor</td>
+      <td><div style="font-size:12px"><strong>${m.ses_asist_mes}</strong> asist. mes</div></td>
+      <td style="color:var(--muted);font-size:11px">Clientes con sesión tienen LT promedio ${m.lt_vig_avg} días vs ${m.lt_can_avg} días cancelados</td>
     </tr>
     <tr>
       <td><span class="tag t-emb">Embudo</span></td>
@@ -863,14 +986,39 @@ function render(m) {
       <td style="color:var(--muted)">—</td>
       <td style="color:var(--muted)">—</td>
       <td style="color:var(--muted)">—</td>
-      <td style="color:var(--muted);font-size:12px">Disponible al conectar tabla de embudos</td>
+      <td style="color:var(--muted);font-size:11px">Disponible al conectar tabla de embudos</td>
     </tr>`;
 
+  // MRR protegido: diferencia LTV × asistentes / meses promedio de vida
+  const lt_months = Math.max(m.lt_vig_avg / 30, 1);
+  const mrr_prot_calc = m.ltv_con_onb > 0 && m.ltv_sin_onb >= 0
+    ? Math.round(m.onb_asistio * (m.ltv_con_onb - m.ltv_sin_onb) / lt_months)
+    : 0;
+  const mrr_prot_note = m.ltv_con_onb === 0
+    ? 'LTV pendiente de verificar en tabla'
+    : `${m.onb_asistio} asist. × $${m.ltv_con_onb - m.ltv_sin_onb} diff LTV / ${lt_months.toFixed(1)} meses`;
+
   document.getElementById('acumFinanciero').innerHTML = `
-    <div class="acum"><span class="al">MRR protegido ONB (est. sem.)</span><span class="av" style="color:var(--green2)">$${(m.onb_asistio * (m.ltv_con_onb - m.ltv_sin_onb) / Math.max(m.lt_vig_avg/30,1)).toFixed(0)}</span></div>
-    <div class="acum"><span class="al">Clientes impactados (onb + ses)</span><span class="av">${m.onb_asistio + m.ses_asistentes}</span></div>
-    <div class="acum"><span class="al">Cobertura onboarding mes</span><span class="av">${cob_pct}%</span></div>
-    <div class="acum"><span class="al">MRR en riesgo (atrasados)</span><span class="av" style="color:var(--orange)">$${m.mrr_riesgo.toLocaleString('es-CO')}</span></div>`;
+    <div class="acum">
+      <span class="al">MRR protegido est. ONB (sem.)</span>
+      <span class="av" style="color:${mrr_prot_calc>0?'var(--green2)':'var(--muted)'}">$${mrr_prot_calc.toLocaleString('es-CO')}</span>
+      <span style="font-size:9px;color:var(--muted);display:block;margin-top:2px">${mrr_prot_note}</span>
+    </div>
+    <div class="acum">
+      <span class="al">Clientes impactados (onb + ses)</span>
+      <span class="av">${m.onb_asistio + m.ses_asistentes}</span>
+      <span style="font-size:9px;color:var(--muted);display:block;margin-top:2px">onb: ${m.onb_asistio} · sesiones: ${m.ses_asistentes}</span>
+    </div>
+    <div class="acum">
+      <span class="al">Cobertura ONB mes — pagas</span>
+      <span class="av" style="color:var(--green2)">${cob_pct}%</span>
+      <span style="font-size:9px;color:var(--muted);display:block;margin-top:2px">${m.onb_asistio_mes_pagas} de ${m.totalNewMonth} pagas · ${m.onb_asistio_mes_trial} de ${m.totalNewMonth_trial} trials</span>
+    </div>
+    <div class="acum">
+      <span class="al">MRR en riesgo — atrasados</span>
+      <span class="av" style="color:var(--orange)">$${m.mrr_riesgo.toLocaleString('es-CO')}</span>
+      <span style="font-size:9px;color:var(--muted);display:block;margin-top:2px">${m.atrasados_pagas} cuentas × MRR real de cada una</span>
+    </div>`;
 
   // ── Bloque 5: Plan de acción — generado desde datos de la semana ──
   // Se regenera cada vez que cambia la semana
