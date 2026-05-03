@@ -773,12 +773,27 @@ function render(m){
   // ── Embudos render ────────────────────────────────
   (()=>{
     const E=RAW.embudos;
+    // Debug: log first few rows
+    console.log('[Embudos] total rows:', E.length);
+    if(E.length>0) console.log('[Embudos] first row:', JSON.stringify(E[0]));
+    const flujoNames=[...new Set(E.map(r=>(r['Flujo']||'').trim()))];
+    console.log('[Embudos] flujos encontrados:', flujoNames);
+
     const parseEmbDate=s=>{
       if(!s)return null;
+      const str=s.toString().trim();
+      // Try ISO first (2026-04-01)
+      if(/^[0-9]{4}-/.test(str)){const d=new Date(str);return isNaN(d)?null:d;}
+      // Spanish: "abril 1, 2026, 4:22 a. m."
       const mo={enero:0,febrero:1,marzo:2,abril:3,mayo:4,junio:5,julio:6,agosto:7,septiembre:8,octubre:9,noviembre:10,diciembre:11};
-      const match=s.toString().toLowerCase().match(/(\w+)\s+(\d+),\s+(\d{4})/);
-      if(match){const mv=mo[match[1]];if(mv!==undefined)return new Date(parseInt(match[3]),mv,parseInt(match[2]));}
-      return parseISO(s);
+      const lw=str.toLowerCase();
+      // Match word month + day + year
+      const parts=lw.match(/([a-záéíóú]+)\s+(\d{1,2}),\s+(\d{4})/);
+      if(parts){const mv=mo[parts[1]];if(mv!==undefined)return new Date(parseInt(parts[3]),mv,parseInt(parts[2]));}
+      // DD/MM/YYYY
+      const slashMatch=str.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+      if(slashMatch)return new Date(parseInt(slashMatch[3]),parseInt(slashMatch[2])-1,parseInt(slashMatch[1]));
+      try{const d=new Date(str);return isNaN(d)?null:d;}catch{return null;}
     };
     const flujos=['Pago Atrasado','TRIAL SIN WA','TRIAL SIN FLOW','Cancelación'];
     const labels={'Pago Atrasado':'Atrasados','TRIAL SIN WA':'Trial sin WA','TRIAL SIN FLOW':'Trial sin Flow','Cancelación':'Cancelación'};
