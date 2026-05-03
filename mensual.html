@@ -585,6 +585,8 @@ function calcMonth(off){
   const onbAgen=onbAll.filter(r=>['Agendó','Asistió','No show','No asistió'].includes(r['Estado del onboarding'])).length;
   const onbAsist=onbAll.filter(r=>r['Estado del onboarding']==='Asistió').length;
   const onbNoShow=onbAll.filter(r=>['No show','No asistió'].includes(r['Estado del onboarding'])).length;
+  // No show real: agendaron pero su último estado NO es Asistió
+  const onbNoShowReal=onbAll.filter(r=>['Agendó','No show','No asistió'].includes(r['Estado del onboarding'])).length;
 
   const acctMap={};C.forEach(r=>{const id=(r['id']||'').toString().trim();if(id)acctMap[id]=isPaga(r)?'paga':'trial';});
   const getOnbType=r=>{const uid=(r['user_id']||'').toString().trim();return uid?(acctMap[uid]||'unknown'):'unknown';};
@@ -704,7 +706,7 @@ function calcMonth(off){
     nichoHistT,objHistT,expHistT,factHistT,
     nichoTPrev,objTPrev,expTPrev,factTPrev,
     cancelPrevTotal:cancelPrev.length,
-    onbProp,onbAgen,onbAsist,onbNoShow,
+    onbProp,onbAgen,onbAsist,onbNoShow,onbNoShowReal,
     onbAsistP,onbAsistT,cobP,cobT,
     nuevosMesP_n:nuevosMesP.length,nuevosMesT_n:nuevosMesT.length,
     mrrProtOnb,pctRetCon:Math.round(retCon*100),pctRetSin:Math.round(retSin*100),
@@ -892,12 +894,14 @@ function render(m){
     {l:'Propuestas',v:m.onbProp,c:'var(--muted)',p:''},
     {l:'Agendaron',v:m.onbAgen,c:'var(--blue)',p:pct(m.onbAgen,m.onbProp)+'%'},
     {l:'Asistieron',v:m.onbAsist,c:'var(--green2)',p:convAg+'%'},
-    {l:'No show',v:m.onbNoShow,c:'var(--red)',p:pct(m.onbNoShow,m.onbAgen)+'%'},
+    {l:'No show',v:m.onbNoShow,c:'var(--red)',p:pct(m.onbNoShow,m.onbAgen)+'%',
+      note: m.onbNoShowReal > m.onbNoShow ? `Real: ${m.onbNoShowReal} (inc. pendientes)` : null},
   ].map(s=>`
     <div class="onb-step">
       <div class="onb-step-val" style="color:${s.c}">${s.v}</div>
       <div class="onb-step-label">${s.l}</div>
       ${s.p?`<div class="onb-step-pct" style="color:${s.c}">${s.p}</div>`:''}
+      ${s.note?`<div style="font-size:9px;color:var(--muted);margin-top:3px;line-height:1.3">${s.note}</div>`:''}
     </div>`).join('');
 
   document.getElementById('onbImpacto').innerHTML=`
