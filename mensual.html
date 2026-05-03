@@ -235,6 +235,13 @@ body{background:var(--navy);color:var(--text);font-family:'DM Sans',sans-serif;f
       <div class="onb-funnel" id="onbFunnel"></div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:14px" id="onbCobertura"></div>
     </div>
+    <!-- Embudos -->
+    <div class="card" style="margin-bottom:16px">
+      <div class="chart-title" style="margin-bottom:4px">Embudos automatizados del mes</div>
+      <div style="font-size:11px;color:var(--muted);margin-bottom:14px">Contactos únicos impactados · tasa de retención de impactados</div>
+      <div id="embudosGrid" style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px"></div>
+    </div>
+
     <div class="two-col">
       <div class="card">
         <div class="chart-title">Sesiones en vivo — últimos 6 meses</div>
@@ -287,7 +294,7 @@ body{background:var(--navy);color:var(--text);font-family:'DM Sans',sans-serif;f
 <script>
 const API_URL='https://script.google.com/macros/s/AKfycbwNp-Hnmi1imEggg6Qz7xRP_fR57ZvcQb9hFR2WUPn1c-BdsN23x2vrnlU5zY6Rydrlng/exec';
 const ARPU=69;
-let RAW={cuentas:[],onboarding:[],sesiones:[]};
+let RAW={cuentas:[],onboarding:[],sesiones:[],embudos:[]};
 let currentMonthOffset=0;
 let charts={};
 
@@ -363,6 +370,7 @@ async function loadAll(){
   RAW.cuentas=(json.cuentas||[]).filter(r=>Object.keys(r).length>1);
   RAW.onboarding=(json.onboarding||[]).filter(r=>Object.keys(r).length>0);
   RAW.sesiones=(json.sesiones||[]).filter(r=>Object.keys(r).length>0);
+  RAW.embudos=(json.embudos||[]).filter(r=>Object.keys(r).length>0);
   if(!RAW.cuentas.length)throw new Error('Hoja de cuentas vacía. Verificar Apps Script.');
 }
 
@@ -761,6 +769,50 @@ function render(m){
       <div style="font-family:'Syne',sans-serif;font-size:24px;font-weight:800;color:var(--blue)">${m.cobT}%</div>
       <div style="font-size:11px;color:var(--muted);margin-top:4px">${m.onbAsistT} de ${m.nuevosMesT_n} trials asistieron</div>
     </div>`;
+
+  // ── Embudos render ────────────────────────────────
+  (()=>{
+    const E=RAW.embudos;
+    const parseEmbDate=s=>{
+      if(!s)return null;
+      const mo={enero:0,febrero:1,marzo:2,abril:3,mayo:4,junio:5,julio:6,agosto:7,septiembre:8,octubre:9,noviembre:10,diciembre:11};
+      const match=s.toString().toLowerCase().match(/(\w+)\s+(\d+),\s+(\d{4})/);
+      if(match){const mv=mo[match[1]];if(mv!==undefined)return new Date(parseInt(match[3]),mv,parseInt(match[2]));}
+      return parseISO(s);
+    };
+    const flujos=['Pago Atrasado','TRIAL SIN WA','TRIAL SIN FLOW','Cancelación'];
+    const labels={'Pago Atrasado':'Atrasados','TRIAL SIN WA':'Trial sin WA','TRIAL SIN FLOW':'Trial sin Flow','Cancelación':'Cancelación'};
+    const colors={'Pago Atrasado':'var(--orange)','TRIAL SIN WA':'var(--green2)','TRIAL SIN FLOW':'var(--blue)','Cancelación':'var(--red)'};
+    const acctM={};RAW.cuentas.forEach(r=>{const id=(r['id']||'').toString().trim();if(id)acctM[id]=r;});
+    const grid=document.getElementById('embudosGrid');
+    if(!grid)return;
+    const prevMonthR=getMonthRange(currentMonthOffset-1);
+    grid.innerHTML=flujos.map(f=>{
+      const rows=E.filter(r=>(r['Flujo']||'').trim()===f);
+      const mesRows=rows.filter(r=>inRange(parseEmbDate(r['fecha_asignacion_etiqueta']),m.range));
+      const prevRows=rows.filter(r=>inRange(parseEmbDate(r['fecha_asignacion_etiqueta']),prevMonthR));
+      const mesUsers=new Set(mesRows.map(r=>(r['user_id']||'').toString()).filter(Boolean));
+      const prevUsers=new Set(prevRows.map(r=>(r['user_id']||'').toString()).filter(Boolean));
+      const vigentes=[...mesUsers].filter(uid=>acctM[uid]&&acctM[uid]['Vigencia del servicio']==='Vigente').length;
+      const retPct=mesUsers.size>0?Math.round(vigentes/mesUsers.size*100):0;
+      const mrrImp=Math.round([...mesUsers].reduce((s,uid)=>s+(acctM[uid]?getMRR(acctM[uid]):0),0));
+      const diff=mesUsers.size-prevUsers.size;
+      const color=colors[f]||'var(--teal)';
+      return`<div style="background:rgba(255,255,255,.03);border:1px solid var(--border);border-radius:12px;padding:14px 16px">
+        <div style="font-size:10px;color:var(--muted);margin-bottom:4px;text-transform:uppercase;letter-spacing:.06em">${labels[f]||f}</div>
+        <div style="font-family:'Syne',sans-serif;font-size:26px;font-weight:800;color:${color};line-height:1">${mesUsers.size}</div>
+        <div style="font-size:10px;margin-top:4px;color:${diff===0?'var(--muted)':diff>0?'var(--red)':'var(--green2)'}">
+          ${diff===0?'= igual ant.':diff>0?`▲ +${diff} vs mes ant.`:`▼ ${diff} vs mes ant.`}
+        </div>
+        <div style="margin-top:8px;padding-top:8px;border-top:1px solid var(--border)">
+          <div style="font-size:10px;color:var(--muted)">Retención impactados</div>
+          <div style="font-family:'Syne',sans-serif;font-size:16px;font-weight:700;color:${retPct>=50?'var(--green2)':'var(--orange)'}">${retPct}%</div>
+          <div style="font-size:9px;color:var(--muted)">${vigentes} de ${mesUsers.size} siguen activos</div>
+        </div>
+        <div style="font-size:9px;color:var(--muted);margin-top:6px">MRR impactado: ${fmt$(mrrImp)}</div>
+      </div>`;
+    }).join('');
+  })();
 
   destroyChart('sesionesChart');
   charts.ses=new Chart(document.getElementById('sesionesChart').getContext('2d'),{
