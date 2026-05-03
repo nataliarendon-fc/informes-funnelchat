@@ -59,7 +59,7 @@ body{background:var(--navy);color:var(--text);font-family:'DM Sans',sans-serif;f
 .card:hover{border-color:rgba(255,255,255,.1)}
 
 /* PULSO GRID */
-.pulso-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:14px}
+.pulso-grid{display:grid;grid-template-columns:repeat(6,1fr);gap:14px}
 .p-card{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:20px 18px;position:relative;overflow:hidden;transition:all .2s}
 .p-card:hover{transform:translateY(-1px);border-color:rgba(255,255,255,.12)}
 .p-card::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;border-radius:16px 16px 0 0}
@@ -497,6 +497,29 @@ function calc(weekOffset) {
   const getCreatedAt = r => parseISO(r['created_at']) || parseISO(r['Fecha creación']);
   const nuevos_sem_pagas = C.filter(r => inRange(getCreatedAt(r), range) && isPaga(r));
   const nuevos_sem_trial = C.filter(r => inRange(getCreatedAt(r), range) && isTrial(r));
+
+  // Trial → Pago conversions this week
+  // Conversion date = created_at + 3 days (when trial ends and client pays)
+  // Client converted if: payment_till >= created_at + 3 days (they actually paid)
+  const getConversionDate = r => {
+    const ca = getCreatedAt(r);
+    if (!ca) return null;
+    const d = new Date(ca);
+    d.setDate(d.getDate() + 3);
+    return d;
+  };
+  const convertidos_sem = C.filter(r => {
+    const convDate = getConversionDate(r);
+    if (!inRange(convDate, range)) return false;
+    // Must be a paying account now (trial converted to paga)
+    if (!isPaga(r)) return false;
+    // payment_till must be at least 3 days after created_at (they paid, not just trial)
+    const ca = getCreatedAt(r);
+    const pt = parseSpanishDate(r['payment_till']) || parseISO(r['payment_till']);
+    if (!ca || !pt) return false;
+    const diffDays = (pt - ca) / 86400000;
+    return diffDays >= 3;
+  });
   const cancel_sem       = cancel_pagas.filter(r => inRange(cancelDate(r), range));
 
   // MRR from real payment_amount
@@ -641,8 +664,17 @@ function calc(weekOffset) {
 
   // Previous week deltas
   const prevRange      = getWeekRange(weekOffset - 1);
-  const prev_nuevos    = C.filter(r => inRange(getCreatedAt(r),prevRange)&&isPaga(r)).length;
-  const prev_trial     = C.filter(r => inRange(getCreatedAt(r),prevRange)&&isTrial(r)).length;
+  const prev_nuevos      = C.filter(r => inRange(getCreatedAt(r),prevRange)&&isPaga(r)).length;
+  const prev_trial       = C.filter(r => inRange(getCreatedAt(r),prevRange)&&isTrial(r)).length;
+  const prev_convertidos = C.filter(r => {
+    const convDate = getConversionDate(r);
+    if (!inRange(convDate, prevRange)) return false;
+    if (!isPaga(r)) return false;
+    const ca = getCreatedAt(r);
+    const pt = parseSpanishDate(r['payment_till']) || parseISO(r['payment_till']);
+    if (!ca || !pt) return false;
+    return (pt - ca) / 86400000 >= 3;
+  }).length;
   const prev_cancel    = cancel_pagas.filter(r => inRange(cancelDate(r),prevRange)).length;
   const prev_onb_asist = O.filter(r => r['Estado del onboarding']==='Asistió'&&inRange(getOnbDate(r),prevRange)).length;
   const prev_ses       = S.filter(r => { const d=parseSlash(r['FECHA ATENCIÓN']); return d&&inRange(d,prevRange)&&(r['Asistio?']==='1'||r['Asistio?']===1); }).length;
@@ -714,6 +746,10 @@ function calc(weekOffset) {
     cancelados_pagas: cancel_pagas.length, cancelados_trial: cancel_trial.length,
     atrasados_pagas: atrasados_pagas.length,
     nuevos_sem_pagas: nuevos_sem_pagas.length, nuevos_sem_trial: nuevos_sem_trial.length,
+    convertidos_sem: convertidos_sem.length,
+    mrr_convertidos_sem: Math.round(convertidos_sem.reduce((s,r)=>s+getMonthlyMRR(r),0)),
+    convertidos_sem: convertidos_sem.length,
+    mrr_convertidos_sem: Math.round(convertidos_sem.reduce((s,r)=>s+getMonthlyMRR(r),0)),
     cancel_sem: cancel_sem.length,
     sin_flow: sin_flow.length, sin_grupos: sin_grupos.length,
     sin_wa: sin_wa.length, sin_login: sin_login.length, sin_onb_vig: sin_onb_vig.length,
@@ -749,7 +785,7 @@ function calc(weekOffset) {
     totalNewMonth_trial,
     onb_asistio_mes, totalNewMonth,
     ses_asistentes, ses_sesiones: ses_fechas.size, ses_asist_mes,
-    prev_nuevos, prev_trial, prev_cancel, prev_onb_asist, prev_ses,
+    prev_nuevos, prev_trial, prev_cancel, prev_onb_asist, prev_ses, prev_convertidos,
     totalCuentas: C.length,
     cancel_sem_pagas_total: cancel_sem_pagas.length,
     cancel_sem_trial_total: cancel_sem_trial.length,
@@ -799,6 +835,7 @@ function render(m) {
   const dNuevos  = delta(m.nuevos_sem_pagas, m.prev_nuevos);
   const dTrial   = delta(m.nuevos_sem_trial, m.prev_trial);
   const dCancel  = delta(m.cancel_sem, m.prev_cancel, true);
+  const dConv    = delta(m.convertidos_sem, m.prev_convertidos);
 
   document.getElementById('pulsoGrid').innerHTML = `
     <div class="p-card c-green">
@@ -831,6 +868,12 @@ function render(m) {
       <div class="p-value" style="color:${m.nuevos_sem_pagas >= m.cancel_sem ? 'var(--green2)':'var(--red)'}">${m.nuevos_sem_pagas >= m.cancel_sem ? '+':'-'}${Math.abs(m.nuevos_sem_pagas - m.cancel_sem)}</div>
       <div class="p-delta ${m.nuevos_sem_pagas >= m.cancel_sem ? 'pos':'neg'}">${m.nuevos_sem_pagas >= m.cancel_sem ? '▲ Crecimiento':'▼ Pérdida neta'}</div>
       <div class="p-context">Nuevas (${m.nuevos_sem_pagas}) − Cancel. (${m.cancel_sem})</div>
+    </div>
+    <div class="p-card c-yellow">
+      <div class="p-label">Trials convertidos a pago</div>
+      <div class="p-value" style="color:var(--yellow)">${m.convertidos_sem}</div>
+      <div class="p-delta ${dConv.cls}">${dConv.txt}</div>
+      <div class="p-context">~$${m.mrr_convertidos_sem.toLocaleString('es-CO')} MRR generado<br>Conversión = trial creado hace 3 días que pagó</div>
     </div>`;
 
   // ── Bloque 2: Hallazgos ───────────────────────────
