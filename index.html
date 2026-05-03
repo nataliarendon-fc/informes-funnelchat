@@ -691,9 +691,22 @@ function calc(weekOffset) {
   const objetivo_vig     = topN(vigentes_pagas, 'Objetivo con Funnelchat');
   const exp_vig          = topN(vigentes_pagas, 'Experiencia automatizando');
 
-  const mrr_protegido_sem = Math.max(0, Math.round(
-    onb_asistio * ((avg(ltConOnb)-avg(ltSinOnb)) / Math.max(avg(ltVig)/30,1))
-  ));
+  // MRR protegido: usa tasas de retención reales, no LTV
+  // % vigentes con onboarding vs sin onboarding (solo pagas)
+  const con_onb_all  = C.filter(r => r['Onboarding']==='Con onboarding' && isPaga(r));
+  const sin_onb_all  = C.filter(r => r['Onboarding']==='Sin onboarding' && isPaga(r));
+  const ret_con_onb  = con_onb_all.length > 0
+    ? con_onb_all.filter(r => r['Vigencia del servicio']==='Vigente').length / con_onb_all.length : 0;
+  const ret_sin_onb  = sin_onb_all.length > 0
+    ? sin_onb_all.filter(r => r['Vigencia del servicio']==='Vigente').length / sin_onb_all.length : 0;
+  const ret_diff     = Math.max(0, ret_con_onb - ret_sin_onb);
+  const mrr_per_cli  = vigentes_pagas.length > 0 ? mrr_activo / vigentes_pagas.length : ARPU;
+  // Estimado: cada cliente que hace onboarding tiene ret_diff más probabilidad de quedarse
+  // × MRR promedio = MRR que se protege por asistente esta semana
+  const mrr_protegido_sem = Math.max(0, Math.round(onb_asistio * ret_diff * mrr_per_cli * 12));
+  // Also expose retention rates
+  const pct_ret_con_onb = Math.round(ret_con_onb * 100);
+  const pct_ret_sin_onb = Math.round(ret_sin_onb * 100);
 
   return {
     range,
@@ -728,7 +741,7 @@ function calc(weekOffset) {
     lt_vig_avg: avg(ltVig), lt_can_avg: avg(ltCan),
     ltv_con_onb: avg(ltConOnb), ltv_sin_onb: avg(ltSinOnb),
     trend, mrr_activo: Math.round(mrr_activo), mrr_riesgo: Math.round(mrr_riesgo),
-    mrr_protegido_sem,
+    mrr_protegido_sem, pct_ret_con_onb, pct_ret_sin_onb, ret_diff: Math.round(ret_diff*100),
     onb_propuestas, onb_agendados, onb_asistio, onb_noshow,
     onb_propuestas_mes, onb_agendados_mes,
     onb_asistio_mes_pagas, onb_asistio_mes_trial,
@@ -864,31 +877,31 @@ function render(m) {
       <div class="risk-icon">📵</div>
       <div class="risk-count">${m.sin_wa_sem}<span style="font-size:16px;font-weight:500;color:var(--muted);margin-left:6px">/ ${m.sin_wa}</span></div>
       <div class="risk-label">Sin WhatsApp conectado<br><small style="color:var(--muted)">Esta semana / total · sin API ni Business</small></div>
-      <div class="risk-mrr">${fmt$(m.mrr_sin_wa_sem)} MRR sem. · ${fmt$(m.mrr_sin_wa_tot)} total</div>
+      <div class="risk-mrr">${fmt$(m.mrr_sin_wa_sem)} MRR esta semana<small style="color:var(--muted);font-size:9px;display:block;margin-top:1px">Total acumulado: ${fmt$(m.mrr_sin_wa_tot)}</small></div>
     </div>
     <div class="risk-card">
       <div class="risk-icon">⚡</div>
       <div class="risk-count">${m.sin_flow_sem}<span style="font-size:16px;font-weight:500;color:var(--muted);margin-left:6px">/ ${m.sin_flow}</span></div>
       <div class="risk-label">Sin ningún flow activo<br><small style="color:var(--muted)">Esta semana / total · sin automatización</small></div>
-      <div class="risk-mrr">${fmt$(m.mrr_sin_flow_sem)} MRR sem. · ${fmt$(m.mrr_sin_flow_tot)} total</div>
+      <div class="risk-mrr">${fmt$(m.mrr_sin_flow_sem)} MRR esta semana<small style="color:var(--muted);font-size:9px;display:block;margin-top:1px">Total acumulado: ${fmt$(m.mrr_sin_flow_tot)}</small></div>
     </div>
     <div class="risk-card">
       <div class="risk-icon">🗂️</div>
       <div class="risk-count">${m.sin_grupos_sem}<span style="font-size:16px;font-weight:500;color:var(--muted);margin-left:6px">/ ${m.sin_grupos}</span></div>
       <div class="risk-label">Sin ningún grupo activo<br><small style="color:var(--muted)">Esta semana / total · grupos en 0</small></div>
-      <div class="risk-mrr">${fmt$(m.mrr_sin_grupos_sem)} MRR sem. · ${fmt$(m.mrr_sin_grupos_tot)} total</div>
+      <div class="risk-mrr">${fmt$(m.mrr_sin_grupos_sem)} MRR esta semana<small style="color:var(--muted);font-size:9px;display:block;margin-top:1px">Total acumulado: ${fmt$(m.mrr_sin_grupos_tot)}</small></div>
     </div>
     <div class="risk-card moderate">
       <div class="risk-icon">😴</div>
       <div class="risk-count">${m.sin_login_sem}<span style="font-size:16px;font-weight:500;color:var(--muted);margin-left:6px">/ ${m.sin_login}</span></div>
       <div class="risk-label">Inactividad reciente<br><small style="color:var(--muted)">Nuevas inactivas esta sem. / sin login +14d</small></div>
-      <div class="risk-mrr">${fmt$(m.mrr_sin_login_sem)} MRR sem. · ${fmt$(m.mrr_sin_login_tot)} total</div>
+      <div class="risk-mrr">${fmt$(m.mrr_sin_login_sem)} MRR esta semana<small style="color:var(--muted);font-size:9px;display:block;margin-top:1px">Total acumulado: ${fmt$(m.mrr_sin_login_tot)}</small></div>
     </div>
     <div class="risk-card low">
       <div class="risk-icon">🎓</div>
       <div class="risk-count">${m.sin_onb_sem}<span style="font-size:16px;font-weight:500;color:var(--muted);margin-left:6px">/ ${m.sin_onb_vig}</span></div>
       <div class="risk-label">Sin onboarding<br><small style="color:var(--muted)">Esta semana / total activas sin capacitar</small></div>
-      <div class="risk-mrr">${fmt$(m.mrr_sin_onb_sem)} MRR sem. · ${fmt$(m.mrr_sin_onb_tot)} total</div>
+      <div class="risk-mrr">${fmt$(m.mrr_sin_onb_sem)} MRR esta semana<small style="color:var(--muted);font-size:9px;display:block;margin-top:1px">Total acumulado: ${fmt$(m.mrr_sin_onb_tot)}</small></div>
     </div>`;
 
   // Churn chart by plan
@@ -923,10 +936,9 @@ function render(m) {
   // Derived onboarding metrics
   const onb_conv_rate = m.onb_agendados > 0
     ? Math.round(m.onb_asistio / m.onb_agendados * 100) : 0;
-  const ltv_diff = m.ltv_con_onb - m.ltv_sin_onb;
-  const ltv_note = m.ltv_con_onb > 0
-    ? `LTV con ONB: $${m.ltv_con_onb} · sin ONB: $${m.ltv_sin_onb} (+$${ltv_diff})`
-    : 'LTV: calculando — verificar columna LTV en tabla de cuentas';
+  const ltv_note = m.ret_diff > 0
+    ? `Retención con ONB: ${m.pct_ret_con_onb}% vs sin ONB: ${m.pct_ret_sin_onb}% (+${m.ret_diff}pp)`
+    : `LTV con ONB: $${m.ltv_con_onb} · sin ONB: $${m.ltv_sin_onb}`;
 
   document.getElementById('accionesBody').innerHTML = `
     <tr>
@@ -990,13 +1002,11 @@ function render(m) {
     </tr>`;
 
   // MRR protegido: diferencia LTV × asistentes / meses promedio de vida
-  const lt_months = Math.max(m.lt_vig_avg / 30, 1);
-  const mrr_prot_calc = m.ltv_con_onb > 0 && m.ltv_sin_onb >= 0
-    ? Math.round(m.onb_asistio * (m.ltv_con_onb - m.ltv_sin_onb) / lt_months)
-    : 0;
-  const mrr_prot_note = m.ltv_con_onb === 0
-    ? 'LTV pendiente de verificar en tabla'
-    : `${m.onb_asistio} asist. × $${m.ltv_con_onb - m.ltv_sin_onb} diff LTV / ${lt_months.toFixed(1)} meses`;
+  // MRR protegido basado en tasas de retención reales
+  const mrr_prot_calc = m.mrr_protegido_sem || 0;
+  const mrr_prot_note = m.ret_diff > 0
+    ? `${m.onb_asistio} asist. × ${m.ret_diff}pp retención extra × MRR prom. (retención con ONB: ${m.pct_ret_con_onb}% vs sin ONB: ${m.pct_ret_sin_onb}%)`
+    : 'Calculando — verificar que haya cuentas con y sin onboarding en la tabla';
 
   document.getElementById('acumFinanciero').innerHTML = `
     <div class="acum">
