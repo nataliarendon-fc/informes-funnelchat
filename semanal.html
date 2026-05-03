@@ -100,6 +100,8 @@ body{background:var(--navy);color:var(--text);font-family:'DM Sans',sans-serif;f
 .risk-card{background:rgba(248,113,113,.06);border:1px solid rgba(248,113,113,.2);border-radius:12px;padding:16px}
 .risk-card.moderate{background:rgba(251,146,60,.06);border-color:rgba(251,146,60,.2)}
 .risk-card.low{background:rgba(251,191,36,.06);border-color:rgba(251,191,36,.2)}
+.risk-dl-btn{margin-top:8px;width:100%;padding:5px 0;font-size:10px;font-weight:600;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-radius:6px;color:var(--muted);cursor:pointer;font-family:'DM Sans',sans-serif;transition:all .15s}
+.risk-dl-btn:hover{background:rgba(45,212,191,.15);color:var(--teal);border-color:rgba(45,212,191,.3)}
 .risk-icon{font-size:20px;margin-bottom:6px}
 .risk-count{font-family:'Syne',sans-serif;font-size:28px;font-weight:800;color:var(--red);line-height:1}
 .risk-card.moderate .risk-count{color:var(--orange)}
@@ -252,6 +254,24 @@ body{background:var(--navy);color:var(--text);font-family:'DM Sans',sans-serif;f
     </div>
   </div>
 
+  <!-- ═══ BLOQUE 2B: RAZONES DE CANCELACIÓN ═══ -->
+  <div class="block">
+    <div class="sec-label"><span class="sec-num">02b</span> Razones de cancelación <span class="sec-desc">· Desde encuesta · semana seleccionada</span></div>
+    <div class="two-col">
+      <div class="card">
+        <div class="chart-title" style="margin-bottom:4px">Motivos esta semana</div>
+        <div class="chart-sub" id="motivosSubSem">—</div>
+        <div id="motivosBarsSem" style="margin-top:10px"></div>
+        <div class="insight" id="motivosInsightSem"></div>
+      </div>
+      <div class="card">
+        <div class="chart-title" style="margin-bottom:4px">Comparativa vs semana anterior</div>
+        <div class="chart-sub">Posición y conteo de cada motivo</div>
+        <div id="motivosCompSem" style="margin-top:10px"></div>
+      </div>
+    </div>
+  </div>
+
   <!-- ═══ BLOQUE 3: ANÁLISIS DE RIESGO ═══ -->
   <div class="block">
     <div class="sec-label">
@@ -323,7 +343,7 @@ body{background:var(--navy);color:var(--text);font-family:'DM Sans',sans-serif;f
 // ══════════════════════════════════════════════════════
 const API_URL = 'https://script.google.com/macros/s/AKfycbwNp-Hnmi1imEggg6Qz7xRP_fR57ZvcQb9hFR2WUPn1c-BdsN23x2vrnlU5zY6Rydrlng/exec';
 const ARPU = 69;
-let RAW = { cuentas: [], onboarding: [], sesiones: [], embudos: [] };
+let RAW = { cuentas: [], onboarding: [], sesiones: [], embudos: [], cancelaciones: [] };
 let currentWeekOffset = 0;
 let charts = {};
 
@@ -435,6 +455,8 @@ async function loadAll() {
   RAW.cuentas    = (json.cuentas    || []).filter(r => Object.keys(r).length > 1);
   RAW.onboarding = (json.onboarding || []).filter(r => Object.keys(r).length > 0);
   RAW.sesiones   = (json.sesiones   || []).filter(r => Object.keys(r).length > 0);
+  RAW.embudos       = (json.embudos       || []).filter(r => Object.keys(r).length > 0);
+  RAW.cancelaciones = (json.cancelaciones || []).filter(r => Object.keys(r).length > 0);
 
   if (!RAW.cuentas.length) throw new Error(
     'La hoja de cuentas llegó vacía. Verifica que el gid 129732116 corresponde a la pestaña correcta y que el Apps Script fue redesplegado.'
@@ -542,6 +564,24 @@ function calc(weekOffset) {
   const sin_wa      = vigentes_pagas.filter(r => (r['Usa API']||'').includes('No usa') && (r['Usa Business']||'').includes('No usa'));
   const sin_login   = vigentes_pagas.filter(r => { const ll=parseISO(r['last_login_at']); return !ll || (new Date()-ll)/86400000>14; });
   const sin_onb_vig = vigentes_pagas.filter(r => r['Onboarding']==='Sin onboarding');
+
+  // Export data for CSV download
+  const exportCols = ['id','country_name','Planes Funnelchat','payment_type','payment_amount',
+    'last_login_at','created_at','Tipo de negocio','Objetivo con Funnelchat','Onboarding','Sesiones en vivo'];
+  const toExport = (arr, tag) => arr.map(r => {
+    const ca = getCreatedAt(r);
+    const esPrioritaria = ca && inRange(ca, range) ? 'Sí' : 'No';
+    const row = { Señal: tag, Prioritaria: esPrioritaria };
+    exportCols.forEach(c => { row[c] = r[c]||''; });
+    return row;
+  });
+  const exportData = {
+    sinWa:     toExport(sin_wa,     'Sin WA conectado'),
+    sinFlow:   toExport(sin_flow,   'Sin flow activo'),
+    sinGrupos: toExport(sin_grupos, 'Sin grupos activos'),
+    sinLogin:  toExport(sin_login,  'Sin login +14 días'),
+    sinOnb:    toExport(sin_onb_vig,'Sin onboarding'),
+  };
 
   // Risk signals — SEMANA (cuentas creadas esta semana con señal de riesgo)
   const nuevos_vig_sem = vigentes_pagas.filter(r => inRange(getCreatedAt(r), range));
@@ -672,6 +712,35 @@ function calc(weekOffset) {
   const ses_fechas     = new Set(ses_sem.map(r => r['FECHA ATENCIÓN']));
   const ses_asist_mes  = S.filter(r => { const d=parseSlash(r['FECHA ATENCIÓN']); return d&&d>=monthStart&&d<=monthEnd&&(r['Asistio?']==='1'||r['Asistio?']===1); }).length;
 
+  // ── Motivos de cancelación — desde tabla cancelaciones ──
+  const cancelSurveySem = RAW.cancelaciones.filter(r => {
+    const fecha = parseISO(r['created_at']);
+    return fecha && inRange(fecha, range);
+  });
+  const motivoMap = {};
+  cancelSurveySem.forEach(r => {
+    const mv = (r['Macromotivo']||'').toString().trim();
+    if (mv && mv !== 'NA' && mv !== '') motivoMap[mv] = (motivoMap[mv]||0) + 1;
+  });
+  const motivosSem = Object.entries(motivoMap)
+    .sort((a,b) => b[1]-a[1]).slice(0,6)
+    .map(([label,count]) => ({ label, count }));
+
+  // Previous week motivos
+  const prevRangeMotivos = getWeekRange(weekOffset - 1);
+  const cancelSurveyPrev = RAW.cancelaciones.filter(r => {
+    const fecha = parseISO(r['created_at']);
+    return fecha && inRange(fecha, prevRangeMotivos);
+  });
+  const motivoMapPrev = {};
+  cancelSurveyPrev.forEach(r => {
+    const mv = (r['Macromotivo']||'').toString().trim();
+    if (mv && mv !== 'NA' && mv !== '') motivoMapPrev[mv] = (motivoMapPrev[mv]||0) + 1;
+  });
+  const motivosPrev = Object.entries(motivoMapPrev)
+    .sort((a,b) => b[1]-a[1]).slice(0,6)
+    .map(([label,count]) => ({ label, count }));
+
   // Previous week deltas
   const prevRange      = getWeekRange(weekOffset - 1);
   const prev_nuevos      = C.filter(r => inRange(getCreatedAt(r),prevRange)&&isPaga(r)).length;
@@ -801,6 +870,7 @@ function calc(weekOffset) {
     convertidos_sem: convertidos_sem.length,
     mrr_convertidos_sem: Math.round(convertidos_sem.reduce((s,r)=>s+getMonthlyMRR(r),0)),
     cancel_sem: cancel_sem.length,
+    exportData,
     sin_flow: sin_flow.length, sin_grupos: sin_grupos.length,
     sin_wa: sin_wa.length, sin_login: sin_login.length, sin_onb_vig: sin_onb_vig.length,
     sin_wa_sem: sin_wa_sem.length, sin_flow_sem: sin_flow_sem.length,
@@ -849,6 +919,7 @@ function calc(weekOffset) {
     // week hallazgos trial
     wct_pct_sin_onb: pct(wct_sin_onb,canST), wct_pct_sin_flow: pct(wct_sin_flow,canST),
     wct_pct_sin_wa:  pct(wct_sin_wa,canST),  wct_pct_sin_grupos: pct(wct_sin_grupos,canST),
+    motivosSem, motivosPrev, motivosSemN: cancelSurveySem.length,
     nicho_cancel_pagas, nicho_avg6m_pagas, objetivo_cancel, objetivo_avg6m,
     exp_cancel, exp_avg6m, nicho_cancel_trial, nicho_avg6m_trial,
     objetivo_cancel_trial, objetivo_avg6m_trial, exp_cancel_trial, exp_avg6m_trial,
@@ -931,6 +1002,7 @@ function render(m) {
   // ── Bloque 2: Hallazgos ───────────────────────────
   // Store metrics globally so toggle functions can access them
   window._metrics = m;
+  renderMotivosSem(m);
   window._hallazgoMode = window._hallazgoMode || 'pagas';
   renderHallazgoBars(window._hallazgoMode);
 
@@ -967,37 +1039,21 @@ function render(m) {
   // ── Bloque 3: Riesgo ─────────────────────────────
   // Helper: MRR label using real MRR / total vigentes ratio as proxy
   const fmt$ = n => '$' + (n||0).toLocaleString('es-CO');
-  document.getElementById('riskGrid').innerHTML = `
-    <div class="risk-card">
-      <div class="risk-icon">📵</div>
-      <div class="risk-count">${m.sin_wa_sem}<span style="font-size:16px;font-weight:500;color:var(--muted);margin-left:6px">/ ${m.sin_wa}</span></div>
-      <div class="risk-label">Sin WhatsApp conectado<br><small style="color:var(--muted)">Esta semana / total · sin API ni Business</small></div>
-      <div class="risk-mrr">${fmt$(m.mrr_sin_wa_sem)} MRR esta semana<small style="color:var(--muted);font-size:9px;display:block;margin-top:1px">Total acumulado: ${fmt$(m.mrr_sin_wa_tot)}</small></div>
-    </div>
-    <div class="risk-card">
-      <div class="risk-icon">⚡</div>
-      <div class="risk-count">${m.sin_flow_sem}<span style="font-size:16px;font-weight:500;color:var(--muted);margin-left:6px">/ ${m.sin_flow}</span></div>
-      <div class="risk-label">Sin ningún flow activo<br><small style="color:var(--muted)">Esta semana / total · sin automatización</small></div>
-      <div class="risk-mrr">${fmt$(m.mrr_sin_flow_sem)} MRR esta semana<small style="color:var(--muted);font-size:9px;display:block;margin-top:1px">Total acumulado: ${fmt$(m.mrr_sin_flow_tot)}</small></div>
-    </div>
-    <div class="risk-card">
-      <div class="risk-icon">🗂️</div>
-      <div class="risk-count">${m.sin_grupos_sem}<span style="font-size:16px;font-weight:500;color:var(--muted);margin-left:6px">/ ${m.sin_grupos}</span></div>
-      <div class="risk-label">Sin ningún grupo activo<br><small style="color:var(--muted)">Esta semana / total · grupos en 0</small></div>
-      <div class="risk-mrr">${fmt$(m.mrr_sin_grupos_sem)} MRR esta semana<small style="color:var(--muted);font-size:9px;display:block;margin-top:1px">Total acumulado: ${fmt$(m.mrr_sin_grupos_tot)}</small></div>
-    </div>
-    <div class="risk-card moderate">
-      <div class="risk-icon">😴</div>
-      <div class="risk-count">${m.sin_login_sem}<span style="font-size:16px;font-weight:500;color:var(--muted);margin-left:6px">/ ${m.sin_login}</span></div>
-      <div class="risk-label">Inactividad reciente<br><small style="color:var(--muted)">Nuevas inactivas esta sem. / sin login +14d</small></div>
-      <div class="risk-mrr">${fmt$(m.mrr_sin_login_sem)} MRR esta semana<small style="color:var(--muted);font-size:9px;display:block;margin-top:1px">Total acumulado: ${fmt$(m.mrr_sin_login_tot)}</small></div>
-    </div>
-    <div class="risk-card low">
-      <div class="risk-icon">🎓</div>
-      <div class="risk-count">${m.sin_onb_sem}<span style="font-size:16px;font-weight:500;color:var(--muted);margin-left:6px">/ ${m.sin_onb_vig}</span></div>
-      <div class="risk-label">Sin onboarding<br><small style="color:var(--muted)">Esta semana / total activas sin capacitar</small></div>
-      <div class="risk-mrr">${fmt$(m.mrr_sin_onb_sem)} MRR esta semana<small style="color:var(--muted);font-size:9px;display:block;margin-top:1px">Total acumulado: ${fmt$(m.mrr_sin_onb_tot)}</small></div>
-    </div>`;
+  const riskCards = [
+    {icon:'📵', key:'sinWa',     sem:m.sin_wa_sem,     tot:m.sin_wa,      mrrS:m.mrr_sin_wa_sem,     mrrT:m.mrr_sin_wa_tot,     label:'Sin WA conectado',   sub:'sin API ni Business',   cls:''},
+    {icon:'⚡', key:'sinFlow',   sem:m.sin_flow_sem,   tot:m.sin_flow,    mrrS:m.mrr_sin_flow_sem,   mrrT:m.mrr_sin_flow_tot,   label:'Sin flow activo',    sub:'sin automatización',    cls:''},
+    {icon:'🗂️', key:'sinGrupos', sem:m.sin_grupos_sem, tot:m.sin_grupos,  mrrS:m.mrr_sin_grupos_sem, mrrT:m.mrr_sin_grupos_tot, label:'Sin grupos activos', sub:'grupos en 0',           cls:''},
+    {icon:'😴', key:'sinLogin',  sem:m.sin_login_sem,  tot:m.sin_login,   mrrS:m.mrr_sin_login_sem,  mrrT:m.mrr_sin_login_tot,  label:'Sin login +14d',     sub:'nueva inactividad/tot', cls:'moderate'},
+    {icon:'🎓', key:'sinOnb',    sem:m.sin_onb_sem,    tot:m.sin_onb_vig, mrrS:m.mrr_sin_onb_sem,    mrrT:m.mrr_sin_onb_tot,    label:'Sin onboarding',     sub:'esta sem. / total',     cls:'low'},
+  ];
+  document.getElementById('riskGrid').innerHTML = riskCards.map(r => `
+    <div class="risk-card ${r.cls}">
+      <div class="risk-icon">${r.icon}</div>
+      <div class="risk-count">${r.sem}<span style="font-size:16px;font-weight:500;color:var(--muted);margin-left:6px">/ ${r.tot}</span></div>
+      <div class="risk-label">${r.label}<br><small style="color:var(--muted)">${r.sub}</small></div>
+      <div class="risk-mrr">${fmt$(r.mrrS)} MRR esta semana<small style="color:var(--muted);font-size:9px;display:block;margin-top:1px">Total: ${fmt$(r.mrrT)}</small></div>
+      <button class="risk-dl-btn" onclick="downloadRiskCSV('${r.key}','${r.label}')">↓ Descargar (${r.tot})</button>
+    </div>`).join('');
 
   // Churn chart by plan
   destroyChart('churnChart');
@@ -1281,6 +1337,86 @@ function impactTable(title, labelA, labelB, data, color) {
       ${data.histConN?` · (histórico: con ${data.histConN}, sin ${data.histSinN})`:''}
     </div>
   </div>`;
+}
+
+// ══════════════════════════════════════════════════════
+// MOTIVOS RENDER
+// ══════════════════════════════════════════════════════
+function renderMotivosSem(m) {
+  const subEl  = document.getElementById('motivosSubSem');
+  const barsEl = document.getElementById('motivosBarsSem');
+  const insEl  = document.getElementById('motivosInsightSem');
+  const compEl = document.getElementById('motivosCompSem');
+  if (!barsEl) return;
+
+  const total = m.motivosSemN || 0;
+  if (subEl) subEl.textContent = total + ' respuestas esta semana' +
+    (m.cancel_sem > 0 ? ' · ' + Math.round(total/m.cancel_sem*100) + '% tasa de respuesta' : '');
+
+  if (!m.motivosSem || m.motivosSem.length === 0) {
+    barsEl.innerHTML = '<div style="color:var(--muted);font-size:12px;padding:8px 0">Sin respuestas de encuesta esta semana</div>';
+    if (insEl) insEl.innerHTML = 'Sin datos de motivos para esta semana.';
+    if (compEl) compEl.innerHTML = '';
+    return;
+  }
+
+  const colors = ['var(--red)','var(--orange)','var(--yellow)','var(--blue)','var(--purple)','var(--teal)'];
+  const maxC = m.motivosSem[0].count;
+  barsEl.innerHTML = m.motivosSem.map((mo, i) => `
+    <div style="margin-bottom:10px">
+      <div style="display:flex;justify-content:space-between;margin-bottom:3px">
+        <span style="font-size:11px;color:var(--muted);max-width:200px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${mo.label}">${mo.label}</span>
+        <span style="font-size:11px;font-weight:700;color:${colors[i%colors.length]}">${mo.count} · ${Math.round(mo.count/(total||1)*100)}%</span>
+      </div>
+      <div style="height:7px;background:rgba(255,255,255,.05);border-radius:4px;overflow:hidden">
+        <div style="width:${Math.round(mo.count/maxC*100)}%;height:100%;background:${colors[i%colors.length]};border-radius:4px"></div>
+      </div>
+    </div>`).join('');
+
+  if (insEl) insEl.innerHTML = `Motivo principal: <strong>${m.motivosSem[0].label}</strong> (${m.motivosSem[0].count} casos). ${total < m.cancel_sem * 0.3 ? 'Solo el '+Math.round(total/(m.cancel_sem||1)*100)+'% de cancelados respondió.' : ''}`;
+
+  // Comparison with previous week
+  if (compEl) {
+    const allLabels = [...new Set([...m.motivosSem.map(d=>d.label), ...m.motivosPrev.map(d=>d.label)])];
+    compEl.innerHTML = allLabels.slice(0,6).map(lbl => {
+      const c = m.motivosSem.find(d=>d.label===lbl);
+      const p = m.motivosPrev.find(d=>d.label===lbl);
+      const cv = c?.count||0, pv = p?.count||0;
+      const diff = cv - pv;
+      const dColor = diff===0?'var(--muted)':diff>0?'var(--red)':'var(--green2)';
+      const dTxt = diff===0?'= igual':diff>0?`▲ +${diff}`:`▼ ${diff}`;
+      return `<div style="display:flex;align-items:center;justify-content:space-between;padding:7px 0;border-bottom:1px solid var(--border)">
+        <span style="font-size:11px;color:var(--muted);flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-right:8px" title="${lbl}">${lbl}</span>
+        <span style="font-size:11px;font-weight:700;color:var(--text);margin-right:8px">${cv}</span>
+        <span style="font-size:10px;font-weight:600;color:${dColor};min-width:60px;text-align:right">${dTxt} vs s.a.</span>
+      </div>`;
+    }).join('');
+  }
+}
+
+// ══════════════════════════════════════════════════════
+// DOWNLOAD CSV — RISK GROUPS
+// ══════════════════════════════════════════════════════
+function downloadRiskCSV(key, label) {
+  const m = window._metrics;
+  if (!m || !m.exportData || !m.exportData[key]) return;
+  const rows = m.exportData[key];
+  if (!rows.length) { alert('Sin cuentas en esta categoría'); return; }
+  const headers = Object.keys(rows[0]);
+  const csv = [
+    headers.join(','),
+    ...rows.map(r => headers.map(h => {
+      const val = (r[h]||'').toString().replace(/"/g,'""');
+      return val.includes(',') || val.includes('"') ? '"' + val + '"' : val;
+    }).join(','))
+  ].join('\n');
+  const blob = new Blob(['\uFEFF' + csv], {type:'text/csv;charset=utf-8;'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'funnelchat_riesgo_' + key + '_' + new Date().toISOString().slice(0,10) + '.csv';
+  a.click();
+  URL.revokeObjectURL(url);
 }
 
 // ══════════════════════════════════════════════════════
