@@ -704,7 +704,9 @@ function calcMonth(off){
   const exportCols=['id','country_name','Planes Funnelchat','payment_type','payment_amount',
     'last_login_at','created_at','Tipo de negocio','Objetivo con Funnelchat','Onboarding','Sesiones en vivo'];
   const toExport=(arr,tag)=>arr.map(r=>{
-    const row={Señal:tag};
+    const ca=getCA(r);
+    const esPrioritaria=ca&&inRange(ca,range)?'Sí':'No';
+    const row={Señal:tag, Prioritaria:esPrioritaria};
     exportCols.forEach(c=>{row[c]=r[c]||'';});
     return row;
   });
