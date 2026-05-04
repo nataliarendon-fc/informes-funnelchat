@@ -559,9 +559,9 @@ function calc(weekOffset) {
   const mrr_riesgo = atrasados_pagas.reduce((s,r) => s + getMonthlyMRR(r), 0);
 
   // Risk signals (vigentes pagas only) — total acumulado
-  const sin_flow    = vigentes_pagas.filter(r => r['Usa Flow 6']==='0' || r['Usa Flow 6']===0);
-  const sin_grupos  = vigentes_pagas.filter(r => r['Usa grupos 5']==='0' || r['Usa grupos 5']===0);
-  const sin_wa      = vigentes_pagas.filter(r => (r['Usa API']||'').includes('No usa') && (r['Usa Business']||'').includes('No usa'));
+  const sin_flow    = vigentes_pagas.filter(r => r['Usa flows']==='0' || r['Usa flows']===0);
+  const sin_grupos  = vigentes_pagas.filter(r => r['Usa grupos?']==='0' || r['Usa grupos?']===0);
+  const sin_wa      = vigentes_pagas.filter(r => (r['Usa API?']||'')!=='Sí'&&(r['Usa Business?']||'')!=='Sí');
   const sin_login   = vigentes_pagas.filter(r => { const ll=parseISO(r['last_login_at']); return !ll || (new Date()-ll)/86400000>14; });
   const sin_onb_vig = vigentes_pagas.filter(r => r['Onboarding']==='Sin onboarding');
 
@@ -585,9 +585,9 @@ function calc(weekOffset) {
 
   // Risk signals — SEMANA (cuentas creadas esta semana con señal de riesgo)
   const nuevos_vig_sem = vigentes_pagas.filter(r => inRange(getCreatedAt(r), range));
-  const sin_wa_sem     = nuevos_vig_sem.filter(r => (r['Usa API']||'').includes('No usa') && (r['Usa Business']||'').includes('No usa'));
-  const sin_flow_sem   = nuevos_vig_sem.filter(r => r['Usa Flow 6']==='0' || r['Usa Flow 6']===0);
-  const sin_grupos_sem = nuevos_vig_sem.filter(r => r['Usa grupos 5']==='0' || r['Usa grupos 5']===0);
+  const sin_wa_sem     = nuevos_vig_sem.filter(r => (r['Usa API?']||'')!=='Sí'&&(r['Usa Business?']||'')!=='Sí');
+  const sin_flow_sem   = nuevos_vig_sem.filter(r => r['Usa flows']==='0' || r['Usa flows']===0);
+  const sin_grupos_sem = nuevos_vig_sem.filter(r => r['Usa grupos?']==='0' || r['Usa grupos?']===0);
   // sin_login semanal: cuentas cuyo last_login cayó en la ventana de 14-21 días (se volvieron inactivas esta semana)
   const sin_login_sem  = vigentes_pagas.filter(r => {
     const ll = parseISO(r['last_login_at']);
@@ -603,18 +603,18 @@ function calc(weekOffset) {
   // Hallazgos pagas
   const canP = cancel_pagas.length || 1;
   const cp_sin_onb    = cancel_pagas.filter(r => r['Onboarding']==='Sin onboarding').length;
-  const cp_sin_flow   = cancel_pagas.filter(r => r['Usa Flow 6']==='0'||r['Usa Flow 6']===0).length;
-  const cp_sin_wa     = cancel_pagas.filter(r => (r['Usa API']||'').includes('No usa')&&(r['Usa Business']||'').includes('No usa')).length;
+  const cp_sin_flow   = cancel_pagas.filter(r => r['Usa flows']==='0'||r['Usa flows']===0).length;
+  const cp_sin_wa     = cancel_pagas.filter(r => (r['Usa API?']||'')!=='Sí'&&(r['Usa Business?']||'')!=='Sí').length;
   const cp_sin_ses    = cancel_pagas.filter(r => r['Sesiones en vivo']==='No asistió').length;
   const cp_sin_trial  = cancel_pagas.filter(r => (r['flow trial']||'').includes('No pasó')).length;
-  const cp_sin_grupos = cancel_pagas.filter(r => r['Usa grupos 5']==='0'||r['Usa grupos 5']===0).length;
+  const cp_sin_grupos = cancel_pagas.filter(r => r['Usa grupos?']==='0'||r['Usa grupos?']===0).length;
 
   // Hallazgos trial
   const canT = cancel_trial.length || 1;
   const ct_sin_onb    = cancel_trial.filter(r => r['Onboarding']==='Sin onboarding').length;
-  const ct_sin_flow   = cancel_trial.filter(r => r['Usa Flow 6']==='0'||r['Usa Flow 6']===0).length;
-  const ct_sin_wa     = cancel_trial.filter(r => (r['Usa API']||'').includes('No usa')&&(r['Usa Business']||'').includes('No usa')).length;
-  const ct_sin_grupos = cancel_trial.filter(r => r['Usa grupos 5']==='0'||r['Usa grupos 5']===0).length;
+  const ct_sin_flow   = cancel_trial.filter(r => r['Usa flows']==='0'||r['Usa flows']===0).length;
+  const ct_sin_wa     = cancel_trial.filter(r => (r['Usa API?']||'')!=='Sí'&&(r['Usa Business?']||'')!=='Sí').length;
+  const ct_sin_grupos = cancel_trial.filter(r => r['Usa grupos?']==='0'||r['Usa grupos?']===0).length;
 
   // LT (días) — pagas only
   const parseLT = r => { const v = parseFloat((r['LT']||'0').toString()); return isNaN(v) ? 0 : v; };
@@ -774,18 +774,18 @@ function calc(weekOffset) {
   // Week hallazgos (pagas)
   const canSP = cancel_sem_pagas.length || 1;
   const wcp_sin_onb    = cancel_sem_pagas.filter(r => r['Onboarding']==='Sin onboarding').length;
-  const wcp_sin_flow   = cancel_sem_pagas.filter(r => r['Usa Flow 6']==='0'||r['Usa Flow 6']===0).length;
-  const wcp_sin_wa     = cancel_sem_pagas.filter(r => (r['Usa API']||'').includes('No usa')&&(r['Usa Business']||'').includes('No usa')).length;
+  const wcp_sin_flow   = cancel_sem_pagas.filter(r => r['Usa flows']==='0'||r['Usa flows']===0).length;
+  const wcp_sin_wa     = cancel_sem_pagas.filter(r => (r['Usa API?']||'')!=='Sí'&&(r['Usa Business?']||'')!=='Sí').length;
   const wcp_sin_ses    = cancel_sem_pagas.filter(r => r['Sesiones en vivo']==='No asistió').length;
   const wcp_sin_trial  = cancel_sem_pagas.filter(r => (r['flow trial']||'').includes('No pasó')).length;
-  const wcp_sin_grupos = cancel_sem_pagas.filter(r => r['Usa grupos 5']==='0'||r['Usa grupos 5']===0).length;
+  const wcp_sin_grupos = cancel_sem_pagas.filter(r => r['Usa grupos?']==='0'||r['Usa grupos?']===0).length;
 
   // Week hallazgos (trial)
   const canST = cancel_sem_trial.length || 1;
   const wct_sin_onb    = cancel_sem_trial.filter(r => r['Onboarding']==='Sin onboarding').length;
-  const wct_sin_flow   = cancel_sem_trial.filter(r => r['Usa Flow 6']==='0'||r['Usa Flow 6']===0).length;
-  const wct_sin_wa     = cancel_sem_trial.filter(r => (r['Usa API']||'').includes('No usa')&&(r['Usa Business']||'').includes('No usa')).length;
-  const wct_sin_grupos = cancel_sem_trial.filter(r => r['Usa grupos 5']==='0'||r['Usa grupos 5']===0).length;
+  const wct_sin_flow   = cancel_sem_trial.filter(r => r['Usa flows']==='0'||r['Usa flows']===0).length;
+  const wct_sin_wa     = cancel_sem_trial.filter(r => (r['Usa API?']||'')!=='Sí'&&(r['Usa Business?']||'')!=='Sí').length;
+  const wct_sin_grupos = cancel_sem_trial.filter(r => r['Usa grupos?']==='0'||r['Usa grupos?']===0).length;
 
   // Nicho / objetivo / experiencia — semana vs promedio 6 meses
   const nicho_cancel_pagas    = topN(cancel_sem_pagas, 'Tipo de negocio');

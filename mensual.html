@@ -486,10 +486,10 @@ function calcMonth(off){
   // Perfil cancelados
   const cm=cancelMes.length||1;
   const cp_sin_onb=pct(cancelMes.filter(r=>r['Onboarding']==='Sin onboarding').length,cm);
-  const cp_sin_flow=pct(cancelMes.filter(r=>r['Usa Flow 6']==='0'||r['Usa Flow 6']===0).length,cm);
-  const cp_sin_wa=pct(cancelMes.filter(r=>(r['Usa API']||'').includes('No usa')&&(r['Usa Business']||'').includes('No usa')).length,cm);
+  const cp_sin_flow=pct(cancelMes.filter(r=>r['Usa flows']==='0'||r['Usa flows']===0).length,cm);
+  const cp_sin_wa=pct(cancelMes.filter(r=>(r['Usa API?']||'')!=='Sí'&&(r['Usa Business?']||'')!=='Sí').length,cm);
   const cp_sin_ses=pct(cancelMes.filter(r=>r['Sesiones en vivo']==='No asistió').length,cm);
-  const cp_sin_grupos=pct(cancelMes.filter(r=>r['Usa grupos 5']==='0'||r['Usa grupos 5']===0).length,cm);
+  const cp_sin_grupos=pct(cancelMes.filter(r=>r['Usa grupos?']==='0'||r['Usa grupos?']===0).length,cm);
   const cp_sin_trial=pct(cancelMes.filter(r=>(r['flow trial']||'').includes('No pasó')).length,cm);
   const cp_lt_avg=avg(cancelMes.map(r=>parseFloat(r['LT']||'0')).filter(n=>n>0));
   // ── Pagas cancelados este mes ──────────────────────
@@ -531,10 +531,10 @@ function calcMonth(off){
   // ── Histórico barras perfil ─────────────────────────
   const allCm=allCancelP.length||1;
   const hist_sin_onb=pct(allCancelP.filter(r=>r['Onboarding']==='Sin onboarding').length,allCm);
-  const hist_sin_flow=pct(allCancelP.filter(r=>r['Usa Flow 6']==='0'||r['Usa Flow 6']===0).length,allCm);
-  const hist_sin_wa=pct(allCancelP.filter(r=>(r['Usa API']||'').includes('No usa')&&(r['Usa Business']||'').includes('No usa')).length,allCm);
+  const hist_sin_flow=pct(allCancelP.filter(r=>r['Usa flows']==='0'||r['Usa flows']===0).length,allCm);
+  const hist_sin_wa=pct(allCancelP.filter(r=>(r['Usa API?']||'')!=='Sí'&&(r['Usa Business?']||'')!=='Sí').length,allCm);
   const hist_sin_ses=pct(allCancelP.filter(r=>r['Sesiones en vivo']==='No asistió').length,allCm);
-  const hist_sin_grupos=pct(allCancelP.filter(r=>r['Usa grupos 5']==='0'||r['Usa grupos 5']===0).length,allCm);
+  const hist_sin_grupos=pct(allCancelP.filter(r=>r['Usa grupos?']==='0'||r['Usa grupos?']===0).length,allCm);
   const hist_sin_trial=pct(allCancelP.filter(r=>(r['flow trial']||'').includes('No pasó')).length,allCm);
 
   // ── Mes anterior comparativa ────────────────────────
@@ -694,9 +694,9 @@ function calcMonth(off){
   const sesMesActual=ses6[5];
 
   // Risk — total acumulado (vigentes pagas)
-  const sinWa=vigP.filter(r=>(r['Usa API']||'').includes('No usa')&&(r['Usa Business']||'').includes('No usa'));
-  const sinFlow=vigP.filter(r=>r['Usa Flow 6']==='0'||r['Usa Flow 6']===0);
-  const sinGrupos=vigP.filter(r=>r['Usa grupos 5']==='0'||r['Usa grupos 5']===0);
+  const sinWa=vigP.filter(r=>(r['Usa API?']||'')!=='Sí'&&(r['Usa Business?']||'')!=='Sí');
+  const sinFlow=vigP.filter(r=>r['Usa flows']==='0'||r['Usa flows']===0);
+  const sinGrupos=vigP.filter(r=>r['Usa grupos?']==='0'||r['Usa grupos?']===0);
   const sinLogin=vigP.filter(r=>{const ll=parseISO(r['last_login_at']);return!ll||(new Date()-ll)/86400000>14;});
   const sinOnb=vigP.filter(r=>r['Onboarding']==='Sin onboarding');
 
@@ -720,9 +720,9 @@ function calcMonth(off){
 
   // Risk — del período (nuevas pagas del mes con señales de riesgo)
   const nuevosMesPSet=new Set(nuevosMesP.map(r=>(r['id']||'').toString()));
-  const sinWaMes=nuevosMesP.filter(r=>(r['Usa API']||'').includes('No usa')&&(r['Usa Business']||'').includes('No usa'));
-  const sinFlowMes=nuevosMesP.filter(r=>r['Usa Flow 6']==='0'||r['Usa Flow 6']===0);
-  const sinGruposMes=nuevosMesP.filter(r=>r['Usa grupos 5']==='0'||r['Usa grupos 5']===0);
+  const sinWaMes=nuevosMesP.filter(r=>(r['Usa API?']||'')!=='Sí'&&(r['Usa Business?']||'')!=='Sí');
+  const sinFlowMes=nuevosMesP.filter(r=>r['Usa flows']==='0'||r['Usa flows']===0);
+  const sinGruposMes=nuevosMesP.filter(r=>r['Usa grupos?']==='0'||r['Usa grupos?']===0);
   const sinLoginMes=nuevosMesP.filter(r=>{const ll=parseISO(r['last_login_at']);return!ll||(new Date()-ll)/86400000>14;});
   const sinOnbMes=nuevosMesP.filter(r=>r['Onboarding']==='Sin onboarding');
 
