@@ -861,6 +861,35 @@ function calc(weekOffset) {
     );
   });
 
+  // ── Embudos calc (moved from render) ──────────────
+  const parseEmbDate = s => {
+    if (!s) return null;
+    const str = s.toString().trim();
+    if (/^[0-9]{4}-/.test(str)) { const d = new Date(str); return isNaN(d) ? null : d; }
+    const moE = {enero:0,febrero:1,marzo:2,abril:3,mayo:4,junio:5,julio:6,agosto:7,septiembre:8,octubre:9,noviembre:10,diciembre:11};
+    const lw = str.toLowerCase();
+    const parts = lw.match(/([a-záéíóú]+)\s+(\d{1,2}),\s+(\d{4})/);
+    if (parts) { const mv = moE[parts[1]]; if (mv !== undefined) return new Date(parseInt(parts[3]), mv, parseInt(parts[2])); }
+    const slash = str.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+    if (slash) return new Date(parseInt(slash[3]), parseInt(slash[2])-1, parseInt(slash[1]));
+    try { const d = new Date(str); return isNaN(d) ? null : d; } catch { return null; }
+  };
+  const flujos = ['Pago Atrasado','TRIAL SIN WA','TRIAL SIN FLOW','Cancelación'];
+  const embSem = {}, embPrev = {};
+  const acctMapEmb = {};
+  RAW.cuentas.forEach(r => { const id=(r['id']||'').toString().trim(); if(id) acctMapEmb[id]=r; });
+  flujos.forEach(f => {
+    const rows = RAW.embudos.filter(r => (r['Flujo']||'').trim() === f);
+    const semRows  = rows.filter(r => inRange(parseEmbDate(r['fecha_asignacion_etiqueta']), range));
+    const prevRows = rows.filter(r => inRange(parseEmbDate(r['fecha_asignacion_etiqueta']), getWeekRange(weekOffset - 1)));
+    const semUsers  = new Set(semRows.map(r=>(r['user_id']||'').toString()).filter(Boolean));
+    const prevUsers = new Set(prevRows.map(r=>(r['user_id']||'').toString()).filter(Boolean));
+    const vigSem = [...semUsers].filter(uid => acctMapEmb[uid]&&acctMapEmb[uid]['Vigencia del servicio']==='Vigente').length;
+    const mrrSem = Math.round([...semUsers].reduce((s,uid) => s+(acctMapEmb[uid]?getMonthlyMRR(acctMapEmb[uid]):0), 0));
+    embSem[f]  = { count: semUsers.size, vigentes: vigSem, mrr: mrrSem };
+    embPrev[f] = { count: prevUsers.size };
+  });
+
   return {
     range,
     vigentes_pagas: vigentes_pagas.length, vigentes_trial: vigentes_trial.length,
@@ -1084,49 +1113,12 @@ function render(m) {
   const cob_pct_trial = m.totalNewMonth_trial > 0
     ? Math.round(m.onb_asistio_mes_trial / m.totalNewMonth_trial * 100) : 0;
 
-  // ── Embudos ──────────────────────────────────────
-  const E = RAW.embudos;
-  const parseEmbDate = s => {
-    if (!s) return null;
-    const str = s.toString().trim();
-    if (/^[0-9]{4}-/.test(str)) { const d = new Date(str); return isNaN(d) ? null : d; }
-    const mo = {enero:0,febrero:1,marzo:2,abril:3,mayo:4,junio:5,julio:6,agosto:7,septiembre:8,octubre:9,noviembre:10,diciembre:11};
-    const lw = str.toLowerCase();
-    const parts = lw.match(/([a-záéíóú]+)\s+(\d{1,2}),\s+(\d{4})/);
-    if (parts) { const mv = mo[parts[1]]; if (mv !== undefined) return new Date(parseInt(parts[3]), mv, parseInt(parts[2])); }
-    const slash = str.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
-    if (slash) return new Date(parseInt(slash[3]), parseInt(slash[2])-1, parseInt(slash[1]));
-    try { const d = new Date(str); return isNaN(d) ? null : d; } catch { return null; }
-  };
-
-  const flujos = ['Pago Atrasado','TRIAL SIN WA','TRIAL SIN FLOW','Cancelación'];
-  const embSem = {};
-  const embPrev = {};
-  flujos.forEach(f => {
-    const rows = E.filter(r => (r['Flujo']||'').trim() === f);
-    const semRows = rows.filter(r => inRange(parseEmbDate(r['fecha_asignacion_etiqueta']), m.range));
-    const prevRows = rows.filter(r => inRange(parseEmbDate(r['fecha_asignacion_etiqueta']), getWeekRange(currentWeekOffset - 1)));
-    // Unique users
-    const semUsers = new Set(semRows.map(r=>(r['user_id']||'').toString()).filter(Boolean));
-    const prevUsers = new Set(prevRows.map(r=>(r['user_id']||'').toString()).filter(Boolean));
-    // Retention: how many impacted users are still Vigente
-    const acctMap2 = {};
-    RAW.cuentas.forEach(r => { const id=(r['id']||'').toString().trim(); if(id) acctMap2[id]=r['Vigencia del servicio']; });
-    const vigSem = [...semUsers].filter(uid => acctMap2[uid] === 'Vigente').length;
-    const mrrSem = Math.round([...semUsers].reduce((s,uid) => {
-      const acc = RAW.cuentas.find(r=>(r['id']||'').toString().trim()===uid);
-      return s + (acc ? getMonthlyMRR(acc) : 0);
-    }, 0));
-    embSem[f] = { count: semUsers.size, vigentes: vigSem, mrr: mrrSem };
-    embPrev[f] = { count: prevUsers.size };
-  });
-
-  // Build embudo rows for render
+  // ── Embudos render (data comes from calc via m) ──────
   const embColors = {'Pago Atrasado':'t-emb','TRIAL SIN WA':'t-onb','TRIAL SIN FLOW':'t-onb','Cancelación':'t-ses'};
   const embLabels = {'Pago Atrasado':'Atrasados','TRIAL SIN WA':'Trial sin WA','TRIAL SIN FLOW':'Trial sin Flow','Cancelación':'Embudo cancelación'};
   const embRows = flujos.map(f => {
-    const sem = embSem[f]||{count:0,vigentes:0,mrr:0};
-    const prev = embPrev[f]||{count:0};
+    const sem = m.embSem[f]||{count:0,vigentes:0,mrr:0};
+    const prev = m.embPrev[f]||{count:0};
     const d = sem.count - prev.count;
     const dTxt = d===0?'= igual':(d>0?`▲ +${d} vs s.a.`:`▼ ${d} vs s.a.`);
     const dCls = d===0?'delta-neu':d>0?'delta-pos':'delta-neg';
