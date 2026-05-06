@@ -996,10 +996,9 @@ function calc(weekOffset) {
         });
         weeks.push({ lbl, onbAsist, onbAgen, onbNS,
           onbNSPct: onbAgen>0?Math.round(onbNS/onbAgen*100):0,
-          cobPct: newP>0?Math.round(onbAsist/newP*100):0,
+          cobPct:   newP>0?Math.round(onbAsist/newP*100):0,
           asistPct: onbAgen>0?Math.round(onbAsist/onbAgen*100):0,
           newP, onbProp, onbRetPct, sesRetPct, embRetPct,
-          cobPct: newP>0?Math.round(onbAsist/newP*100):0, newP,
           sesAsist: sesW.length, sesSes: sesUniq,
           emb: embW });
       }
