@@ -1,0 +1,2019 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Informe Semanal · Área de Clientes · Funnelchat</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,400&display=swap" rel="stylesheet">
+<style>
+:root {
+  --navy:#0d1528; --navy2:#131e35; --navy3:#1a2744; --navy4:#1f2f52;
+  --green:#4ade80; --green2:#22c55e; --green3:#16a34a;
+  --pink:#f472b6; --orange:#fb923c; --red:#f87171; --blue:#60a5fa;
+  --yellow:#fbbf24; --purple:#a78bfa;
+  --text:#e2e8f0; --muted:#94a3b8; --border:rgba(255,255,255,0.07);
+  --card:rgba(255,255,255,0.04);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--navy);color:var(--text);font-family:'DM Sans',sans-serif;font-size:14px;line-height:1.6;min-height:100vh}
+
+/* HEADER */
+.hdr{background:linear-gradient(135deg,#0d1528,#1a2744);border-bottom:1px solid var(--border);padding:22px 44px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100}
+.logo{display:flex;align-items:center;gap:12px}
+.logo-icon{width:32px;height:32px;background:var(--green2);clip-path:polygon(50% 0%,100% 25%,100% 75%,50% 100%,0% 75%,0% 25%)}
+.logo-text{font-family:'Syne',sans-serif;font-weight:700;font-size:17px;color:#fff}
+.logo-text span{color:var(--green)}
+.hdr-right{text-align:right}
+.hdr-period{font-family:'Syne',sans-serif;font-size:12px;font-weight:700;color:var(--green);letter-spacing:.08em;text-transform:uppercase;background:rgba(74,222,128,.1);padding:5px 14px;border-radius:20px;border:1px solid rgba(74,222,128,.25)}
+.hdr-sub{font-size:11px;color:var(--muted);margin-top:4px}
+
+/* LOADING */
+.loading{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:60vh;gap:16px}
+.spinner{width:40px;height:40px;border:3px solid var(--navy3);border-top-color:var(--green2);border-radius:50%;animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.loading-text{font-family:'Syne',sans-serif;color:var(--muted);font-size:13px}
+
+/* LAYOUT */
+.main{padding:32px 44px 80px;max-width:1400px;margin:0 auto}
+.block{margin-bottom:44px}
+
+/* WEEK NAV */
+.week-nav{display:flex;align-items:center;gap:8px;margin-bottom:28px;flex-wrap:wrap}
+.wn-label{font-size:11px;color:var(--muted);letter-spacing:.06em;text-transform:uppercase;margin-right:4px}
+.wn-btn{font-size:11px;padding:5px 14px;border-radius:20px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer;font-family:'DM Sans',sans-serif;transition:all .15s}
+.wn-btn:hover{border-color:var(--green2);color:var(--green2)}
+.wn-btn.active{background:rgba(74,222,128,.15);color:var(--green2);border-color:rgba(74,222,128,.4)}
+.wn-refresh{margin-left:auto;font-size:11px;padding:5px 14px;border-radius:20px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer;font-family:'DM Sans',sans-serif;display:flex;align-items:center;gap:6px;transition:all .15s}
+.wn-refresh:hover{border-color:var(--blue);color:var(--blue)}
+
+/* SECTION LABEL */
+.sec-label{font-family:'Syne',sans-serif;font-size:10px;font-weight:700;letter-spacing:.18em;text-transform:uppercase;color:var(--muted);margin-bottom:14px;display:flex;align-items:center;gap:10px}
+.sec-label::after{content:'';flex:1;height:1px;background:var(--border)}
+.sec-num{background:var(--navy4);color:var(--green);font-size:10px;font-weight:800;padding:2px 8px;border-radius:4px}
+.sec-desc{font-size:11px;color:var(--muted);font-family:'DM Sans',sans-serif;font-weight:400;letter-spacing:0;text-transform:none}
+
+/* CARD */
+.card{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:22px 26px;transition:border-color .2s}
+.card:hover{border-color:rgba(255,255,255,.1)}
+
+/* PULSO GRID */
+.pulso-grid{display:grid;grid-template-columns:repeat(6,1fr);gap:14px}
+.p-card{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:20px 18px;position:relative;overflow:hidden;transition:all .2s}
+.p-card:hover{transform:translateY(-1px);border-color:rgba(255,255,255,.12)}
+.p-card::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;border-radius:16px 16px 0 0}
+.p-card.c-green::before{background:var(--green2)}
+.p-card.c-red::before{background:var(--red)}
+.p-card.c-orange::before{background:var(--orange)}
+.p-card.c-blue::before{background:var(--blue)}
+.p-card.c-pink::before{background:var(--pink)}
+.p-card.c-yellow::before{background:var(--yellow)}
+.p-label{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:8px}
+.p-value{font-family:'Syne',sans-serif;font-size:34px;font-weight:800;line-height:1;margin-bottom:6px}
+.p-delta{display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:500;padding:2px 9px;border-radius:20px}
+.p-delta.pos{background:rgba(34,197,94,.15);color:var(--green2)}
+.p-delta.neg{background:rgba(248,113,113,.15);color:var(--red)}
+.p-delta.neu{background:rgba(148,163,184,.12);color:var(--muted)}
+.p-context{font-size:10px;color:var(--muted);margin-top:6px;line-height:1.4}
+
+/* TWO/THREE COLS */
+.two-col{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.three-col{display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px}
+.col-4060{display:grid;grid-template-columns:1.5fr 1fr;gap:16px}
+
+/* CHART */
+.chart-title{font-family:'Syne',sans-serif;font-size:13px;font-weight:700;margin-bottom:4px;color:#fff}
+.chart-sub{font-size:11px;color:var(--muted);margin-bottom:14px}
+.chart-wrap{position:relative;height:210px}
+
+/* HALLAZGO BARS */
+.hallazgo-bars{display:flex;flex-direction:column;gap:12px;margin-top:4px}
+.h-bar-row{display:flex;align-items:center;gap:12px}
+.h-bar-label{font-size:11px;color:var(--muted);width:160px;flex-shrink:0}
+.h-bar-track{flex:1;height:8px;background:rgba(255,255,255,.06);border-radius:4px;overflow:hidden}
+.h-bar-fill{height:100%;border-radius:4px;transition:width .6s ease}
+.h-bar-pct{font-family:'Syne',sans-serif;font-size:12px;font-weight:700;width:42px;text-align:right;flex-shrink:0}
+
+/* RISK TABLE */
+.risk-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:16px}
+.risk-card{background:rgba(248,113,113,.06);border:1px solid rgba(248,113,113,.2);border-radius:12px;padding:16px}
+.risk-card.moderate{background:rgba(251,146,60,.06);border-color:rgba(251,146,60,.2)}
+.risk-card.low{background:rgba(251,191,36,.06);border-color:rgba(251,191,36,.2)}
+.risk-dl-btn{margin-top:8px;width:100%;padding:5px 0;font-size:10px;font-weight:600;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-radius:6px;color:var(--muted);cursor:pointer;font-family:'DM Sans',sans-serif;transition:all .15s}
+.risk-dl-btn:hover{background:rgba(45,212,191,.15);color:var(--teal);border-color:rgba(45,212,191,.3)}
+.risk-icon{font-size:20px;margin-bottom:6px}
+.risk-count{font-family:'Syne',sans-serif;font-size:28px;font-weight:800;color:var(--red);line-height:1}
+.risk-card.moderate .risk-count{color:var(--orange)}
+.risk-card.low .risk-count{color:var(--yellow)}
+.risk-label{font-size:11px;color:var(--muted);margin-top:4px;line-height:1.4}
+.risk-mrr{font-size:11px;font-weight:600;margin-top:6px;color:var(--red)}
+.risk-card.moderate .risk-mrr{color:var(--orange)}
+.risk-card.low .risk-mrr{color:var(--yellow)}
+
+/* ACCIONES TABLE */
+.acc-table{width:100%;border-collapse:collapse}
+.acc-table th{text-align:left;font-size:10px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);padding:0 12px 10px;border-bottom:1px solid var(--border)}
+.acc-table td{padding:13px 12px;border-bottom:1px solid var(--border);font-size:13px;vertical-align:top}
+.acc-table tr:last-child td{border-bottom:none}
+.tag{display:inline-block;font-size:10px;font-weight:600;letter-spacing:.06em;padding:2px 8px;border-radius:6px;text-transform:uppercase}
+.t-onb{background:rgba(74,222,128,.15);color:var(--green2)}
+.t-ses{background:rgba(244,114,182,.15);color:var(--pink)}
+.t-emb{background:rgba(96,165,250,.15);color:var(--blue)}
+.delta-pos{color:var(--green2);font-weight:600;font-size:12px}
+.delta-neg{color:var(--red);font-weight:600;font-size:12px}
+.delta-neu{color:var(--muted);font-size:12px}
+
+/* PLAN TABLE */
+.plan-table{width:100%;border-collapse:collapse}
+.plan-table th{text-align:left;font-size:10px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);padding:0 14px 10px;border-bottom:1px solid var(--border)}
+.plan-table td{padding:13px 14px;border-bottom:1px solid var(--border);font-size:13px;cursor:pointer}
+.plan-table td[contenteditable]:focus{outline:none;background:rgba(255,255,255,.03)}
+.plan-table tr:last-child td{border-bottom:none}
+.status-badge{display:inline-flex;align-items:center;gap:5px;font-size:10px;font-weight:600;padding:3px 10px;border-radius:20px;cursor:pointer;user-select:none;white-space:nowrap}
+.status-badge::before{content:'';width:5px;height:5px;border-radius:50%}
+.s-verde{background:rgba(34,197,94,.15);color:var(--green2)}.s-verde::before{background:var(--green2)}
+.s-amarillo{background:rgba(251,191,36,.15);color:var(--yellow)}.s-amarillo::before{background:var(--yellow)}
+.s-rojo{background:rgba(248,113,113,.15);color:var(--red)}.s-rojo::before{background:var(--red)}
+.s-gris{background:rgba(148,163,184,.12);color:var(--muted)}.s-gris::before{background:var(--muted)}
+
+/* TIPO BADGE */
+.tipo-prev{background:rgba(96,165,250,.15);color:var(--blue);display:inline-block;font-size:10px;font-weight:600;letter-spacing:.04em;padding:2px 8px;border-radius:6px;text-transform:uppercase}
+.tipo-react{background:rgba(251,146,60,.15);color:var(--orange);display:inline-block;font-size:10px;font-weight:600;letter-spacing:.04em;padding:2px 8px;border-radius:6px;text-transform:uppercase}
+
+/* INSIGHT BOX */
+.insight{background:rgba(74,222,128,.05);border:1px solid rgba(74,222,128,.15);border-radius:10px;padding:12px 16px;font-size:12px;color:var(--muted);margin-top:12px;line-height:1.6}
+.insight strong{color:var(--green2)}
+
+/* ACUM BADGES */
+.acum-row{display:flex;gap:10px;margin-top:14px;flex-wrap:wrap}
+.acum{background:var(--navy3);border:1px solid var(--border);border-radius:10px;padding:8px 14px}
+.acum .al{font-size:10px;color:var(--muted);display:block;margin-bottom:2px}
+.acum .av{font-family:'Syne',sans-serif;font-weight:700;font-size:14px}
+
+/* DATA NOTE */
+.data-note{background:rgba(96,165,250,.06);border:1px solid rgba(96,165,250,.2);border-radius:10px;padding:10px 16px;font-size:11px;color:var(--muted);margin-bottom:24px;display:flex;align-items:flex-start;gap:8px;line-height:1.5}
+.data-note span{color:var(--blue)}
+
+/* ERROR */
+.error-box{background:rgba(248,113,113,.08);border:1px solid rgba(248,113,113,.25);border-radius:12px;padding:20px 24px;margin:20px 0}
+.error-box h3{color:var(--red);font-family:'Syne',sans-serif;margin-bottom:8px}
+.error-box p{font-size:13px;color:var(--muted)}
+
+@media print{.week-nav,.data-note{display:none}.hdr{position:relative}}
+::-webkit-scrollbar{width:5px}::-webkit-scrollbar-track{background:var(--navy)}::-webkit-scrollbar-thumb{background:var(--navy4);border-radius:3px}
+</style>
+</head>
+<body>
+
+<header class="hdr">
+  <div class="logo">
+    <div class="logo-icon"></div>
+    <div><div class="logo-text">Funnel<span>chat</span></div></div>
+  </div>
+  <div class="hdr-right">
+    <div class="hdr-period" id="hdrPeriod">Cargando datos...</div>
+    <div class="hdr-sub">Informe Semanal · Área de Clientes</div>
+  </div>
+</header>
+
+<div id="loadingState" class="loading">
+  <div class="spinner"></div>
+  <div class="loading-text" id="loadingText">Conectando con Google Sheets...</div>
+  <div style="font-size:11px;color:#475569;margin-top:4px" id="loadingHint"></div>
+</div>
+
+<main id="mainContent" class="main" style="display:none">
+
+  <div class="data-note">
+    <span>ℹ</span>
+    <div>Datos cargados automáticamente desde Google Sheets. <strong style="color:var(--blue)">Los números se calculan en tiempo real</strong> al abrir el archivo. Para actualizar, recarga la página o usa el botón de refresh. El plan de acción (Bloque 5) es editable manualmente.</div>
+  </div>
+
+  <!-- WEEK SELECTOR -->
+  <div class="week-nav">
+    <span class="wn-label">Semana</span>
+    <div id="weekBtns"></div>
+    <button class="wn-refresh" onclick="location.reload()">↻ Actualizar datos</button>
+  </div>
+
+  <!-- ═══ BLOQUE 1: DATOS DUROS ═══ -->
+  <div class="block">
+    <div class="sec-label">
+      <span class="sec-num">01</span> Datos duros del negocio
+      <span class="sec-desc">· Estado actual de la base de clientes</span>
+    </div>
+    <div class="pulso-grid" id="pulsoGrid"></div>
+  </div>
+
+  <div id="trend4_s1Container" style="margin-top:12px"></div>
+
+  <!-- ═══ BLOQUE 2: HALLAZGOS ═══ -->
+  <div class="block">
+    <div class="sec-label">
+      <span class="sec-num">02</span> Hallazgos
+      <span class="sec-desc">· ¿Qué tienen en común los que cancelan?</span>
+    </div>
+    <div class="col-4060">
+      <div class="card">
+        <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:4px">
+          <div class="chart-title" style="margin-bottom:0">Perfil de cancelados — histórico total</div>
+          <div style="display:flex;gap:6px">
+            <button id="hallazgoTogglePagas" class="wn-btn active" onclick="renderHallazgoBars('pagas')">Solo pagas</button>
+            <button id="hallazgoToggleTrial" class="wn-btn" onclick="renderHallazgoBars('trial')">Solo trial</button>
+          </div>
+        </div>
+        <div class="chart-sub" id="hallazgoCount">cargando...</div>
+        <div class="hallazgo-bars" id="hallazgoBars"></div>
+        <div class="insight" id="hallazgoInsight"></div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:14px">
+        <div class="card">
+          <div class="chart-title">Nuevas vs Canceladas — últimas 5 semanas</div>
+          <div class="chart-sub">Cuentas pagas · cancelaciones aproximadas</div>
+          <div class="chart-wrap"><canvas id="tendenciaChart"></canvas></div>
+        </div>
+        <div class="card" style="padding:18px 22px">
+          <div class="chart-title" style="margin-bottom:12px">Vida promedio del cliente</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px" id="ltComparacion"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ¿Quiénes se van? — semana activa vs prom. 6m -->
+    <div style="margin-top:20px">
+      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:14px">
+        <div>
+          <div style="font-family:'Syne',sans-serif;font-size:13px;font-weight:700;color:#fff;margin-bottom:2px">¿Quiénes cancelan esta semana?</div>
+          <div style="font-size:11px;color:var(--muted)">Distribución por nicho, objetivo y experiencia · semana vs promedio 6 meses</div>
+        </div>
+        <div style="display:flex;gap:6px">
+          <button id="quienesTogglePagas" class="wn-btn active" onclick="renderQuienes('pagas')">Pagas</button>
+          <button id="quienesToggleTrial" class="wn-btn" onclick="renderQuienes('trial')">Trial</button>
+        </div>
+      </div>
+      <div class="three-col" id="quienesGrid" style="grid-template-columns:repeat(4,1fr)"></div>
+    </div>
+  </div>
+
+  <div id="trend4_s2Container" style="margin-top:12px"></div>
+
+  <!-- ═══ BLOQUE 2B: RAZONES DE CANCELACIÓN ═══ -->
+  <div class="block">
+    <div class="sec-label"><span class="sec-num">02b</span> Razones de cancelación <span class="sec-desc">· Desde encuesta · semana seleccionada</span></div>
+    <div class="two-col">
+      <div class="card">
+        <div class="chart-title" style="margin-bottom:4px">Motivos esta semana</div>
+        <div class="chart-sub" id="motivosSubSem">—</div>
+        <div id="motivosBarsSem" style="margin-top:10px"></div>
+        <div class="insight" id="motivosInsightSem"></div>
+      </div>
+      <div class="card">
+        <div class="chart-title" style="margin-bottom:4px">Comparativa vs semana anterior</div>
+        <div class="chart-sub">Posición y conteo de cada motivo</div>
+        <div id="motivosCompSem" style="margin-top:10px"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ BLOQUE 3: ANÁLISIS DE RIESGO ═══ -->
+  <div class="block">
+    <div class="sec-label">
+      <span class="sec-num">03</span> Análisis de riesgo
+      <span class="sec-desc">· Clientes activos con señales de pre-churn</span>
+    </div>
+    <div class="risk-grid" id="riskGrid"></div>
+    <div class="card">
+      <div class="chart-title" style="margin-bottom:4px">Churn semanal por plan — últimas 5 semanas</div>
+      <div class="chart-sub">Tasa de cancelación · benchmark 5%</div>
+      <div class="chart-wrap"><canvas id="churnChart"></canvas></div>
+    </div>
+  </div>
+
+  <div id="trend4_s3Container" style="margin-top:12px"></div>
+
+  <!-- ═══ BLOQUE 4: ACCIONES DE RETENCIÓN ═══ -->
+  <div class="block">
+    <div class="sec-label">
+      <span class="sec-num">04</span> Acciones de retención
+      <span class="sec-desc">· Lo que el área hizo esta semana para retener clientes</span>
+    </div>
+    <div class="card">
+      <table class="acc-table">
+        <thead>
+          <tr>
+            <th style="width:14%">Tipo</th>
+            <th style="width:26%">Acción</th>
+            <th style="width:13%">Impactados</th>
+            <th style="width:13%">vs sem. ant.</th>
+            <th style="width:13%">Acum. mes</th>
+            <th style="width:21%">Resultado / nota</th>
+          </tr>
+        </thead>
+        <tbody id="accionesBody"></tbody>
+      </table>
+      <div class="acum-row" id="acumFinanciero"></div>
+    </div>
+  </div>
+
+  <!-- ═══ BLOQUE 4B: TENDENCIA 4 SEMANAS ═══ -->
+  <div class="block">
+    <div class="sec-label"><span class="sec-num">4b</span> Tendencia de acciones — últimas 4 semanas <span class="sec-desc">· verde = mejoró · rojo = empeoró vs semana anterior</span></div>
+    <div id="tendencia4Container"></div>
+  </div>
+
+  <!-- ═══ BLOQUE 5: PLAN DE ACCIÓN ═══ -->
+  <div class="block">
+    <div class="sec-label">
+      <span class="sec-num">05</span> Plan de acción
+      <span class="sec-desc">· Preventivas + Reactivación · editable</span>
+    </div>
+    <div class="card">
+      <table class="plan-table">
+        <thead>
+          <tr>
+            <th style="width:10%">Tipo</th>
+            <th style="width:34%">Acción</th>
+            <th style="width:12%">Responsable</th>
+            <th style="width:10%">Fecha</th>
+            <th style="width:11%">Estado</th>
+            <th style="width:23%">Avance / nota</th>
+          </tr>
+        </thead>
+        <tbody id="planBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+
+
+</main>
+
+<script>
+// ══════════════════════════════════════════════════════
+// CONFIG
+// ══════════════════════════════════════════════════════
+const API_URL = 'https://script.google.com/macros/s/AKfycbwNp-Hnmi1imEggg6Qz7xRP_fR57ZvcQb9hFR2WUPn1c-BdsN23x2vrnlU5zY6Rydrlng/exec';
+const ARPU = 69;
+let RAW = { cuentas: [], onboarding: [], sesiones: [], embudos: [], cancelaciones: [] };
+let currentWeekOffset = 0;
+let charts = {};
+
+// ══════════════════════════════════════════════════════
+// DATE HELPERS
+// ══════════════════════════════════════════════════════
+function parseSpanishDate(str) {
+  if (!str || str.trim() === '') return null;
+  const m = str.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+  if (!m) return null;
+  return new Date(parseInt(m[3]), parseInt(m[2])-1, parseInt(m[1]));
+}
+function parseISO(str) {
+  // Handles multiple formats that come from Apps Script getDisplayValues()
+  if (!str || str.trim() === '') return null;
+  const s = str.toString().trim();
+
+  // ISO: 2024-09-12 or 2024-09-12T21:53:00Z
+  if (/^\d{4}-\d{2}-\d{2}/.test(s)) {
+    const d = new Date(s);
+    return isNaN(d) ? null : d;
+  }
+
+  // Spanish format: DD/MM/YYYY or D/M/YYYY (Colombian/Spanish locale)
+  const mDMY = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+  if (mDMY) {
+    const d = new Date(parseInt(mDMY[3]), parseInt(mDMY[2])-1, parseInt(mDMY[1]));
+    return isNaN(d) ? null : d;
+  }
+
+  // Spanish long: "12/09/2024, 11:59 p. m."
+  const mLong = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4}),?\s*([\d:]+)?\s*(a\.\s*m\.|p\.\s*m\.)?/i);
+  if (mLong) {
+    const d = new Date(parseInt(mLong[3]), parseInt(mLong[2])-1, parseInt(mLong[1]));
+    return isNaN(d) ? null : d;
+  }
+
+  // Last resort
+  try { const d = new Date(s); return isNaN(d) ? null : d; } catch { return null; }
+}
+function parseSlash(str) { // D/MM/YYYY or DD/MM/YYYY
+  if (!str || str.trim() === '') return null;
+  const m = str.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+  if (!m) return null;
+  return new Date(parseInt(m[3]), parseInt(m[2])-1, parseInt(m[1]));
+}
+function getWeekRange(offset = 0) {
+  const today = new Date();
+  const dow = today.getDay();
+  const mondayOff = dow === 0 ? -6 : 1 - dow;
+  const mon = new Date(today);
+  mon.setDate(today.getDate() + mondayOff + offset * 7);
+  mon.setHours(0,0,0,0);
+  const sun = new Date(mon);
+  sun.setDate(mon.getDate() + 6);
+  sun.setHours(23,59,59,999);
+  return { start: mon, end: sun };
+}
+function inRange(date, range) {
+  if (!date) return false;
+  return date >= range.start && date <= range.end;
+}
+function fmtDate(d) {
+  return d.toLocaleDateString('es-CO', { day:'numeric', month:'short' });
+}
+function cancelDate(row) {
+  const pt = parseSpanishDate(row['payment_till']);
+  if (!pt) return null;
+  const cd = new Date(pt); cd.setDate(cd.getDate() + 21); return cd;
+}
+function weekKey(d) {
+  if (!d) return null;
+  const mon = new Date(d);
+  const dow = mon.getDay();
+  const off = dow === 0 ? -6 : 1 - dow;
+  mon.setDate(mon.getDate() + off);
+  mon.setHours(0,0,0,0);
+  return mon.toISOString().slice(0,10);
+}
+
+// ══════════════════════════════════════════════════════
+// DATA LOADING
+// ══════════════════════════════════════════════════════
+async function loadAll() {
+  const setMsg = (t, h='') => {
+    document.getElementById('loadingText').textContent = t;
+    document.getElementById('loadingHint').textContent = h;
+  };
+
+  setMsg('Conectando con Google Sheets...', 'Esto puede tardar hasta 30 segundos en la primera carga');
+
+  const timeout = new Promise((_, reject) =>
+    setTimeout(() => reject(new Error('Tiempo de espera agotado (30s). Recarga la página para reintentar.')), 30000)
+  );
+
+  const fetchData = fetch(API_URL).then(async res => {
+    setMsg('Descargando datos...', 'Procesando ' + (new Date()).toLocaleTimeString('es-CO'));
+    if (!res.ok) throw new Error('HTTP ' + res.status + ' — verifica que el Apps Script esté desplegado');
+    const text = await res.text();
+    setMsg('Procesando datos...', '');
+    let json;
+    try { json = JSON.parse(text); }
+    catch(e) { throw new Error('Respuesta inválida del servidor. ¿Redesjplegaste el Apps Script con la versión actualizada?'); }
+    return json;
+  });
+
+  const json = await Promise.race([fetchData, timeout]);
+
+  RAW.cuentas    = (json.cuentas    || []).filter(r => Object.keys(r).length > 1);
+  RAW.onboarding = (json.onboarding || []).filter(r => Object.keys(r).length > 0);
+  RAW.sesiones   = (json.sesiones   || []).filter(r => Object.keys(r).length > 0);
+  RAW.embudos       = (json.embudos       || []).filter(r => Object.keys(r).length > 0);
+  RAW.cancelaciones = (json.cancelaciones || []).filter(r => Object.keys(r).length > 0);
+
+  if (!RAW.cuentas.length) throw new Error(
+    'La hoja de cuentas llegó vacía. Verifica que el gid 129732116 corresponde a la pestaña correcta y que el Apps Script fue redesplegado.'
+  );
+}
+
+// ══════════════════════════════════════════════════════
+// CALCULATIONS
+// ══════════════════════════════════════════════════════
+// ── HELPERS ──────────────────────────────────────────────────────────────
+function isPaga(r) {
+  const t = (r['trial']||'').toString().trim().toUpperCase();
+  return t !== 'TRUE' && t !== '1' && t !== 'SI' && t !== 'SÍ';
+}
+function isTrial(r) { return !isPaga(r); }
+function getMonthlyMRR(r) {
+  const rawAmt = (r['payment_amount'] !== undefined && r['payment_amount'] !== null)
+    ? r['payment_amount'].toString().trim() : '0';
+  const amt = parseFloat(rawAmt.replace(/[^0-9.]/g,'')) || 0;
+  const rawType = (r['payment_type'] !== undefined && r['payment_type'] !== null)
+    ? r['payment_type'].toString().trim() : '0';
+  const type = parseInt(rawType) || 0;
+  const divs = {0:1, 1:3, 2:6, 3:12, 4:0};
+  const d = (divs[type] !== undefined) ? divs[type] : 1;
+  return d === 0 ? 0 : Math.round((amt / d) * 100) / 100;
+}
+
+function getLTV(r) {
+  // Try multiple possible column name variants (Apps Script may add spaces)
+  const val = r['LTV'] ?? r[' LTV'] ?? r['LTV '] ?? r['ltv'] ?? r['Ltv'] ?? null;
+  if (val === null || val === undefined) return 0;
+  const raw = val.toString().trim();
+  if (raw === '' || raw === '0' || raw === '-') return 0;
+  return parseFloat(raw.replace(/[^0-9.]/g,'')) || 0;
+}
+function topN(arr, key, n=5) {
+  const counts = {};
+  arr.forEach(r => { const v=(r[key]||'Sin dato').trim(); if(v) counts[v]=(counts[v]||0)+1; });
+  return Object.entries(counts).sort((a,b)=>b[1]-a[1]).slice(0,n).map(([label,count])=>({label,count}));
+}
+
+function calc(weekOffset) {
+  const range = getWeekRange(weekOffset);
+  const C = RAW.cuentas;
+  const O = RAW.onboarding;
+  const S = RAW.sesiones;
+
+  // Base segmentation
+  const vigentes        = C.filter(r => r['Vigencia del servicio'] === 'Vigente');
+  const vigentes_pagas  = vigentes.filter(isPaga);
+  const vigentes_trial  = vigentes.filter(isTrial);
+  const cancelados      = C.filter(r => r['Vigencia del servicio'] === 'Cancelado');
+  const cancel_pagas    = cancelados.filter(isPaga);
+  const cancel_trial    = cancelados.filter(isTrial);
+  const atrasados       = C.filter(r => r['Vigencia del servicio'] === 'Atrasado');
+  const atrasados_pagas = atrasados.filter(isPaga);
+  // Atrasadas de la semana: payment_till cae dentro del rango
+  const atr_sem = atrasados_pagas.filter(r => {
+    const pt = parseSpanishDate(r['payment_till']) || parseISO(r['payment_till']);
+    return pt && inRange(pt, range);
+  });
+  const mrr_atr_sem = Math.round(atr_sem.reduce((s,r)=>s+getMonthlyMRR(r),0));
+
+  // Weekly counts — pagas only
+  // Use created_at (ISO) as primary, fall back to Fecha creación
+  const getCreatedAt = r => parseISO(r['created_at']) || parseISO(r['Fecha creación']);
+  const nuevos_sem_pagas = C.filter(r => inRange(getCreatedAt(r), range) && isPaga(r));
+  const nuevos_sem_trial = C.filter(r => inRange(getCreatedAt(r), range) && isTrial(r));
+
+  // Trial → Pago conversions this week
+  // Conversion date = created_at + 3 days (when trial ends and client pays)
+  // Client converted if: payment_till >= created_at + 3 days (they actually paid)
+  const getConversionDate = r => {
+    const ca = getCreatedAt(r);
+    if (!ca) return null;
+    const d = new Date(ca);
+    d.setDate(d.getDate() + 3);
+    return d;
+  };
+  // Period days by payment_type
+  const periodDays = {0: 30, 1: 90, 2: 180, 3: 365, 4: 3};
+
+  const convertidos_sem = C.filter(r => {
+    // Conversion date must fall in the week range
+    const convDate = getConversionDate(r);
+    if (!inRange(convDate, range)) return false;
+    // Must be a paying account now
+    if (!isPaga(r)) return false;
+    const ca = getCreatedAt(r);
+    const pt = parseSpanishDate(r['payment_till']) || parseISO(r['payment_till']);
+    if (!ca || !pt) return false;
+    const diffDays = (pt - ca) / 86400000;
+    // Get expected period in days based on payment type
+    const ptType = parseInt((r['payment_type']||'0').toString()) || 0;
+    const period = periodDays[ptType] || 30;
+    // Trial converter: payment_till - created_at ≈ period + 3 days (1 to 7 day tolerance)
+    // Direct payer:    payment_till - created_at ≈ period (within ±1 day)
+    // So trial converter has an offset of roughly 2–8 days above the base period
+    const offset = diffDays - period;
+    return offset >= 1.5 && offset <= 8;
+  });
+  const cancel_sem       = cancel_pagas.filter(r => inRange(cancelDate(r), range));
+
+  // MRR from real payment_amount
+  const mrr_activo = vigentes_pagas.reduce((s,r) => s + getMonthlyMRR(r), 0);
+  const mrr_riesgo = atrasados_pagas.reduce((s,r) => s + getMonthlyMRR(r), 0);
+
+  // Risk signals (vigentes pagas only) — total acumulado
+  const sin_flow    = vigentes_pagas.filter(r => r['Usa flows']==='0' || r['Usa flows']===0);
+  const sin_grupos  = vigentes_pagas.filter(r => r['Usa grupos?']==='0' || r['Usa grupos?']===0);
+  const sin_wa      = vigentes_pagas.filter(r => (r['Usa API?']||'')!=='Sí'&&(r['Usa Business?']||'')!=='Sí');
+  const sin_login   = vigentes_pagas.filter(r => { const ll=parseISO(r['last_login_at']); return !ll || (new Date()-ll)/86400000>14; });
+  const sin_onb_vig = vigentes_pagas.filter(r => r['Onboarding']==='Sin onboarding');
+
+  // Export data for CSV download
+  const exportCols = ['id','country_name','Planes Funnelchat','payment_type','payment_amount',
+    'last_login_at','created_at','Tipo de negocio','Objetivo con Funnelchat','Onboarding','Sesiones en vivo'];
+  const toExport = (arr, tag) => arr.map(r => {
+    const ca = getCreatedAt(r);
+    const esPrioritaria = ca && inRange(ca, range) ? 'Sí' : 'No';
+    const row = { Señal: tag, Prioritaria: esPrioritaria };
+    exportCols.forEach(c => { row[c] = r[c]||''; });
+    return row;
+  });
+  const exportData = {
+    sinWa:     toExport(sin_wa,     'Sin WA conectado'),
+    sinFlow:   toExport(sin_flow,   'Sin flow activo'),
+    sinGrupos: toExport(sin_grupos, 'Sin grupos activos'),
+    sinLogin:  toExport(sin_login,  'Sin login +14 días'),
+    sinOnb:    toExport(sin_onb_vig,'Sin onboarding'),
+  };
+
+  // Risk signals — SEMANA (cuentas creadas esta semana con señal de riesgo)
+  const nuevos_vig_sem = vigentes_pagas.filter(r => inRange(getCreatedAt(r), range));
+  const sin_wa_sem     = nuevos_vig_sem.filter(r => (r['Usa API?']||'')!=='Sí'&&(r['Usa Business?']||'')!=='Sí');
+  const sin_flow_sem   = nuevos_vig_sem.filter(r => r['Usa flows']==='0' || r['Usa flows']===0);
+  const sin_grupos_sem = nuevos_vig_sem.filter(r => r['Usa grupos?']==='0' || r['Usa grupos?']===0);
+  // sin_login semanal: cuentas cuyo last_login cayó en la ventana de 14-21 días (se volvieron inactivas esta semana)
+  const sin_login_sem  = vigentes_pagas.filter(r => {
+    const ll = parseISO(r['last_login_at']);
+    if (!ll) return false;
+    const days = (new Date() - ll) / 86400000;
+    return days >= 14 && days <= 21;
+  });
+  const sin_onb_sem    = nuevos_vig_sem.filter(r => r['Onboarding']==='Sin onboarding');
+
+  const avg = arr => arr.length ? Math.round(arr.reduce((a,b)=>a+b,0)/arr.length) : 0;
+  const pct = (n,d) => Math.round(n/(d||1)*100);
+
+  // Hallazgos pagas
+  const canP = cancel_pagas.length || 1;
+  const cp_sin_onb    = cancel_pagas.filter(r => r['Onboarding']==='Sin onboarding').length;
+  const cp_sin_flow   = cancel_pagas.filter(r => r['Usa flows']==='0'||r['Usa flows']===0).length;
+  const cp_sin_wa     = cancel_pagas.filter(r => (r['Usa API?']||'')!=='Sí'&&(r['Usa Business?']||'')!=='Sí').length;
+  const cp_sin_ses    = cancel_pagas.filter(r => r['Sesiones en vivo']==='No asistió').length;
+  const cp_sin_trial  = cancel_pagas.filter(r => (r['flow trial']||'').includes('No pasó')).length;
+  const cp_sin_grupos = cancel_pagas.filter(r => r['Usa grupos?']==='0'||r['Usa grupos?']===0).length;
+
+  // Hallazgos trial
+  const canT = cancel_trial.length || 1;
+  const ct_sin_onb    = cancel_trial.filter(r => r['Onboarding']==='Sin onboarding').length;
+  const ct_sin_flow   = cancel_trial.filter(r => r['Usa flows']==='0'||r['Usa flows']===0).length;
+  const ct_sin_wa     = cancel_trial.filter(r => (r['Usa API?']||'')!=='Sí'&&(r['Usa Business?']||'')!=='Sí').length;
+  const ct_sin_grupos = cancel_trial.filter(r => r['Usa grupos?']==='0'||r['Usa grupos?']===0).length;
+
+  // LT (días) — pagas only
+  const parseLT = r => { const v = parseFloat((r['LT']||'0').toString()); return isNaN(v) ? 0 : v; };
+  const ltVig    = vigentes_pagas.map(parseLT).filter(n => n > 0);
+  const ltCan    = cancel_pagas.map(parseLT).filter(n => n > 0);
+  // LTV con/sin onboarding — only accounts with actual payment (LTV > 0)
+  const ltConOnb = C.filter(r => r['Onboarding']==='Con onboarding' && isPaga(r))
+    .map(getLTV).filter(n => n > 0);
+  const ltSinOnb = C.filter(r => r['Onboarding']==='Sin onboarding' && isPaga(r))
+    .map(getLTV).filter(n => n > 0);
+
+  // 5-week trend (pagas only)
+  const weekKeys5 = [];
+  for (let i = -4; i <= 0; i++) {
+    const r = getWeekRange(weekOffset + i);
+    weekKeys5.push({ label: fmtDate(r.start)+' – '+fmtDate(r.end), range: r });
+  }
+  const trend = weekKeys5.map(wk => ({
+    label: wk.label,
+    nuevas:  C.filter(r => inRange(getCreatedAt(r),wk.range)&&isPaga(r)).length,
+    cancels: cancel_pagas.filter(r => inRange(cancelDate(r),wk.range)).length,
+    churnStarter:  calcChurnPlan('Plan Starter',  wk.range),
+    churnAdvanced: calcChurnPlan('Plan Advanced', wk.range),
+    churnGrowth:   calcChurnPlan('Plan Growth',   wk.range),
+  }));
+
+  // Onboarding
+  const monthStart = new Date(range.end.getFullYear(), range.end.getMonth(), 1);
+  const monthEnd   = new Date(range.end.getFullYear(), range.end.getMonth()+1, 0, 23,59,59);
+  // Onboarding date: try Fecha registro first (YYYY-MM-DD), fallback to Fecha estado onboarding (ISO)
+  const getOnbDate = r => {
+    const fr = r['Fecha registro'] ? r['Fecha registro'].toString().trim() : '';
+    const fe = r['Fecha estado onboarding'] ? r['Fecha estado onboarding'].toString().trim() : '';
+    // Fecha registro comes as YYYY-MM-DD or DD/MM/YYYY from Sheets
+    const d1 = parseISO(fr);
+    const d2 = parseISO(fe);
+    return d1 || d2 || null;
+  };
+  const onb_sem        = O.filter(r => inRange(getOnbDate(r), range));
+  // La tabla muestra el ÚLTIMO estado de cada usuario — lógica correcta:
+  // Propuestas = todos (a todos se les propuso)
+  // Agendados  = quienes en algún momento agendaron (Agendó + Asistió + No show + No asistió)
+  // Asistentes = último estado = Asistió
+  // No show    = último estado = No show | No asistió
+  const onb_propuestas = onb_sem.length; // todos recibieron propuesta
+  const onb_agendados  = onb_sem.filter(r =>
+    ['Agendó','Asistió','No show','No asistió'].includes(r['Estado del onboarding'])
+  ).length;
+  const onb_asistio    = onb_sem.filter(r => r['Estado del onboarding']==='Asistió').length;
+  const onb_noshow     = onb_sem.filter(r =>
+    ['No show','No asistió'].includes(r['Estado del onboarding'])
+  ).length;
+  // No show real: agendaron pero último estado NO es Asistió
+  const onb_noshow_real = onb_sem.filter(r =>
+    ['Agendó','No show','No asistió'].includes(r['Estado del onboarding'])
+  ).length;
+  const onb_mes_all     = O.filter(r => inRange(getOnbDate(r),{start:monthStart,end:monthEnd}));
+  const onb_asistio_mes = onb_mes_all.filter(r => r['Estado del onboarding']==='Asistió').length;
+  const onb_propuestas_mes = onb_mes_all.length;
+  const onb_agendados_mes  = onb_mes_all.filter(r =>
+    ['Agendó','Asistió','No show','No asistió'].includes(r['Estado del onboarding'])
+  ).length;
+
+  // Coverage split pagas vs trial using user_id cross-reference
+  // Build lookup map: user_id -> account type
+  const acctMap = {};
+  C.forEach(r => {
+    const id = (r['id']||'').toString().trim();
+    if (id) acctMap[id] = isPaga(r) ? 'paga' : 'trial';
+  });
+  const getOnbType = r => {
+    const uid = (r['user_id']||'').toString().trim();
+    return uid ? (acctMap[uid] || 'unknown') : 'unknown';
+  };
+
+  // Monthly coverage by type
+  const onb_asistio_mes_pagas = onb_mes_all.filter(r =>
+    r['Estado del onboarding']==='Asistió' && getOnbType(r)==='paga'
+  ).length;
+  const onb_asistio_mes_trial = onb_mes_all.filter(r =>
+    r['Estado del onboarding']==='Asistió' && getOnbType(r)==='trial'
+  ).length;
+  const totalNewMonth_trial = C.filter(r =>
+    inRange(getCreatedAt(r),{start:monthStart,end:monthEnd}) && isTrial(r)
+  ).length;
+
+  // Weekly coverage by type
+  const onb_asistio_sem_pagas = onb_sem.filter(r =>
+    r['Estado del onboarding']==='Asistió' && getOnbType(r)==='paga'
+  ).length;
+  const onb_asistio_sem_trial = onb_sem.filter(r =>
+    r['Estado del onboarding']==='Asistió' && getOnbType(r)==='trial'
+  ).length;
+  const totalNewMonth  = C.filter(r => inRange(getCreatedAt(r),{start:monthStart,end:monthEnd})&&isPaga(r)).length;
+
+  // Sessions
+  const ses_sem        = S.filter(r => inRange(parseSlash(r['FECHA ATENCIÓN']), range));
+  const ses_asistentes = ses_sem.filter(r => r['Asistio?']==='1'||r['Asistio?']===1).length;
+  const ses_fechas     = new Set(ses_sem.map(r => r['FECHA ATENCIÓN']));
+  const ses_asist_mes  = S.filter(r => { const d=parseSlash(r['FECHA ATENCIÓN']); return d&&d>=monthStart&&d<=monthEnd&&(r['Asistio?']==='1'||r['Asistio?']===1); }).length;
+
+  // ── Motivos de cancelación — desde tabla cancelaciones ──
+  const cancelSurveySem = RAW.cancelaciones.filter(r => {
+    const fecha = parseISO(r['created_at']);
+    return fecha && inRange(fecha, range);
+  });
+  const motivoMap = {};
+  cancelSurveySem.forEach(r => {
+    const mv = (r['Macromotivo']||'').toString().trim();
+    if (mv && mv !== 'NA' && mv !== '') motivoMap[mv] = (motivoMap[mv]||0) + 1;
+  });
+  const motivosSem = Object.entries(motivoMap)
+    .sort((a,b) => b[1]-a[1]).slice(0,6)
+    .map(([label,count]) => ({ label, count }));
+
+  // Previous week motivos
+  const prevRangeMotivos = getWeekRange(weekOffset - 1);
+  const cancelSurveyPrev = RAW.cancelaciones.filter(r => {
+    const fecha = parseISO(r['created_at']);
+    return fecha && inRange(fecha, prevRangeMotivos);
+  });
+  const motivoMapPrev = {};
+  cancelSurveyPrev.forEach(r => {
+    const mv = (r['Macromotivo']||'').toString().trim();
+    if (mv && mv !== 'NA' && mv !== '') motivoMapPrev[mv] = (motivoMapPrev[mv]||0) + 1;
+  });
+  const motivosPrev = Object.entries(motivoMapPrev)
+    .sort((a,b) => b[1]-a[1]).slice(0,6)
+    .map(([label,count]) => ({ label, count }));
+
+  // Previous week deltas
+  const prevRange      = getWeekRange(weekOffset - 1);
+  const prev_nuevos      = C.filter(r => inRange(getCreatedAt(r),prevRange)&&isPaga(r)).length;
+  const prev_trial       = C.filter(r => inRange(getCreatedAt(r),prevRange)&&isTrial(r)).length;
+  const prev_convertidos = C.filter(r => {
+    const convDate = getConversionDate(r);
+    if (!inRange(convDate, prevRange)) return false;
+    if (!isPaga(r)) return false;
+    const ca = getCreatedAt(r);
+    const pt = parseSpanishDate(r['payment_till']) || parseISO(r['payment_till']);
+    if (!ca || !pt) return false;
+    const diffDays = (pt - ca) / 86400000;
+    const ptType = parseInt((r['payment_type']||'0').toString()) || 0;
+    const period = periodDays[ptType] || 30;
+    const offset = diffDays - period;
+    return offset >= 1.5 && offset <= 8;
+  }).length;
+  const prev_cancel    = cancel_pagas.filter(r => inRange(cancelDate(r),prevRange)).length;
+  const prev_onb_asist = O.filter(r => r['Estado del onboarding']==='Asistió'&&inRange(getOnbDate(r),prevRange)).length;
+  const prev_ses       = S.filter(r => { const d=parseSlash(r['FECHA ATENCIÓN']); return d&&inRange(d,prevRange)&&(r['Asistio?']==='1'||r['Asistio?']===1); }).length;
+
+  // Nicho / objetivo / experiencia — SEMANA ACTIVA
+  const cancel_sem_pagas = cancel_pagas.filter(r => inRange(cancelDate(r), range));
+  const cancel_sem_trial = cancel_trial.filter(r => inRange(cancelDate(r), range));
+
+  // 6-month average for comparison (cancelados de los últimos 26 semanas)
+  const range6m = { start: new Date(range.end.getTime() - 180*86400000), end: range.end };
+  const cancel_6m_pagas = cancel_pagas.filter(r => inRange(cancelDate(r), range6m));
+  const cancel_6m_trial = cancel_trial.filter(r => inRange(cancelDate(r), range6m));
+
+  // Week hallazgos (pagas)
+  const canSP = cancel_sem_pagas.length || 1;
+  const wcp_sin_onb    = cancel_sem_pagas.filter(r => r['Onboarding']==='Sin onboarding').length;
+  const wcp_sin_flow   = cancel_sem_pagas.filter(r => r['Usa flows']==='0'||r['Usa flows']===0).length;
+  const wcp_sin_wa     = cancel_sem_pagas.filter(r => (r['Usa API?']||'')!=='Sí'&&(r['Usa Business?']||'')!=='Sí').length;
+  const wcp_sin_ses    = cancel_sem_pagas.filter(r => r['Sesiones en vivo']==='No asistió').length;
+  const wcp_sin_trial  = cancel_sem_pagas.filter(r => (r['flow trial']||'').includes('No pasó')).length;
+  const wcp_sin_grupos = cancel_sem_pagas.filter(r => r['Usa grupos?']==='0'||r['Usa grupos?']===0).length;
+
+  // Week hallazgos (trial)
+  const canST = cancel_sem_trial.length || 1;
+  const wct_sin_onb    = cancel_sem_trial.filter(r => r['Onboarding']==='Sin onboarding').length;
+  const wct_sin_flow   = cancel_sem_trial.filter(r => r['Usa flows']==='0'||r['Usa flows']===0).length;
+  const wct_sin_wa     = cancel_sem_trial.filter(r => (r['Usa API?']||'')!=='Sí'&&(r['Usa Business?']||'')!=='Sí').length;
+  const wct_sin_grupos = cancel_sem_trial.filter(r => r['Usa grupos?']==='0'||r['Usa grupos?']===0).length;
+
+  // Nicho / objetivo / experiencia — semana vs promedio 6 meses
+  const nicho_cancel_pagas    = topN(cancel_sem_pagas, 'Tipo de negocio');
+  const nicho_avg6m_pagas     = topN(cancel_6m_pagas,  'Tipo de negocio');
+  const objetivo_cancel       = topN(cancel_sem_pagas, 'Objetivo con Funnelchat');
+  const objetivo_avg6m        = topN(cancel_6m_pagas,  'Objetivo con Funnelchat');
+  const exp_cancel            = topN(cancel_sem_pagas, 'Experiencia automatizando');
+  const exp_avg6m             = topN(cancel_6m_pagas,  'Experiencia automatizando');
+  const fact_cancel           = topN(cancel_sem_pagas, 'Facturación promedio mensual');
+  const fact_avg6m            = topN(cancel_6m_pagas,  'Facturación promedio mensual');
+  const nicho_cancel_trial    = topN(cancel_sem_trial, 'Tipo de negocio');
+  const nicho_avg6m_trial     = topN(cancel_6m_trial,  'Tipo de negocio');
+  const objetivo_cancel_trial = topN(cancel_sem_trial, 'Objetivo con Funnelchat');
+  const objetivo_avg6m_trial  = topN(cancel_6m_trial,  'Objetivo con Funnelchat');
+  const exp_cancel_trial      = topN(cancel_sem_trial, 'Experiencia automatizando');
+  const exp_avg6m_trial       = topN(cancel_6m_trial,  'Experiencia automatizando');
+  const fact_cancel_trial     = topN(cancel_sem_trial, 'Facturación promedio mensual');
+  const fact_avg6m_trial      = topN(cancel_6m_trial,  'Facturación promedio mensual');
+
+  // Nuevas del período por segmento — para comparar llegadas vs salidas
+  const nuevas_sem_all = C.filter(r => inRange(getCreatedAt(r), range) && isPaga(r));
+  const nuevas_nicho   = topN(nuevas_sem_all, 'Tipo de negocio', 8);
+  const nuevas_obj     = topN(nuevas_sem_all, 'Objetivo con Funnelchat', 8);
+  const nuevas_exp     = topN(nuevas_sem_all, 'Experiencia automatizando', 8);
+  const nuevas_fact    = topN(nuevas_sem_all, 'Facturación promedio mensual', 8);
+  const nuevas_sem_trial_all = C.filter(r => inRange(getCreatedAt(r), range) && isTrial(r));
+  const nuevas_nicho_t = topN(nuevas_sem_trial_all, 'Tipo de negocio', 8);
+  const nuevas_obj_t   = topN(nuevas_sem_trial_all, 'Objetivo con Funnelchat', 8);
+  const nuevas_exp_t   = topN(nuevas_sem_trial_all, 'Experiencia automatizando', 8);
+  const nuevas_fact_t  = topN(nuevas_sem_trial_all, 'Facturación promedio mensual', 8);
+
+  // Ranking trend — posición de cada segmento en las últimas 3 semanas
+  const buildRankHistory = (key, isTrialMode) => {
+    const history = [];
+    for (let i = -2; i <= 0; i++) {
+      const r = getWeekRange(weekOffset + i);
+      const base = isTrialMode
+        ? cancel_trial.filter(rr => inRange(cancelDate(rr), r))
+        : cancel_pagas.filter(rr => inRange(cancelDate(rr), r));
+      const ranked = topN(base, key, 10);
+      const posMap = {};
+      ranked.forEach((d, idx) => { posMap[d.label] = idx + 1; });
+      history.push(posMap);
+    }
+    return history; // [2w ago, 1w ago, this week]
+  };
+  const rankHistP = {
+    nicho: buildRankHistory('Tipo de negocio', false),
+    obj:   buildRankHistory('Objetivo con Funnelchat', false),
+    exp:   buildRankHistory('Experiencia automatizando', false),
+    fact:  buildRankHistory('Facturación promedio mensual', false),
+  };
+  const rankHistT = {
+    nicho: buildRankHistory('Tipo de negocio', true),
+    obj:   buildRankHistory('Objetivo con Funnelchat', true),
+    exp:   buildRankHistory('Experiencia automatizando', true),
+    fact:  buildRankHistory('Facturación promedio mensual', true),
+  };
+
+  // Historical for bars comparison (keep for context)
+  const nicho_vig_pagas  = topN(vigentes_pagas, 'Tipo de negocio');
+  const objetivo_vig     = topN(vigentes_pagas, 'Objetivo con Funnelchat');
+  const exp_vig          = topN(vigentes_pagas, 'Experiencia automatizando');
+
+  // MRR protegido: usa tasas de retención reales, no LTV
+  // % vigentes con onboarding vs sin onboarding (solo pagas)
+  const con_onb_all  = C.filter(r => r['Onboarding']==='Con onboarding' && isPaga(r));
+  const sin_onb_all  = C.filter(r => r['Onboarding']==='Sin onboarding' && isPaga(r));
+  const ret_con_onb  = con_onb_all.length > 0
+    ? con_onb_all.filter(r => r['Vigencia del servicio']==='Vigente').length / con_onb_all.length : 0;
+  const ret_sin_onb  = sin_onb_all.length > 0
+    ? sin_onb_all.filter(r => r['Vigencia del servicio']==='Vigente').length / sin_onb_all.length : 0;
+  const ret_diff     = Math.max(0, ret_con_onb - ret_sin_onb);
+  const mrr_per_cli  = vigentes_pagas.length > 0 ? mrr_activo / vigentes_pagas.length : ARPU;
+  const mrr_protegido_sem = Math.max(0, Math.round(onb_asistio * ret_diff * mrr_per_cli * 12));
+  const pct_ret_con_onb = Math.round(ret_con_onb * 100);
+  const pct_ret_sin_onb = Math.round(ret_sin_onb * 100);
+
+  // ── Impact metrics — últimos 12 meses ─────────────
+  const range12m = { start: new Date(range.end.getFullYear()-1, range.end.getMonth(), range.end.getDate()), end: new Date() };
+  const C12 = C.filter(r => { const ca = getCreatedAt(r); return ca && ca >= range12m.start; });
+  const getLTavg = arr => avg(arr.map(r => parseFloat(r['LT']||'0')).filter(n => n > 0));
+  const getLTVavg = arr => avg(arr.filter(isPaga).map(r => parseFloat((r['payment_amount']||'0').toString().replace(/[^0-9.]/g,''))||0).filter(n => n > 0));
+  const calcImpact = (conArr, sinArr) => ({
+    conRet: conArr.length>0?Math.round(conArr.filter(r=>r['Vigencia del servicio']==='Vigente').length/conArr.length*100):0,
+    sinRet: sinArr.length>0?Math.round(sinArr.filter(r=>r['Vigencia del servicio']==='Vigente').length/sinArr.length*100):0,
+    conLT: getLTavg(conArr), sinLT: getLTavg(sinArr),
+    conLTV: getLTVavg(conArr), sinLTV: getLTVavg(sinArr),
+    conN: conArr.length, sinN: sinArr.length
+  });
+
+  // Onboarding impact 12m
+  const onbImpact12 = {
+    ...calcImpact(
+      C12.filter(r => r['Onboarding']==='Con onboarding' && isPaga(r)),
+      C12.filter(r => r['Onboarding']==='Sin onboarding' && isPaga(r))
+    ),
+    histConN: con_onb_all.length, histSinN: sin_onb_all.length
+  };
+
+  // Sessions impact 12m
+  const onbImpact_ses12 = calcImpact(
+    C12.filter(r => r['Sesiones en vivo']==='Asistió' && isPaga(r)),
+    C12.filter(r => r['Sesiones en vivo']==='No asistió' && isPaga(r))
+  );
+
+  // Embudos impact 12m
+  const embImpact12 = {};
+  const acctById12 = {};
+  C.forEach(r => { const id=(r['id']||'').toString().trim(); if(id) acctById12[id]=r; });
+  ['Pago Atrasado','TRIAL SIN WA','TRIAL SIN FLOW','Cancelación'].forEach(f => {
+    const ids = new Set(RAW.embudos.filter(r=>(r['Flujo']||'').trim()===f)
+      .map(r=>(r['user_id']||'').toString().trim()).filter(Boolean));
+    embImpact12[f] = calcImpact(
+      C12.filter(r => ids.has((r['id']||'').toString().trim()) && isPaga(r)),
+      C12.filter(r => !ids.has((r['id']||'').toString().trim()) && isPaga(r))
+    );
+  });
+
+  // ── Embudos calc (moved from render) ──────────────
+  const parseEmbDate = s => {
+    if (!s) return null;
+    const str = s.toString().trim();
+    if (/^[0-9]{4}-/.test(str)) { const d = new Date(str); return isNaN(d) ? null : d; }
+    const moE = {enero:0,febrero:1,marzo:2,abril:3,mayo:4,junio:5,julio:6,agosto:7,septiembre:8,octubre:9,noviembre:10,diciembre:11};
+    const lw = str.toLowerCase();
+    const parts = lw.match(/([a-záéíóú]+)\s+(\d{1,2}),\s+(\d{4})/);
+    if (parts) { const mv = moE[parts[1]]; if (mv !== undefined) return new Date(parseInt(parts[3]), mv, parseInt(parts[2])); }
+    const slash = str.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+    if (slash) return new Date(parseInt(slash[3]), parseInt(slash[2])-1, parseInt(slash[1]));
+    try { const d = new Date(str); return isNaN(d) ? null : d; } catch { return null; }
+  };
+  const flujos = ['Pago Atrasado','TRIAL SIN WA','TRIAL SIN FLOW','Cancelación'];
+  const embSem = {}, embPrev = {};
+  const acctMapEmb = {};
+  RAW.cuentas.forEach(r => { const id=(r['id']||'').toString().trim(); if(id) acctMapEmb[id]=r; });
+  flujos.forEach(f => {
+    const rows = RAW.embudos.filter(r => (r['Flujo']||'').trim() === f);
+    const semRows  = rows.filter(r => inRange(parseEmbDate(r['fecha_asignacion_etiqueta']), range));
+    const prevRows = rows.filter(r => inRange(parseEmbDate(r['fecha_asignacion_etiqueta']), getWeekRange(weekOffset - 1)));
+    const semUsers  = new Set(semRows.map(r=>(r['user_id']||'').toString()).filter(Boolean));
+    const prevUsers = new Set(prevRows.map(r=>(r['user_id']||'').toString()).filter(Boolean));
+    const vigSem = [...semUsers].filter(uid => acctMapEmb[uid]&&acctMapEmb[uid]['Vigencia del servicio']==='Vigente').length;
+    const mrrSem = Math.round([...semUsers].reduce((s,uid) => s+(acctMapEmb[uid]?getMonthlyMRR(acctMapEmb[uid]):0), 0));
+    embSem[f]  = { count: semUsers.size, vigentes: vigSem, mrr: mrrSem };
+    embPrev[f] = { count: prevUsers.size };
+  });
+
+  return {
+    range,
+    vigentes_pagas: vigentes_pagas.length, vigentes_trial: vigentes_trial.length,
+    cancelados_pagas: cancel_pagas.length, cancelados_trial: cancel_trial.length,
+    atrasados_pagas: atrasados_pagas.length,
+    atr_sem: atr_sem.length, mrr_atr_sem,
+    nuevos_sem_pagas: nuevos_sem_pagas.length, nuevos_sem_trial: nuevos_sem_trial.length,
+    convertidos_sem: convertidos_sem.length,
+    mrr_convertidos_sem: Math.round(convertidos_sem.reduce((s,r)=>s+getMonthlyMRR(r),0)),
+    cancel_sem: cancel_sem.length,
+    exportData,
+    sin_flow: sin_flow.length, sin_grupos: sin_grupos.length,
+    sin_wa: sin_wa.length, sin_login: sin_login.length, sin_onb_vig: sin_onb_vig.length,
+    sin_wa_sem: sin_wa_sem.length, sin_flow_sem: sin_flow_sem.length,
+    sin_grupos_sem: sin_grupos_sem.length, sin_login_sem: sin_login_sem.length,
+    sin_onb_sem: sin_onb_sem.length, nuevos_vig_sem: nuevos_vig_sem.length,
+    // MRR real de cuentas en riesgo esta semana
+    mrr_sin_wa_sem:     Math.round(sin_wa_sem.reduce((s,r)=>s+getMonthlyMRR(r),0)),
+    mrr_sin_flow_sem:   Math.round(sin_flow_sem.reduce((s,r)=>s+getMonthlyMRR(r),0)),
+    mrr_sin_grupos_sem: Math.round(sin_grupos_sem.reduce((s,r)=>s+getMonthlyMRR(r),0)),
+    mrr_sin_login_sem:  Math.round(sin_login_sem.reduce((s,r)=>s+getMonthlyMRR(r),0)),
+    mrr_sin_onb_sem:    Math.round(sin_onb_sem.reduce((s,r)=>s+getMonthlyMRR(r),0)),
+    // MRR acumulado por grupo de riesgo
+    mrr_sin_wa_tot:     Math.round(sin_wa.reduce((s,r)=>s+getMonthlyMRR(r),0)),
+    mrr_sin_flow_tot:   Math.round(sin_flow.reduce((s,r)=>s+getMonthlyMRR(r),0)),
+    mrr_sin_grupos_tot: Math.round(sin_grupos.reduce((s,r)=>s+getMonthlyMRR(r),0)),
+    mrr_sin_login_tot:  Math.round(sin_login.reduce((s,r)=>s+getMonthlyMRR(r),0)),
+    mrr_sin_onb_tot:    Math.round(sin_onb_vig.reduce((s,r)=>s+getMonthlyMRR(r),0)),
+    cp_pct_sin_onb: pct(cp_sin_onb,canP), cp_pct_sin_flow: pct(cp_sin_flow,canP),
+    cp_pct_sin_wa:  pct(cp_sin_wa,canP),  cp_pct_sin_ses:  pct(cp_sin_ses,canP),
+    cp_pct_sin_trial: pct(cp_sin_trial,canP), cp_pct_sin_grupos: pct(cp_sin_grupos,canP),
+    ct_pct_sin_onb: pct(ct_sin_onb,canT), ct_pct_sin_flow: pct(ct_sin_flow,canT),
+    ct_pct_sin_wa:  pct(ct_sin_wa,canT),  ct_pct_sin_grupos: pct(ct_sin_grupos,canT),
+    cancel_pagas_total: cancel_pagas.length, cancel_trial_total: cancel_trial.length,
+    lt_vig_avg: avg(ltVig), lt_can_avg: avg(ltCan),
+    ltv_con_onb: avg(ltConOnb), ltv_sin_onb: avg(ltSinOnb),
+    trend, mrr_activo: Math.round(mrr_activo), mrr_riesgo: Math.round(mrr_riesgo),
+    mrr_protegido_sem, pct_ret_con_onb, pct_ret_sin_onb, ret_diff: Math.round(ret_diff*100),
+    onbImpact12, onbImpact_ses12, embImpact12,
+    onb_propuestas, onb_agendados, onb_asistio, onb_noshow, onb_noshow_real,
+    // 4-week trend for acciones table
+    trend4: (() => {
+      const weeks = [];
+      for (let i = -3; i <= 0; i++) {
+        const r = getWeekRange(weekOffset + i);
+        const lbl = fmtDate(r.start);
+        // Onboarding
+        const onbW    = O.filter(rr => inRange(getOnbDate(rr), r));
+        const onbProp = onbW.length;
+        const onbAsist= onbW.filter(rr => rr['Estado del onboarding']==='Asistió').length;
+        const onbAgen = onbW.filter(rr => ['Agendó','Asistió','No show','No asistió'].includes(rr['Estado del onboarding'])).length;
+        const onbNS   = onbW.filter(rr => ['No show','No asistió'].includes(rr['Estado del onboarding'])).length;
+        const newP    = C.filter(rr => inRange(getCreatedAt(rr), r) && isPaga(rr)).length;
+        // Retention: % of onboarding attendees still Vigente
+        const acctMapT = {};
+        C.forEach(rr=>{ const id=(rr['id']||'').toString().trim(); if(id) acctMapT[id]=rr; });
+        const onbAsistIds = onbW
+          .filter(rr=>rr['Estado del onboarding']==='Asistió')
+          .map(rr=>(rr['user_id']||'').toString().trim()).filter(Boolean);
+        const onbRetN = onbAsistIds.filter(uid=>acctMapT[uid]&&acctMapT[uid]['Vigencia del servicio']==='Vigente').length;
+        const onbRetPct = onbAsistIds.length>0 ? Math.round(onbRetN/onbAsistIds.length*100) : null;
+        // Sessions
+        const sesW    = S.filter(rr => { const d=parseSlash(rr['FECHA ATENCIÓN']); return d&&inRange(d,r)&&(rr['Asistio?']==='1'||rr['Asistio?']===1); });
+        const sesUniq = new Set(S.filter(rr=>{ const d=parseSlash(rr['FECHA ATENCIÓN']); return d&&inRange(d,r); }).map(rr=>rr['FECHA ATENCIÓN'])).size;
+        // Sessions retention
+        const sesIds = [...new Set(sesW.map(rr=>(rr['USUARIO']||rr['Usuarios']||rr['Usuario']||'').trim()).filter(e=>e&&e.includes('@')))];
+        const sesRetPct = sesIds.length > 0
+          ? Math.round(Object.values(acctMapT).filter(rr=>
+              rr['Vigencia del servicio']==='Vigente' &&
+              (rr['Sesiones en vivo']==='Asistió') &&
+              inRange(getCreatedAt(rr), {start:new Date(r.end.getFullYear()-1,r.end.getMonth(),r.end.getDate()), end:r.end})
+            ).length / Math.max(Object.values(acctMapT).filter(rr=>
+              rr['Sesiones en vivo']==='Asistió' &&
+              inRange(getCreatedAt(rr), {start:new Date(r.end.getFullYear()-1,r.end.getMonth(),r.end.getDate()), end:r.end})
+            ).length, 1) * 100)
+          : null;
+        // Embudos
+        const embW = {};
+        const embRetPct = {};
+        ['Pago Atrasado','TRIAL SIN WA','TRIAL SIN FLOW','Cancelación'].forEach(f => {
+          const rows = RAW.embudos.filter(rr => (rr['Flujo']||'').trim()===f);
+          const uids = new Set(rows.filter(rr=>inRange(parseEmbDate(rr['fecha_asignacion_etiqueta']),r)).map(rr=>(rr['user_id']||'').toString()).filter(Boolean));
+          embW[f] = uids.size;
+          const vigN = [...uids].filter(uid=>acctMapT[uid]&&acctMapT[uid]['Vigencia del servicio']==='Vigente').length;
+          embRetPct[f] = uids.size > 0 ? Math.round(vigN/uids.size*100) : null;
+        });
+        weeks.push({ lbl, onbAsist, onbAgen, onbNS,
+          onbNSPct: onbAgen>0?Math.round(onbNS/onbAgen*100):0,
+          cobPct:   newP>0?Math.round(onbAsist/newP*100):0,
+          asistPct: onbAgen>0?Math.round(onbAsist/onbAgen*100):0,
+          newP, onbProp, onbRetPct, sesRetPct, embRetPct,
+          sesAsist: sesW.length, sesSes: sesUniq,
+          emb: embW });
+      }
+      return weeks;
+    })(),
+
+    // Sections 1, 2, 3 historical data
+    trend4_s123: (() => {
+      const weeks = [];
+      for (let i = -3; i <= 0; i++) {
+        const r = getWeekRange(weekOffset + i);
+        const lbl = fmtDate(r.start);
+
+        // Section 1 — Datos duros
+        const nuevasP  = C.filter(rr => inRange(getCreatedAt(rr),r) && isPaga(rr)).length;
+        const nuevasT  = C.filter(rr => inRange(getCreatedAt(rr),r) && isTrial(rr)).length;
+        const cancSem  = cancel_pagas.filter(rr => inRange(cancelDate(rr),r)).length;
+        // Atrasadas de la semana: payment_till cae en este rango
+        const atrP = C.filter(rr => {
+          if (rr['Vigencia del servicio']!=='Atrasado' || !isPaga(rr)) return false;
+          const pt = parseSpanishDate(rr['payment_till']) || parseISO(rr['payment_till']);
+          return pt && inRange(pt, r);
+        }).length;
+        const convW    = C.filter(rr => {
+          const convD = (() => { const ca=getCreatedAt(rr); if(!ca)return null; const d=new Date(ca);d.setDate(d.getDate()+3);return d; })();
+          if(!inRange(convD,r)||!isPaga(rr))return false;
+          const ca=getCreatedAt(rr), pt=parseSpanishDate(rr['payment_till'])||parseISO(rr['payment_till']);
+          if(!ca||!pt)return false;
+          const diff=(pt-ca)/86400000, period=({0:30,1:90,2:180,3:365,4:3}[parseInt((rr['payment_type']||'0').toString())||0]||30);
+          return diff-period>=1.5&&diff-period<=8;
+        }).length;
+        const retNeta = nuevasP - cancSem;
+
+        // Section 2 — Hallazgos (% of week's cancelled pagas)
+        const canW = cancel_pagas.filter(rr => inRange(cancelDate(rr),r));
+        const canWN = canW.length || 1;
+        const pSinOnb   = Math.round(canW.filter(rr=>rr['Onboarding']==='Sin onboarding').length/canWN*100);
+        const pSinFlow  = Math.round(canW.filter(rr=>rr['Usa flows']==='0'||rr['Usa flows']===0).length/canWN*100);
+        const pSinWA    = Math.round(canW.filter(rr=>(rr['Usa API?']||'')!=='Sí'&&(rr['Usa Business?']||'')!=='Sí').length/canWN*100);
+        const pSinGrupo = Math.round(canW.filter(rr=>rr['Usa grupos?']==='0'||rr['Usa grupos?']===0).length/canWN*100);
+
+        // Section 3 — Riesgo: nuevas cuentas de la semana con señal de riesgo
+        const newVP = C.filter(rr => inRange(getCreatedAt(rr),r) && isPaga(rr) && rr['Vigencia del servicio']==='Vigente');
+        const rSinWA    = newVP.filter(rr=>(rr['Usa API?']||'')!=='Sí'&&(rr['Usa Business?']||'')!=='Sí').length;
+        const rSinFlow  = newVP.filter(rr=>rr['Usa flows']==='0'||rr['Usa flows']===0).length;
+        const rSinGrp   = newVP.filter(rr=>rr['Usa grupos?']==='0'||rr['Usa grupos?']===0).length;
+        const rSinLogin = newVP.filter(rr=>{const ll=parseISO(rr['last_login_at']);return!ll||(new Date()-ll)/86400000>14;}).length;
+        const rSinOnb   = newVP.filter(rr=>rr['Onboarding']==='Sin onboarding').length;
+        const rNewTotal = newVP.length;
+
+        weeks.push({ lbl,
+          // S1
+          nuevasP, nuevasT, cancSem, atrP, convW, retNeta,
+          // S2
+          canWN: canW.length, pSinOnb, pSinFlow, pSinWA, pSinGrupo,
+          // S3
+          rNewTotal, rSinWA, rSinFlow, rSinGrp, rSinLogin, rSinOnb,
+
+        });
+      }
+      return weeks;
+    })(),
+    onb_propuestas_mes, onb_agendados_mes,
+    onb_asistio_mes_pagas, onb_asistio_mes_trial,
+    onb_asistio_sem_pagas, onb_asistio_sem_trial,
+    totalNewMonth_trial,
+    onb_asistio_mes, totalNewMonth,
+    ses_asistentes, ses_sesiones: ses_fechas.size, ses_asist_mes,
+    prev_nuevos, prev_trial, prev_cancel, prev_onb_asist, prev_ses, prev_convertidos,
+    totalCuentas: C.length,
+    embSem, embPrev,
+    cancel_sem_pagas_total: cancel_sem_pagas.length,
+    cancel_sem_trial_total: cancel_sem_trial.length,
+    cancel_6m_pagas_total: cancel_6m_pagas.length,
+    // week hallazgos pagas
+    wcp_pct_sin_onb: pct(wcp_sin_onb,canSP), wcp_pct_sin_flow: pct(wcp_sin_flow,canSP),
+    wcp_pct_sin_wa:  pct(wcp_sin_wa,canSP),  wcp_pct_sin_ses:  pct(wcp_sin_ses,canSP),
+    wcp_pct_sin_trial: pct(wcp_sin_trial,canSP), wcp_pct_sin_grupos: pct(wcp_sin_grupos,canSP),
+    // week hallazgos trial
+    wct_pct_sin_onb: pct(wct_sin_onb,canST), wct_pct_sin_flow: pct(wct_sin_flow,canST),
+    wct_pct_sin_wa:  pct(wct_sin_wa,canST),  wct_pct_sin_grupos: pct(wct_sin_grupos,canST),
+    motivosSem, motivosPrev, motivosSemN: cancelSurveySem.length,
+    fact_cancel, fact_avg6m, fact_cancel_trial, fact_avg6m_trial,
+    nuevas_nicho, nuevas_obj, nuevas_exp, nuevas_fact,
+    nuevas_nicho_t, nuevas_obj_t, nuevas_exp_t, nuevas_fact_t,
+    rankHistP, rankHistT,
+    nicho_cancel_pagas, nicho_avg6m_pagas, objetivo_cancel, objetivo_avg6m,
+    exp_cancel, exp_avg6m, nicho_cancel_trial, nicho_avg6m_trial,
+    objetivo_cancel_trial, objetivo_avg6m_trial, exp_cancel_trial, exp_avg6m_trial,
+    nicho_vig_pagas, objetivo_vig, exp_vig
+  };
+}
+
+
+function calcChurnPlan(plan, range) {
+  // Solo cuentas pagas
+  const base = RAW.cuentas.filter(r => r['Planes Funnelchat'] === plan && isPaga(r));
+  const activos_inicio = base.filter(r => r['Vigencia del servicio'] !== 'Cancelado').length;
+  const cancels = base.filter(r => r['Vigencia del servicio'] === 'Cancelado' && inRange(cancelDate(r), range)).length;
+  if (!activos_inicio) return 0;
+  return Math.round((cancels / activos_inicio) * 100 * 10) / 10;
+}
+
+// ══════════════════════════════════════════════════════
+// RENDER
+// ══════════════════════════════════════════════════════
+function render(m) {
+  // Header period
+  document.getElementById('hdrPeriod').textContent =
+    fmtDate(m.range.start) + ' – ' + fmtDate(m.range.end) + ' · ' + m.range.start.getFullYear();
+
+  // ── Bloque 1: Datos duros ─────────────────────────
+  const delta = (now, prev, inv=false) => {
+    if (prev === 0) return { txt: '— sin dato ant.', cls: 'neu' };
+    const d = now - prev;
+    const better = inv ? d < 0 : d > 0;
+    const arrow = d > 0 ? '▲' : (d < 0 ? '▼' : '=');
+    return { txt: `${arrow} ${Math.abs(d)} vs sem. ant.`, cls: d === 0 ? 'neu' : (better ? 'pos' : 'neg') };
+  };
+
+
+  const dNuevos  = delta(m.nuevos_sem_pagas, m.prev_nuevos);
+  const dTrial   = delta(m.nuevos_sem_trial, m.prev_trial);
+  const dCancel  = delta(m.cancel_sem, m.prev_cancel, true);
+  const dConv    = delta(m.convertidos_sem, m.prev_convertidos);
+
+  document.getElementById('pulsoGrid').innerHTML = `
+    <div class="p-card c-green">
+      <div class="p-label">Cuentas activas (pagas)</div>
+      <div class="p-value">${m.vigentes_pagas.toLocaleString('es-CO')}</div>
+      <div class="p-context">MRR activo: <strong>$${m.mrr_activo.toLocaleString('es-CO')}</strong></div>
+      <div class="p-context" style="margin-top:2px">Trial activos: ${m.vigentes_trial.toLocaleString('es-CO')}</div>
+    </div>
+    <div class="p-card c-blue">
+      <div class="p-label">Nuevas pagas esta semana</div>
+      <div class="p-value" style="color:var(--blue)">${m.nuevos_sem_pagas}</div>
+      <div class="p-delta ${dNuevos.cls}">${dNuevos.txt}</div>
+      <div class="p-context">Trial nuevos: ${m.nuevos_sem_trial} <span class="p-delta ${dTrial.cls}" style="font-size:10px;padding:1px 6px">${dTrial.txt}</span></div>
+    </div>
+    <div class="p-card c-red">
+      <div class="p-label">Cancelaciones confirmadas (pagas)</div>
+      <div class="p-value" style="color:var(--red)">${m.cancel_sem}</div>
+      <div class="p-delta ${dCancel.cls}">${dCancel.txt}</div>
+      <div class="p-context">Cuentas con payment_till + 21 días en esta semana</div>
+      <div class="p-context" style="margin-top:4px;font-size:9px;color:#475569">⏱ Semanas recientes pueden verse incompletas — el dato es definitivo 21 días después del vencimiento</div>
+    </div>
+    <div class="p-card c-orange">
+      <div class="p-label">Atrasadas esta semana</div>
+      <div class="p-value" style="color:var(--orange)">${m.atr_sem}</div>
+      <div class="p-delta neg">⚠ ${fmt$(m.mrr_atr_sem)} MRR en riesgo</div>
+      <div class="p-context">Total atrasadas acumuladas: <strong>${m.atrasados_pagas}</strong> · ${fmt$(m.mrr_riesgo)} MRR total</div>
+    </div>
+    <div class="p-card c-pink">
+      <div class="p-label">Retención neta (pagas)</div>
+      <div class="p-value" style="color:${m.nuevos_sem_pagas >= m.cancel_sem ? 'var(--green2)':'var(--red)'}">${m.nuevos_sem_pagas >= m.cancel_sem ? '+':'-'}${Math.abs(m.nuevos_sem_pagas - m.cancel_sem)}</div>
+      <div class="p-delta ${m.nuevos_sem_pagas >= m.cancel_sem ? 'pos':'neg'}">${m.nuevos_sem_pagas >= m.cancel_sem ? '▲ Crecimiento':'▼ Pérdida neta'}</div>
+      <div class="p-context">Nuevas (${m.nuevos_sem_pagas}) − Cancel. (${m.cancel_sem})</div>
+    </div>
+    <div class="p-card c-yellow">
+      <div class="p-label">Trials convertidos a pago</div>
+      <div class="p-value" style="color:var(--yellow)">${m.convertidos_sem}</div>
+      <div class="p-delta ${dConv.cls}">${dConv.txt}</div>
+      <div class="p-context">~$${m.mrr_convertidos_sem.toLocaleString('es-CO')} MRR generado<br>Conversión = trial creado hace 3 días que pagó</div>
+    </div>`;
+
+  // ── Bloque 2: Hallazgos ───────────────────────────
+  // Store metrics globally so toggle functions can access them
+  window._metrics = m;
+  renderMotivosSem(m);
+  window._hallazgoMode = window._hallazgoMode || 'pagas';
+  renderHallazgoBars(window._hallazgoMode);
+
+  // LT comparison
+  document.getElementById('ltComparacion').innerHTML = `
+    <div style="background:rgba(34,197,94,.08);border:1px solid rgba(34,197,94,.2);border-radius:10px;padding:12px 14px">
+      <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px">Pagas vigentes</div>
+      <div style="font-family:'Syne',sans-serif;font-size:26px;font-weight:800;color:var(--green2)">${m.lt_vig_avg}<span style="font-size:13px;margin-left:2px">días</span></div>
+      <div style="font-size:10px;color:var(--muted);margin-top:2px">Promedio col. LT · solo pagas</div>
+    </div>
+    <div style="background:rgba(248,113,113,.08);border:1px solid rgba(248,113,113,.2);border-radius:10px;padding:12px 14px">
+      <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px">Pagas canceladas</div>
+      <div style="font-family:'Syne',sans-serif;font-size:26px;font-weight:800;color:var(--red)">${m.lt_can_avg}<span style="font-size:13px;margin-left:2px">días</span></div>
+      <div style="font-size:10px;color:var(--muted);margin-top:2px">Promedio col. LT · solo pagas</div>
+    </div>`;
+
+  // Trend chart
+  destroyChart('tendenciaChart');
+  charts.tendencia = new Chart(document.getElementById('tendenciaChart').getContext('2d'), {
+    type: 'bar',
+    data: {
+      labels: m.trend.map(t => t.label),
+      datasets: [
+        { label: 'Nuevas', data: m.trend.map(t => t.nuevas), backgroundColor: 'rgba(96,165,250,.7)', borderColor: '#60a5fa', borderWidth:1, borderRadius:4 },
+        { label: 'Canceladas', data: m.trend.map(t => t.cancels), backgroundColor: 'rgba(248,113,113,.7)', borderColor: '#f87171', borderWidth:1, borderRadius:4 }
+      ]
+    },
+    options: { responsive:true, maintainAspectRatio:false,
+      plugins:{ legend:{position:'top',labels:{boxWidth:10,padding:12,color:'#94a3b8',font:{size:10}}}, tooltip:{mode:'index',intersect:false} },
+      scales:{ x:{grid:{color:'rgba(255,255,255,.03)'},ticks:{color:'#94a3b8',font:{size:9}}},
+               y:{grid:{color:'rgba(255,255,255,.03)'},ticks:{color:'#94a3b8',font:{size:9}},beginAtZero:true} } }
+  });
+
+  // ── Bloque 3: Riesgo ─────────────────────────────
+  // Helper: MRR label using real MRR / total vigentes ratio as proxy
+  const fmt$ = n => '$' + (n||0).toLocaleString('es-CO');
+  const riskCards = [
+    {icon:'📵', key:'sinWa',     sem:m.sin_wa_sem,     tot:m.sin_wa,      mrrS:m.mrr_sin_wa_sem,     mrrT:m.mrr_sin_wa_tot,     label:'Sin WA conectado',   sub:'sin API ni Business',   cls:''},
+    {icon:'⚡', key:'sinFlow',   sem:m.sin_flow_sem,   tot:m.sin_flow,    mrrS:m.mrr_sin_flow_sem,   mrrT:m.mrr_sin_flow_tot,   label:'Sin flow activo',    sub:'sin automatización',    cls:''},
+    {icon:'🗂️', key:'sinGrupos', sem:m.sin_grupos_sem, tot:m.sin_grupos,  mrrS:m.mrr_sin_grupos_sem, mrrT:m.mrr_sin_grupos_tot, label:'Sin grupos activos', sub:'grupos en 0',           cls:''},
+    {icon:'😴', key:'sinLogin',  sem:m.sin_login_sem,  tot:m.sin_login,   mrrS:m.mrr_sin_login_sem,  mrrT:m.mrr_sin_login_tot,  label:'Sin login +14d',     sub:'nueva inactividad/tot', cls:'moderate'},
+    {icon:'🎓', key:'sinOnb',    sem:m.sin_onb_sem,    tot:m.sin_onb_vig, mrrS:m.mrr_sin_onb_sem,    mrrT:m.mrr_sin_onb_tot,    label:'Sin onboarding',     sub:'esta sem. / total',     cls:'low'},
+  ];
+  document.getElementById('riskGrid').innerHTML = riskCards.map(r => `
+    <div class="risk-card ${r.cls}">
+      <div class="risk-icon">${r.icon}</div>
+      <div class="risk-count">${r.sem}<span style="font-size:16px;font-weight:500;color:var(--muted);margin-left:6px">/ ${r.tot}</span></div>
+      <div class="risk-label">${r.label}<br><small style="color:var(--muted)">${r.sub}</small></div>
+      <div class="risk-mrr">${fmt$(r.mrrS)} MRR esta semana<small style="color:var(--muted);font-size:9px;display:block;margin-top:1px">Total: ${fmt$(r.mrrT)}</small></div>
+      <button class="risk-dl-btn" onclick="downloadRiskCSV('${r.key}','${r.label}')">↓ Descargar (${r.tot})</button>
+    </div>`).join('');
+
+  // Churn chart by plan
+  destroyChart('churnChart');
+  charts.churn = new Chart(document.getElementById('churnChart').getContext('2d'), {
+    type: 'line',
+    data: {
+      labels: m.trend.map(t => t.label),
+      datasets: [
+        { label:'Starter', data: m.trend.map(t => t.churnStarter), borderColor:'#60a5fa', backgroundColor:'rgba(96,165,250,.1)', borderWidth:2, pointRadius:3, tension:.3, fill:true },
+        { label:'Advanced', data: m.trend.map(t => t.churnAdvanced), borderColor:'#4ade80', backgroundColor:'rgba(74,222,128,.08)', borderWidth:2, pointRadius:3, tension:.3 },
+        { label:'Growth', data: m.trend.map(t => t.churnGrowth), borderColor:'#f472b6', backgroundColor:'rgba(244,114,182,.08)', borderWidth:2, pointRadius:3, tension:.3 },
+        { label:'Benchmark 5%', data: m.trend.map(() => 5), borderColor:'rgba(148,163,184,.3)', borderDash:[4,4], borderWidth:1.5, pointRadius:0 }
+      ]
+    },
+    options: { responsive:true, maintainAspectRatio:false,
+      plugins:{ legend:{position:'top',labels:{boxWidth:10,padding:12,color:'#94a3b8',font:{size:10}}},
+        tooltip:{ callbacks:{ label: ctx => ` ${ctx.dataset.label}: ${ctx.parsed.y}%` } } },
+      scales:{ x:{grid:{color:'rgba(255,255,255,.03)'},ticks:{color:'#94a3b8',font:{size:9}}},
+               y:{grid:{color:'rgba(255,255,255,.03)'},ticks:{color:'#94a3b8',font:{size:9},callback:v=>v+'%'},beginAtZero:true,
+                 max: Math.max(10, ...m.trend.flatMap(t=>[t.churnStarter,t.churnAdvanced,t.churnGrowth]).filter(n=>n>0)) * 1.3 | 0} } }
+  });
+
+  // ── Bloque 4: Acciones ───────────────────────────
+  const dOnb = delta(m.onb_asistio, m.prev_onb_asist);
+  const dSes = delta(m.ses_asistentes, m.prev_ses);
+  const cob_pct       = m.totalNewMonth > 0
+    ? Math.round(m.onb_asistio_mes_pagas / m.totalNewMonth * 100) : 0;
+  const cob_pct_trial = m.totalNewMonth_trial > 0
+    ? Math.round(m.onb_asistio_mes_trial / m.totalNewMonth_trial * 100) : 0;
+
+  // ── Embudos render (data comes from calc via m) ──────
+  const embColors = {'Pago Atrasado':'t-emb','TRIAL SIN WA':'t-onb','TRIAL SIN FLOW':'t-onb','Cancelación':'t-ses'};
+  const embLabels = {'Pago Atrasado':'Atrasados','TRIAL SIN WA':'Trial sin WA','TRIAL SIN FLOW':'Trial sin Flow','Cancelación':'Embudo cancelación'};
+  const flujosRender = ['Pago Atrasado','TRIAL SIN WA','TRIAL SIN FLOW','Cancelación'];
+  const embRows = flujosRender.map(f => {
+    const sem = m.embSem[f]||{count:0,vigentes:0,mrr:0};
+    const prev = m.embPrev[f]||{count:0};
+    const d = sem.count - prev.count;
+    const dTxt = d===0?'= igual':(d>0?`▲ +${d} vs s.a.`:`▼ ${d} vs s.a.`);
+    const dCls = d===0?'delta-neu':d>0?'delta-pos':'delta-neg';
+    const retPct = sem.count>0?Math.round(sem.vigentes/sem.count*100):0;
+    return `<tr>
+      <td><span class="tag ${embColors[f]||'t-emb'}">${embLabels[f]||f}</span></td>
+      <td><strong>${f}</strong><br><small style="color:var(--muted)">${sem.vigentes} de ${sem.count} impactados siguen vigentes (${retPct}% retención)</small></td>
+      <td style="font-family:'Syne',sans-serif;font-weight:700;font-size:16px">${sem.count}</td>
+      <td class="${dCls}">${dTxt}</td>
+      <td><span style="font-size:12px;color:var(--muted)">—</span></td>
+      <td style="color:var(--muted);font-size:11px">MRR impactado: ${fmt$(sem.mrr)} · retención ${retPct}%${m.embImpact12[f]?impactTable(f,'Impactados','No impactados',m.embImpact12[f],'var(--blue)'):''}</td>
+    </tr>`;
+  }).join('');
+
+  // Derived onboarding metrics
+  const onb_conv_rate = m.onb_agendados > 0
+    ? Math.round(m.onb_asistio / m.onb_agendados * 100) : 0;
+  const ltv_note = m.ret_diff > 0
+    ? `Retención con ONB: ${m.pct_ret_con_onb}% vs sin ONB: ${m.pct_ret_sin_onb}% (+${m.ret_diff}pp)`
+    : `LTV con ONB: $${m.ltv_con_onb} · sin ONB: $${m.ltv_sin_onb}`;
+  const onbImpHtml = impactTable('Onboarding', 'Con ONB', 'Sin ONB', m.onbImpact12, 'var(--green2)');
+  const sesImpHtml = impactTable('Sesiones en vivo', 'Con sesión', 'Sin sesión', m.onbImpact_ses12, 'var(--pink)');
+
+  document.getElementById('accionesBody').innerHTML = `
+    <tr>
+      <td><span class="tag t-onb">Onboarding</span></td>
+      <td>
+        <strong>Onboarding clientes nuevos</strong>
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:4px;margin-top:6px">
+          <div style="background:rgba(255,255,255,.04);border-radius:6px;padding:5px 8px;font-size:10px">
+            <div style="color:var(--muted)">Propuestas</div>
+            <div style="font-weight:700;font-size:13px">${m.onb_propuestas}</div>
+          </div>
+          <div style="background:rgba(255,255,255,.04);border-radius:6px;padding:5px 8px;font-size:10px">
+            <div style="color:var(--muted)">Agendaron</div>
+            <div style="font-weight:700;font-size:13px">${m.onb_agendados}</div>
+          </div>
+          <div style="background:rgba(74,222,128,.08);border-radius:6px;padding:5px 8px;font-size:10px">
+            <div style="color:var(--muted)">Asistieron</div>
+            <div style="font-weight:700;font-size:13px;color:var(--green2)">${m.onb_asistio}</div>
+          </div>
+          <div style="background:rgba(248,113,113,.08);border-radius:6px;padding:5px 8px;font-size:10px">
+            <div style="color:var(--muted)">No show</div>
+            <div style="font-weight:700;font-size:13px;color:var(--red)">${m.onb_noshow}</div>
+            ${m.onb_noshow_real > m.onb_noshow
+              ? `<div style="font-size:9px;color:var(--muted);margin-top:2px">Real: ${m.onb_noshow_real} · ${Math.round(m.onb_noshow_real/(m.onb_agendados||1)*100)}% de agendados</div>`
+              : ''}
+          </div>
+        </div>
+      </td>
+      <td style="font-family:'Syne',sans-serif;font-weight:700;font-size:16px;color:var(--green2)">${m.onb_asistio}</td>
+      <td class="${dOnb.cls === 'pos' ? 'delta-pos' : dOnb.cls === 'neg' ? 'delta-neg' : 'delta-neu'}">${dOnb.txt}</td>
+      <td>
+        <div style="font-size:10px;color:var(--muted);margin-bottom:4px">Cobertura mes</div>
+        <div style="display:flex;flex-direction:column;gap:4px">
+          <div style="background:rgba(34,197,94,.08);border-radius:6px;padding:4px 8px">
+            <span style="font-size:9px;color:var(--muted)">Pagas </span>
+            <strong style="font-size:12px;color:var(--green2)">${m.onb_asistio_mes_pagas}</strong>
+            <span style="font-size:10px;color:var(--muted)"> / ${m.totalNewMonth} · ${cob_pct}%</span>
+          </div>
+          <div style="background:rgba(96,165,250,.08);border-radius:6px;padding:4px 8px">
+            <span style="font-size:9px;color:var(--muted)">Trial </span>
+            <strong style="font-size:12px;color:var(--blue)">${m.onb_asistio_mes_trial}</strong>
+            <span style="font-size:10px;color:var(--muted)"> / ${m.totalNewMonth_trial} · ${cob_pct_trial}%</span>
+          </div>
+          <div style="font-size:9px;color:var(--muted);margin-top:2px">Propuestas mes: ${m.onb_propuestas_mes}</div>
+        </div>
+      </td>
+      <td style="color:var(--muted);font-size:11px">${ltv_note}<br>Conversión agenda→asistencia: ${onb_conv_rate}%${onbImpHtml}</td>
+    </tr>
+    <tr>
+      <td><span class="tag t-ses">Sesión vivo</span></td>
+      <td><strong>Sesiones en vivo educativas</strong><br><small style="color:var(--muted)">${m.ses_sesiones} sesión(es) esta semana</small></td>
+      <td style="font-family:'Syne',sans-serif;font-weight:700;font-size:16px">${m.ses_asistentes}</td>
+      <td class="${dSes.cls === 'pos' ? 'delta-pos' : dSes.cls === 'neg' ? 'delta-neg' : 'delta-neu'}">${dSes.txt}</td>
+      <td><div style="font-size:12px"><strong>${m.ses_asist_mes}</strong> asist. mes</div></td>
+      <td style="color:var(--muted);font-size:11px">Clientes con sesión tienen LT promedio ${m.lt_vig_avg} días vs ${m.lt_can_avg} días cancelados${sesImpHtml}</td>
+    </tr>
+    ${embRows}`;
+
+  // MRR protegido: diferencia LTV × asistentes / meses promedio de vida
+  // MRR protegido basado en tasas de retención reales
+  const mrr_prot_calc = m.mrr_protegido_sem || 0;
+  const mrr_prot_note = m.ret_diff > 0
+    ? `${m.onb_asistio} asist. × ${m.ret_diff}pp retención extra × MRR prom. (retención con ONB: ${m.pct_ret_con_onb}% vs sin ONB: ${m.pct_ret_sin_onb}%)`
+    : 'Calculando — verificar que haya cuentas con y sin onboarding en la tabla';
+
+  document.getElementById('acumFinanciero').innerHTML = `
+    <div class="acum">
+      <span class="al">MRR protegido est. ONB (sem.)</span>
+      <span class="av" style="color:${mrr_prot_calc>0?'var(--green2)':'var(--muted)'}">$${mrr_prot_calc.toLocaleString('es-CO')}</span>
+      <span style="font-size:9px;color:var(--muted);display:block;margin-top:2px">${mrr_prot_note}</span>
+    </div>
+    <div class="acum">
+      <span class="al">Clientes impactados (onb + ses)</span>
+      <span class="av">${m.onb_asistio + m.ses_asistentes}</span>
+      <span style="font-size:9px;color:var(--muted);display:block;margin-top:2px">onb: ${m.onb_asistio} · sesiones: ${m.ses_asistentes}</span>
+    </div>
+    <div class="acum">
+      <span class="al">Cobertura ONB mes — pagas</span>
+      <span class="av" style="color:var(--green2)">${cob_pct}%</span>
+      <span style="font-size:9px;color:var(--muted);display:block;margin-top:2px">${m.onb_asistio_mes_pagas} de ${m.totalNewMonth} pagas · ${m.onb_asistio_mes_trial} de ${m.totalNewMonth_trial} trials</span>
+    </div>
+    <div class="acum">
+      <span class="al">MRR en riesgo — atrasados</span>
+      <span class="av" style="color:var(--orange)">$${m.mrr_riesgo.toLocaleString('es-CO')}</span>
+      <span style="font-size:9px;color:var(--muted);display:block;margin-top:2px">${m.atrasados_pagas} cuentas × MRR real de cada una</span>
+    </div>`;
+
+  // ── Bloque 5: Plan de acción — generado desde datos de la semana ──
+  // Se regenera cada vez que cambia la semana
+  const nextWeekEnd = fmtDate(new Date(m.range.end.getTime() + 7*86400000));
+  const rows = [];
+
+  // PRIORIDAD 1: Cuentas nuevas esta semana sin WA (riesgo inmediato)
+  if (m.sin_wa_sem > 0) rows.push({
+    tipo: 'react',
+    accion: `Contactar las ${m.sin_wa_sem} cuentas nuevas esta semana que aún no conectaron WhatsApp`,
+    resp: 'Onboarding', fecha: nextWeekEnd, estado: 's-rojo', label: 'Urgente',
+    nota: `Sin WA = no pueden usar la plataforma. Contactar antes de que pasen los 3 días de trial.`
+  });
+
+  // PRIORIDAD 2: Cuentas nuevas sin onboarding esta semana
+  if (m.sin_onb_sem > 0) rows.push({
+    tipo: 'prev',
+    accion: `Proponer onboarding a las ${m.sin_onb_sem} cuentas nuevas de esta semana sin sesión agendada`,
+    resp: 'Onboarding', fecha: nextWeekEnd, estado: 's-amarillo', label: 'En progreso',
+    nota: `LTV con ONB: $${m.ltv_con_onb} vs sin ONB: $${m.ltv_sin_onb}. Diferencia de $${m.ltv_con_onb - m.ltv_sin_onb} por cliente.`
+  });
+
+  // PRIORIDAD 3: Cuentas que se volvieron inactivas esta semana
+  if (m.sin_login_sem > 0) rows.push({
+    tipo: 'react',
+    accion: `Reactivar las ${m.sin_login_sem} cuentas pagas que llevan 14-21 días sin ingresar a la plataforma`,
+    resp: 'CX', fecha: nextWeekEnd, estado: 's-amarillo', label: 'En progreso',
+    nota: `Ventana crítica antes de que superen los 21 días y entren a proceso de pago atrasado.`
+  });
+
+  // PRIORIDAD 4: Sesiones y onboarding en curso
+  rows.push({
+    tipo: 'prev',
+    accion: `Realizar ${m.ses_sesiones > 0 ? m.ses_sesiones : 'las'} sesiones en vivo programadas — difundir a base de clientes activos`,
+    resp: 'CX', fecha: nextWeekEnd, estado: 's-verde', label: 'En curso',
+    nota: `Asistencia acumulada mes: ${m.ses_asist_mes}. Clientes con sesión tienen mayor LT promedio.`
+  });
+
+  // PRIORIDAD 5: Atrasados (siempre presente)
+  if (m.atrasados_pagas > 0) rows.push({
+    tipo: 'react',
+    accion: `Gestionar las ${m.atrasados_pagas} cuentas pagas atrasadas — activar embudo de cobro y seguimiento`,
+    resp: 'CX / Comercial', fecha: nextWeekEnd, estado: 's-amarillo', label: 'En progreso',
+    nota: `~$${m.mrr_riesgo.toLocaleString('es-CO')} en riesgo real. Priorizar las que usan la plataforma activamente.`
+  });
+
+  // Editable row placeholder
+  rows.push({
+    tipo: 'prev', accion: 'Agregar acción adicional...', resp: '—',
+    fecha: nextWeekEnd, estado: 's-gris', label: 'Pendiente', nota: '—'
+  });
+
+  document.getElementById('planBody').innerHTML = rows.map(r => `
+    <tr>
+      <td><span class="${r.tipo === 'react' ? 'tipo-react' : 'tipo-prev'}">${r.tipo === 'react' ? 'Reactivación' : 'Preventiva'}</span></td>
+      <td contenteditable="true">${r.accion}</td>
+      <td contenteditable="true">${r.resp}</td>
+      <td contenteditable="true">${r.fecha}</td>
+      <td><span class="status-badge ${r.estado}" onclick="rotateStatus(this)">${r.label}</span></td>
+      <td contenteditable="true">${r.nota}</td>
+    </tr>`).join('');
+
+  window._quienesMode = window._quienesMode || 'pagas';
+  renderQuienes(window._quienesMode);
+
+  // ── Bloque 4b: Tendencia 4 semanas ───────────────
+  renderTendencia4(m);
+  renderTrend4_s123(m);
+}
+
+// ══════════════════════════════════════════════════════
+// IMPACT TABLE HELPER
+// ══════════════════════════════════════════════════════
+function impactTable(title, labelA, labelB, data, color) {
+  if (!data || (!data.conN && !data.sinN)) return '';
+  const metrics = [
+    { label: 'Retención', a: data.conRet+'%', b: data.sinRet+'%',
+      diff: data.conRet - data.sinRet, unit: 'pp', better: data.conRet >= data.sinRet },
+    { label: 'LT promedio', a: data.conLT+'d', b: data.sinLT+'d',
+      diff: data.conLT - data.sinLT, unit: 'd', better: data.conLT >= data.sinLT },
+    { label: 'LTV promedio', a: '$'+data.conLTV.toLocaleString('es-CO'),
+      b: '$'+data.sinLTV.toLocaleString('es-CO'),
+      diff: data.conLTV - data.sinLTV, unit: '', better: data.conLTV >= data.sinLTV },
+  ];
+  return `<div style="background:rgba(255,255,255,.02);border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-top:10px">
+    <div style="font-size:10px;font-weight:700;color:var(--muted);letter-spacing:.06em;text-transform:uppercase;margin-bottom:10px">
+      Impacto de ${title} · últimos 12 meses
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px">
+      ${metrics.map(mt => `<div>
+        <div style="font-size:10px;color:var(--muted);margin-bottom:4px">${mt.label}</div>
+        <div style="display:flex;align-items:baseline;gap:5px;flex-wrap:wrap">
+          <span style="font-family:'Syne',sans-serif;font-size:15px;font-weight:800;color:${color}">${mt.a}</span>
+          <span style="font-size:9px;color:var(--muted)">${labelA}</span>
+        </div>
+        <div style="display:flex;align-items:baseline;gap:5px;margin-top:2px;flex-wrap:wrap">
+          <span style="font-family:'Syne',sans-serif;font-size:13px;font-weight:700;color:var(--muted)">${mt.b}</span>
+          <span style="font-size:9px;color:var(--muted)">${labelB}</span>
+        </div>
+        <div style="font-size:10px;margin-top:3px;font-weight:600;color:${mt.better?'var(--green2)':'var(--red)'}">
+          ${mt.diff===0?'= igual':mt.better?`▲ +${Math.abs(mt.diff)}${mt.unit}`:`▼ -${Math.abs(mt.diff)}${mt.unit}`}
+        </div>
+      </div>`).join('')}
+    </div>
+    <div style="font-size:9px;color:var(--muted);margin-top:8px">
+      Base: últimos 12 meses · ${labelA}: ${data.conN} · ${labelB}: ${data.sinN}
+      ${data.histConN?` · (histórico: con ${data.histConN}, sin ${data.histSinN})`:''}
+    </div>
+  </div>`;
+}
+
+// ══════════════════════════════════════════════════════
+// TENDENCIA 4 SEMANAS
+// ══════════════════════════════════════════════════════
+function renderTendencia4(m) {
+  const el = document.getElementById('tendencia4Container');
+  if (!el || !m.trend4 || m.trend4.length === 0) return;
+  const weeks = m.trend4;
+  const w = weeks.length;
+
+  // Color helper: compare current vs previous, green if better, red if worse
+  function cellColor(curr, prev, lowerIsBetter=false) {
+    if (prev === null || prev === undefined || curr === prev) return 'var(--muted)';
+    const better = lowerIsBetter ? curr < prev : curr > prev;
+    return better ? 'var(--green2)' : 'var(--red)';
+  }
+  function bgColor(curr, prev, lowerIsBetter=false) {
+    if (prev === null || prev === undefined || curr === prev) return 'transparent';
+    const better = lowerIsBetter ? curr < prev : curr > prev;
+    return better ? 'rgba(34,197,94,.08)' : 'rgba(248,113,113,.08)';
+  }
+  function arrow(curr, prev, lowerIsBetter=false) {
+    if (prev === null || prev === undefined || curr === prev) return '';
+    const better = lowerIsBetter ? curr < prev : curr > prev;
+    const d = Math.round(Math.abs(curr - prev) * 10) / 10;
+    const dStr = Number.isInteger(d) ? d : d.toFixed(1);
+    const color = better ? 'var(--green2)' : 'var(--red)';
+    const sym = curr > prev ? '▲' : '▼';
+    return ` <span style="font-size:9px;color:${color}">${sym}${dStr}</span>`;
+  }
+
+  function buildTable(title, color, rows) {
+    const hdrs = weeks.map((wk,i) => `<th style="padding:7px 10px;font-size:10px;font-weight:600;color:${i===w-1?color:'var(--muted)'};background:${i===w-1?'rgba(255,255,255,.04)':'transparent'};white-space:nowrap">${wk.lbl}${i===w-1?' ← actual':''}</th>`).join('');
+    const bodyRows = rows.map(({label, values, lowerIsBetter, fmt}) => {
+      const cells = values.map((v,i) => {
+        const prev = i > 0 ? values[i-1] : null;
+        const col = cellColor(v, prev, lowerIsBetter);
+        const bg  = bgColor(v, prev, lowerIsBetter);
+        const ar  = arrow(v, prev, lowerIsBetter);
+        if (v === null || v === undefined) { return `<td style="padding:7px 10px;font-size:11px;color:var(--muted);text-align:center;border-bottom:1px solid var(--border)">—</td>`; }
+        const display = fmt === '%' ? v+'%' : v;
+        return `<td style="padding:7px 10px;font-size:11px;font-weight:${i===w-1?'700':'400'};color:${col};background:${bg};text-align:center;border-bottom:1px solid var(--border)">${display}${ar}</td>`;
+      }).join('');
+      return `<tr><td style="padding:7px 12px;font-size:11px;color:var(--muted);border-bottom:1px solid var(--border);white-space:nowrap">${label}</td>${cells}</tr>`;
+    }).join('');
+    return `<div style="background:var(--card);border:1px solid var(--border);border-radius:12px;overflow:hidden;margin-bottom:12px">
+      <div style="background:${color}18;border-bottom:1px solid var(--border);padding:9px 14px;display:flex;align-items:center;gap:8px">
+        <div style="width:8px;height:8px;border-radius:50%;background:${color}"></div>
+        <span style="font-family:'Syne',sans-serif;font-size:12px;font-weight:700;color:#fff">${title}</span>
+      </div>
+      <div style="overflow-x:auto">
+        <table style="width:100%;border-collapse:collapse">
+          <thead><tr>
+            <th style="padding:7px 12px;font-size:10px;font-weight:600;color:var(--muted);text-align:left;border-bottom:1px solid var(--border)">Métrica</th>
+            ${hdrs}
+          </tr></thead>
+          <tbody>${bodyRows}</tbody>
+        </table>
+      </div>
+    </div>`;
+  }
+
+  const onbTable = buildTable('🎯 Onboarding', 'var(--green2)', [
+    { label:'Nuevas pagas creadas',    values: weeks.map(w=>w.newP||w.nuevasP||0), lowerIsBetter:false, fmt:'n' },
+    { label:'ONB propuesto',           values: weeks.map(w=>w.onbProp||0),   lowerIsBetter:false, fmt:'n' },
+    { label:'Agendados',               values: weeks.map(w=>w.onbAgen||0),   lowerIsBetter:false, fmt:'n' },
+    { label:'Asistentes',              values: weeks.map(w=>w.onbAsist||0),  lowerIsBetter:false, fmt:'n' },
+    { label:'No show',                 values: weeks.map(w=>w.onbNS||0),     lowerIsBetter:true,  fmt:'n' },
+    { label:'% No show',               values: weeks.map(w=>w.onbNSPct||0),  lowerIsBetter:true,  fmt:'%' },
+    { label:'% Tasa de asistencia',    values: weeks.map(w=>w.asistPct||0),  lowerIsBetter:false, fmt:'%' },
+    { label:'% Cobertura pagas',       values: weeks.map(w=>w.cobPct||0),    lowerIsBetter:false, fmt:'%' },
+    { label:'% Retención asistentes',  values: weeks.map(w=>w.onbRetPct), lowerIsBetter:false, fmt:'%', nullable:true },
+  ]);
+
+  const sesTable = buildTable('🎙️ Sesiones en vivo', 'var(--pink)', [
+    { label:'Asistentes',          values: weeks.map(w=>w.sesAsist), lowerIsBetter:false, fmt:'n' },
+    { label:'Sesiones realizadas', values: weeks.map(w=>w.sesSes),   lowerIsBetter:false, fmt:'n' },
+    { label:'Prom. asist./sesión', values: weeks.map(w=>w.sesSes>0?Math.round(w.sesAsist/w.sesSes*10)/10:0), lowerIsBetter:false, fmt:'n' },
+    { label:'% Retención asistentes', values: weeks.map(w=>w.sesRetPct), lowerIsBetter:false, fmt:'%', nullable:true },
+  ]);
+
+  const embFlows = ['Pago Atrasado','TRIAL SIN WA','TRIAL SIN FLOW','Cancelación'];
+  const embLabelsM = {'Pago Atrasado':'Atrasados','TRIAL SIN WA':'Trial sin WA','TRIAL SIN FLOW':'Trial sin Flow','Cancelación':'Cancelación'};
+  const embRows = [];
+  embFlows.forEach(f => {
+    embRows.push({ label: embLabelsM[f]||f, values: weeks.map(w=>w.emb[f]||0), lowerIsBetter:false, fmt:'n' });
+    embRows.push({ label: `  └ % Retención`, values: weeks.map(w=>w.embRetPct?.[f]), lowerIsBetter:false, fmt:'%', nullable:true });
+  });
+  const embTable = buildTable('🔁 Embudos', 'var(--blue)', embRows);
+
+  el.innerHTML = onbTable + sesTable + embTable;
+}
+
+// ══════════════════════════════════════════════════════
+// TREND 4 WEEKS — SECTIONS 1, 2, 3
+// ══════════════════════════════════════════════════════
+function renderTrend4_s123(m) {
+  if (!m.trend4_s123 || m.trend4_s123.length === 0) return;
+  const wks = m.trend4_s123;
+
+  // Reuse color/arrow helpers from renderTendencia4 scope — define inline
+  function col(curr, prev, inv=false) {
+    if (prev===null||prev===undefined||curr===prev) return 'var(--muted)';
+    return (inv ? curr<prev : curr>prev) ? 'var(--green2)' : 'var(--red)';
+  }
+  function bg(curr, prev, inv=false) {
+    if (prev===null||prev===undefined||curr===prev) return 'transparent';
+    return (inv ? curr<prev : curr>prev) ? 'rgba(34,197,94,.08)' : 'rgba(248,113,113,.08)';
+  }
+  function ar(curr, prev, inv=false, fmt='n') {
+    if (prev===null||prev===undefined||curr===prev) return '';
+    const d = Math.round(Math.abs(curr-prev)*10)/10;
+    const dStr = Number.isInteger(d) ? d : d.toFixed(1);
+    const better = inv ? curr<prev : curr>prev;
+    const c = better ? 'var(--green2)' : 'var(--red)';
+    const s = curr>prev?'▲':'▼';
+    return ` <span style="font-size:9px;color:${c}">${s}${dStr}${fmt==='%'?'pp':''}</span>`;
+  }
+
+  function buildT(title, color, rows) {
+    const hdrs = wks.map((wk,i)=>
+      `<th style="padding:6px 10px;font-size:10px;font-weight:600;color:${i===wks.length-1?color:'var(--muted)'};background:${i===wks.length-1?'rgba(255,255,255,.04)':'transparent'};white-space:nowrap">${wk.lbl}${i===wks.length-1?' ← actual':''}</th>`
+    ).join('');
+    const body = rows.map(({label,values,inv,fmt}) => {
+      const cells = values.map((v,i) => {
+        const prev = i>0?values[i-1]:null;
+        const display = fmt==='%' ? v+'%' : v;
+        return `<td style="padding:6px 10px;font-size:11px;font-weight:${i===wks.length-1?'700':'400'};color:${col(v,prev,inv)};background:${bg(v,prev,inv)};text-align:center;border-bottom:1px solid var(--border)">${display}${ar(v,prev,inv,fmt)}</td>`;
+      }).join('');
+      return `<tr><td style="padding:6px 12px;font-size:11px;color:var(--muted);border-bottom:1px solid var(--border);white-space:nowrap">${label}</td>${cells}</tr>`;
+    }).join('');
+    return `<div style="background:var(--card);border:1px solid var(--border);border-radius:12px;overflow:hidden;margin-bottom:0">
+      <div style="background:${color}18;border-bottom:1px solid var(--border);padding:8px 14px;display:flex;align-items:center;gap:8px">
+        <div style="width:7px;height:7px;border-radius:50%;background:${color}"></div>
+        <span style="font-family:'Syne',sans-serif;font-size:11px;font-weight:700;color:#fff">${title}</span>
+      </div>
+      <div style="overflow-x:auto">
+        <table style="width:100%;border-collapse:collapse">
+          <thead><tr><th style="padding:6px 12px;font-size:10px;font-weight:600;color:var(--muted);text-align:left;border-bottom:1px solid var(--border)">Métrica</th>${hdrs}</tr></thead>
+          <tbody>${body}</tbody>
+        </table>
+      </div>
+    </div>`;
+  }
+
+  // SECTION 1 — Datos duros
+  const el1 = document.getElementById('trend4_s1Container');
+  if (el1) el1.innerHTML = buildT('Histórico 4 semanas — Datos duros', 'var(--teal)', [
+    {label:'Nuevas pagas',      values:wks.map(w=>w.nuevasP),  inv:false, fmt:'n'},
+    {label:'Nuevas trial',      values:wks.map(w=>w.nuevasT),  inv:false, fmt:'n'},
+    {label:'Cancelaciones',     values:wks.map(w=>w.cancSem),  inv:true,  fmt:'n'},
+    {label:'Nuevas atrasadas sem.', values:wks.map(w=>w.atrP), inv:true,  fmt:'n'},
+    {label:'Convertidos trial', values:wks.map(w=>w.convW),    inv:false, fmt:'n'},
+    {label:'Retención neta',    values:wks.map(w=>w.retNeta),  inv:false, fmt:'n'},
+  ]);
+
+  // SECTION 2 — Hallazgos
+  const el2 = document.getElementById('trend4_s2Container');
+  if (el2) el2.innerHTML = buildT('Histórico 4 semanas — Perfil cancelados', 'var(--orange)', [
+    {label:'Cancelados pagas total', values:wks.map(w=>w.canWN),   inv:true,  fmt:'n'},
+    {label:'% Sin onboarding',       values:wks.map(w=>w.pSinOnb),  inv:true, fmt:'%'},
+    {label:'% Sin flow activo',      values:wks.map(w=>w.pSinFlow), inv:true, fmt:'%'},
+    {label:'% Sin WA conectado',     values:wks.map(w=>w.pSinWA),   inv:true, fmt:'%'},
+    {label:'% Sin grupos',           values:wks.map(w=>w.pSinGrupo),inv:true, fmt:'%'},
+  ]);
+
+  // SECTION 3 — Riesgo
+  const el3 = document.getElementById('trend4_s3Container');
+  if (el3) el3.innerHTML = buildT('Histórico 4 semanas — Nuevas pagas con señal de riesgo', 'var(--red)', [
+    {label:'Nuevas pagas totales', values:wks.map(w=>w.rNewTotal), inv:false, fmt:'n'},
+    {label:'Sin WA conectado',     values:wks.map(w=>w.rSinWA),    inv:true,  fmt:'n'},
+    {label:'Sin flow activo',      values:wks.map(w=>w.rSinFlow),  inv:true,  fmt:'n'},
+    {label:'Sin grupos activos',   values:wks.map(w=>w.rSinGrp),   inv:true,  fmt:'n'},
+    {label:'Sin login +14d',       values:wks.map(w=>w.rSinLogin), inv:true,  fmt:'n'},
+    {label:'Sin onboarding',       values:wks.map(w=>w.rSinOnb),   inv:true,  fmt:'n'},
+  ]);
+}
+
+// ══════════════════════════════════════════════════════
+// MOTIVOS RENDER
+// ══════════════════════════════════════════════════════
+function renderMotivosSem(m) {
+  const subEl  = document.getElementById('motivosSubSem');
+  const barsEl = document.getElementById('motivosBarsSem');
+  const insEl  = document.getElementById('motivosInsightSem');
+  const compEl = document.getElementById('motivosCompSem');
+  if (!barsEl) return;
+
+  const total = m.motivosSemN || 0;
+  if (subEl) subEl.textContent = total + ' respuestas esta semana' +
+    (m.cancel_sem > 0 ? ' · ' + Math.round(total/m.cancel_sem*100) + '% tasa de respuesta' : '');
+
+  if (!m.motivosSem || m.motivosSem.length === 0) {
+    barsEl.innerHTML = '<div style="color:var(--muted);font-size:12px;padding:8px 0">Sin respuestas de encuesta esta semana</div>';
+    if (insEl) insEl.innerHTML = 'Sin datos de motivos para esta semana.';
+    if (compEl) compEl.innerHTML = '';
+    return;
+  }
+
+  const colors = ['var(--red)','var(--orange)','var(--yellow)','var(--blue)','var(--purple)','var(--teal)'];
+  const maxC = m.motivosSem[0].count;
+  barsEl.innerHTML = m.motivosSem.map((mo, i) => `
+    <div style="margin-bottom:10px">
+      <div style="display:flex;justify-content:space-between;margin-bottom:3px">
+        <span style="font-size:11px;color:var(--muted);max-width:200px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${mo.label}">${mo.label}</span>
+        <span style="font-size:11px;font-weight:700;color:${colors[i%colors.length]}">${mo.count} · ${Math.round(mo.count/(total||1)*100)}%</span>
+      </div>
+      <div style="height:7px;background:rgba(255,255,255,.05);border-radius:4px;overflow:hidden">
+        <div style="width:${Math.round(mo.count/maxC*100)}%;height:100%;background:${colors[i%colors.length]};border-radius:4px"></div>
+      </div>
+    </div>`).join('');
+
+  if (insEl) insEl.innerHTML = `Motivo principal: <strong>${m.motivosSem[0].label}</strong> (${m.motivosSem[0].count} casos). ${total < m.cancel_sem * 0.3 ? 'Solo el '+Math.round(total/(m.cancel_sem||1)*100)+'% de cancelados respondió.' : ''}`;
+
+  // Comparison with previous week
+  if (compEl) {
+    const allLabels = [...new Set([...m.motivosSem.map(d=>d.label), ...m.motivosPrev.map(d=>d.label)])];
+    compEl.innerHTML = allLabels.slice(0,6).map(lbl => {
+      const c = m.motivosSem.find(d=>d.label===lbl);
+      const p = m.motivosPrev.find(d=>d.label===lbl);
+      const cv = c?.count||0, pv = p?.count||0;
+      const diff = cv - pv;
+      const dColor = diff===0?'var(--muted)':diff>0?'var(--red)':'var(--green2)';
+      const dTxt = diff===0?'= igual':diff>0?`▲ +${diff}`:`▼ ${diff}`;
+      return `<div style="display:flex;align-items:center;justify-content:space-between;padding:7px 0;border-bottom:1px solid var(--border)">
+        <span style="font-size:11px;color:var(--muted);flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-right:8px" title="${lbl}">${lbl}</span>
+        <span style="font-size:11px;font-weight:700;color:var(--text);margin-right:8px">${cv}</span>
+        <span style="font-size:10px;font-weight:600;color:${dColor};min-width:60px;text-align:right">${dTxt} vs s.a.</span>
+      </div>`;
+    }).join('');
+  }
+}
+
+// ══════════════════════════════════════════════════════
+// DOWNLOAD CSV — RISK GROUPS
+// ══════════════════════════════════════════════════════
+function downloadRiskCSV(key, label) {
+  const m = window._metrics;
+  if (!m || !m.exportData || !m.exportData[key]) return;
+  const rows = m.exportData[key];
+  if (!rows.length) { alert('Sin cuentas en esta categoría'); return; }
+  const headers = Object.keys(rows[0]);
+  const csv = [
+    headers.join(','),
+    ...rows.map(r => headers.map(h => {
+      const val = (r[h]||'').toString().replace(/"/g,'""');
+      return val.includes(',') || val.includes('"') ? '"' + val + '"' : val;
+    }).join(','))
+  ].join('\n');
+  const blob = new Blob(['\uFEFF' + csv], {type:'text/csv;charset=utf-8;'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'funnelchat_riesgo_' + key + '_' + new Date().toISOString().slice(0,10) + '.csv';
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+// ══════════════════════════════════════════════════════
+// GLOBAL TOGGLE FUNCTIONS (called from onclick)
+// ══════════════════════════════════════════════════════
+function renderHallazgoBars(mode) {
+  const m = window._metrics;
+  if (!m) return;
+  window._hallazgoMode = mode;
+  const isP = mode === 'pagas';
+  const bars = [
+    { label: 'Sin onboarding',     pct: isP ? m.wcp_pct_sin_onb    : m.wct_pct_sin_onb,    color: 'var(--red)' },
+    { label: 'Sin flow activo',    pct: isP ? m.wcp_pct_sin_flow   : m.wct_pct_sin_flow,   color: 'var(--orange)' },
+    { label: 'Sin WA conectado',   pct: isP ? m.wcp_pct_sin_wa     : m.wct_pct_sin_wa,     color: 'var(--pink)',
+      note: 'Sin API ni Business conectados' },
+    { label: 'Sin sesión en vivo', pct: isP ? m.wcp_pct_sin_ses    : null,                 color: 'var(--purple)' },
+    { label: 'Sin flow en trial',  pct: isP ? m.wcp_pct_sin_trial  : null,                 color: 'var(--yellow)' },
+    { label: 'Sin uso de grupos',  pct: isP ? m.wcp_pct_sin_grupos : m.wct_pct_sin_grupos, color: 'var(--blue)' },
+  ].filter(b => b.pct !== null && b.pct !== undefined);
+
+  const semTotal = isP ? m.cancel_sem_pagas_total : m.cancel_sem_trial_total;
+  const togP = document.getElementById('hallazgoTogglePagas');
+  const togT = document.getElementById('hallazgoToggleTrial');
+  const cnt  = document.getElementById('hallazgoCount');
+  const barsEl = document.getElementById('hallazgoBars');
+  const ins  = document.getElementById('hallazgoInsight');
+  if (!barsEl) return;
+
+  if (togP) togP.className = 'wn-btn' + (isP ? ' active' : '');
+  if (togT) togT.className = 'wn-btn' + (!isP ? ' active' : '');
+  if (cnt)  cnt.textContent = semTotal + (isP ? ' pagas canceladas esta semana' : ' trials cancelados esta semana');
+
+  if (semTotal === 0) {
+    barsEl.innerHTML = '<div style="color:var(--muted);font-size:12px;padding:12px 0">Sin cancelaciones ' + (isP?'pagas':'trial') + ' en la semana seleccionada.</div>';
+    if (ins) ins.innerHTML = 'No hay cancelaciones para analizar esta semana. Selecciona otra semana o revisa los datos.';
+    return;
+  }
+
+  barsEl.innerHTML = bars.map(b =>
+    '<div class="h-bar-row">' +
+    '<div class="h-bar-label">' + b.label +
+    (b.note ? '<br><small style="font-size:9px;color:var(--muted)">' + b.note + '</small>' : '') +
+    '</div>' +
+    '<div class="h-bar-track"><div class="h-bar-fill" style="width:' + b.pct + '%;background:' + b.color + '"></div></div>' +
+    '<div class="h-bar-pct" style="color:' + b.color + '">' + b.pct + '%</div>' +
+    '</div>'
+  ).join('');
+
+  const top = [...bars].sort((a,b) => b.pct - a.pct)[0];
+  if (ins) ins.innerHTML = isP
+    ? 'Esta semana: <strong>' + top.pct + '% de las ' + semTotal + ' pagas canceladas</strong> no tenían ' + top.label.toLowerCase() + '. LTV con onboarding: <strong>$' + m.ltv_con_onb + '</strong> vs sin onboarding: <strong>$' + m.ltv_sin_onb + '</strong> — diferencia de $' + (m.ltv_con_onb - m.ltv_sin_onb) + ' por cliente.'
+    : 'Esta semana: <strong>' + top.pct + '% de los ' + semTotal + ' trials cancelados</strong> no tenían ' + top.label.toLowerCase() + '. El primer contacto con la plataforma es crítico.';
+}
+
+function renderQuienes(mode) {
+  const m = window._metrics;
+  if (!m) return;
+  window._quienesMode = mode;
+  const isP = mode === 'pagas';
+
+  const togP = document.getElementById('quienesTogglePagas');
+  const togT = document.getElementById('quienesToggleTrial');
+  const grid = document.getElementById('quienesGrid');
+  if (!grid) return;
+
+  if (togP) togP.className = 'wn-btn' + (isP ? ' active' : '');
+  if (togT) togT.className = 'wn-btn' + (!isP ? ' active' : '');
+
+  const dims = isP
+    ? [ {title:'Tipo de negocio',     week:m.nicho_cancel_pagas,  avg6:m.nicho_avg6m_pagas,  nuevas:m.nuevas_nicho,  rank:m.rankHistP?.nicho, color:'var(--red)'},
+        {title:'Objetivo declarado',  week:m.objetivo_cancel,      avg6:m.objetivo_avg6m,     nuevas:m.nuevas_obj,    rank:m.rankHistP?.obj,   color:'var(--orange)'},
+        {title:'Experiencia autom.',  week:m.exp_cancel,           avg6:m.exp_avg6m,          nuevas:m.nuevas_exp,    rank:m.rankHistP?.exp,   color:'var(--purple)'},
+        {title:'Facturación mensual', week:m.fact_cancel,          avg6:m.fact_avg6m,         nuevas:m.nuevas_fact,   rank:m.rankHistP?.fact,  color:'var(--blue)'} ]
+    : [ {title:'Tipo de negocio',     week:m.nicho_cancel_trial,   avg6:m.nicho_avg6m_trial,  nuevas:m.nuevas_nicho_t,rank:m.rankHistT?.nicho, color:'var(--red)'},
+        {title:'Objetivo declarado',  week:m.objetivo_cancel_trial,avg6:m.objetivo_avg6m_trial,nuevas:m.nuevas_obj_t, rank:m.rankHistT?.obj,   color:'var(--orange)'},
+        {title:'Experiencia autom.',  week:m.exp_cancel_trial,     avg6:m.exp_avg6m_trial,    nuevas:m.nuevas_exp_t,  rank:m.rankHistT?.exp,   color:'var(--purple)'},
+        {title:'Facturación mensual', week:m.fact_cancel_trial,    avg6:m.fact_avg6m_trial,   nuevas:m.nuevas_fact_t, rank:m.rankHistT?.fact,  color:'var(--blue)'} ];
+
+  const semTotal = isP ? (m.cancel_sem_pagas_total||0) : (m.cancel_sem_trial_total||0);
+  const avg6total= isP ? (m.cancel_6m_pagas_total||1) : 1;
+  const nuevasTotal = isP ? (m.nuevos_sem_pagas||0) : (m.nuevos_sem_trial||0);
+
+  if (semTotal === 0) {
+    grid.innerHTML = '<div class="card" style="grid-column:1/-1"><div style="color:var(--muted);font-size:12px;padding:8px">Sin cancelaciones ' + (isP?'pagas':'trial') + ' en la semana seleccionada.</div></div>';
+    return;
+  }
+
+  function trendBadge(lbl, rankHist) {
+    if (!rankHist || rankHist.length < 2) return '';
+    const pos2 = rankHist[0]?.[lbl];
+    const pos1 = rankHist[1]?.[lbl];
+    const pos0 = rankHist[2]?.[lbl];
+    if (!pos0) return '';
+    let txt = '', color = 'var(--muted)', title = '';
+    if (!pos1 && !pos2) {
+      txt = '★ nuevo'; color = 'var(--yellow)'; title = 'No aparecía en las 2 semanas anteriores';
+    } else if (pos1 && pos0 < pos1) {
+      const mv = pos1 - pos0;
+      txt = '↑'+mv+'pos'; color = 'var(--red)'; title = 'Subió '+mv+' posición(es) — viene escalando';
+    } else if (pos1 && pos0 > pos1) {
+      const mv = pos0 - pos1;
+      txt = '↓'+mv+'pos'; color = 'var(--green2)'; title = 'Bajó '+mv+' posición(es)';
+    } else if (pos0 === pos1 && pos1 === pos2) {
+      txt = '=#'+pos0+' 3s'; color = 'var(--orange)'; title = 'Lleva 3 semanas en posición #'+pos0;
+    } else {
+      txt = '#'+pos0; color = 'var(--muted)'; title = 'Posición #'+pos0+' esta semana';
+    }
+    return ' <span style="font-size:9px;font-weight:700;color:'+color+';cursor:help" title="'+title+'">'+txt+'</span>';
+  }
+
+  function barGroup(dim) {
+    const { title, week, avg6, nuevas, rank, color } = dim;
+    const allLabels = [...new Set([...(week||[]).map(d=>d.label),...(avg6||[]).map(d=>d.label)])].slice(0,5);
+    const rows = allLabels.map(lbl => {
+      const w = (week||[]).find(d=>d.label===lbl);
+      const a = (avg6||[]).find(d=>d.label===lbl);
+      const n = (nuevas||[]).find(d=>d.label===lbl);
+      const wp = w ? Math.round(w.count/(semTotal||1)*100) : 0;
+      const ap = a ? Math.round(a.count/(avg6total||1)*100) : 0;
+      const np = n ? Math.round(n.count/(nuevasTotal||1)*100) : 0;
+      const signal = wp > 0 && np > 0
+        ? (wp - np > 10 ? '<span style="font-size:9px;color:var(--red)">⚠ más cancel. que llegadas</span>'
+          : wp - np < -10 ? '<span style="font-size:9px;color:var(--green2)">✓ llegan más</span>'
+          : '<span style="font-size:9px;color:var(--muted)">≈ equilibrio</span>') : '';
+      return { lbl, wp, ap, np, signal, rank };
+    }).filter(r => r.wp > 0 || r.ap > 0);
+
+    return '<div class="card">' +
+      '<div class="chart-title" style="margin-bottom:6px">' + title + '</div>' +
+      '<div style="display:flex;gap:10px;margin-bottom:10px;font-size:10px;color:var(--muted);flex-wrap:wrap">' +
+      '<span style="display:inline-flex;align-items:center;gap:4px"><span style="width:10px;height:6px;border-radius:2px;background:'+color+';display:inline-block"></span>Esta semana</span>' +
+      '<span style="display:inline-flex;align-items:center;gap:4px"><span style="width:10px;height:4px;border-radius:2px;background:rgba(148,163,184,.4);display:inline-block"></span>Prom. 6m</span>' +
+      '<span style="display:inline-flex;align-items:center;gap:4px"><span style="width:10px;height:4px;border-radius:2px;background:rgba(45,212,191,.4);display:inline-block"></span>Nuevas sem.</span>' +
+      '</div>' +
+      (rows.length === 0 ? '<div style="color:var(--muted);font-size:11px">Sin datos suficientes</div>' :
+      rows.map(r =>
+        '<div style="margin-bottom:12px">' +
+        '<div style="display:flex;justify-content:space-between;margin-bottom:3px;align-items:center">' +
+        '<span style="font-size:11px;color:var(--muted);flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0" title="'+r.lbl+'">'+r.lbl+'</span>' +
+        '<span style="display:flex;align-items:center;gap:4px;flex-shrink:0">' +
+        '<span style="font-size:11px;font-weight:700;color:'+color+'">'+r.wp+'%</span>' +
+        trendBadge(r.lbl, rank) +
+        '</span></div>' +
+        // cancel bar
+        '<div style="display:flex;align-items:center;gap:6px">' +
+        '<div style="flex:1;height:7px;background:rgba(255,255,255,.05);border-radius:4px;overflow:hidden">' +
+        '<div style="width:'+r.wp+'%;height:100%;background:'+color+';border-radius:4px"></div></div></div>' +
+        // 6m avg bar
+        (r.ap > 0 ? '<div style="display:flex;align-items:center;gap:6px;margin-top:2px">' +
+        '<div style="flex:1;height:4px;background:rgba(255,255,255,.05);border-radius:4px;overflow:hidden">' +
+        '<div style="width:'+r.ap+'%;height:100%;background:rgba(148,163,184,.35);border-radius:4px"></div></div>' +
+        '<span style="font-size:10px;color:var(--muted);width:28px;text-align:right">'+r.ap+'%</span></div>' : '') +
+        // nuevas bar
+        (r.np > 0 ? '<div style="display:flex;align-items:center;gap:6px;margin-top:2px">' +
+        '<div style="flex:1;height:4px;background:rgba(255,255,255,.05);border-radius:4px;overflow:hidden">' +
+        '<div style="width:'+r.np+'%;height:100%;background:rgba(45,212,191,.4);border-radius:4px"></div></div>' +
+        '<span style="font-size:10px;color:var(--muted);width:28px;text-align:right">'+r.np+'%</span></div>' : '') +
+        // signal
+        (r.signal ? '<div style="margin-top:3px">'+r.signal+'</div>' : '') +
+        '</div>'
+      ).join('')) +
+      '</div>';
+  }
+
+  // 4 columns grid
+  grid.style.gridTemplateColumns = 'repeat(4,1fr)';
+  grid.innerHTML = dims.map(d => barGroup(d)).join('');
+}
+
+// ══════════════════════════════════════════════════════
+// UTILS
+// ══════════════════════════════════════════════════════
+function destroyChart(id) {
+  const existing = Chart.getChart(id);
+  if (existing) existing.destroy();
+}
+
+const statusCycle = [
+  {label:'Completado',cls:'s-verde'},{label:'En curso',cls:'s-verde'},
+  {label:'En progreso',cls:'s-amarillo'},{label:'En riesgo',cls:'s-rojo'},
+  {label:'Pendiente',cls:'s-gris'}
+];
+function rotateStatus(el) {
+  const idx = statusCycle.findIndex(s => s.label === el.textContent.trim());
+  const next = statusCycle[(idx+1) % statusCycle.length];
+  el.textContent = next.label; el.className = 'status-badge ' + next.cls;
+}
+
+function buildWeekNav() {
+  const container = document.getElementById('weekBtns');
+  container.innerHTML = '';
+  for (let i = -4; i <= 0; i++) {
+    const r = getWeekRange(i);
+    const btn = document.createElement('button');
+    btn.className = 'wn-btn' + (i === currentWeekOffset ? ' active' : '');
+    btn.textContent = (i === 0 ? 'Esta semana  ' : '') + fmtDate(r.start) + ' – ' + fmtDate(r.end);
+    btn.onclick = () => {
+      currentWeekOffset = i;
+      buildWeekNav();
+      render(calc(i));
+    };
+    container.appendChild(btn);
+  }
+}
+
+// ══════════════════════════════════════════════════════
+// INIT
+// ══════════════════════════════════════════════════════
+(async () => {
+  try {
+    await loadAll();
+    document.getElementById('loadingState').style.display = 'none';
+    document.getElementById('mainContent').style.display = 'block';
+    buildWeekNav();
+    render(calc(currentWeekOffset));
+  } catch (err) {
+    document.getElementById('loadingState').innerHTML = `
+      <div class="error-box" style="max-width:520px;margin:0 auto;background:rgba(248,113,113,.08);border:1px solid rgba(248,113,113,.25);border-radius:12px;padding:24px 28px">
+        <h3 style="color:#f87171;font-family:Syne,sans-serif;margin-bottom:10px">Error al cargar los datos</h3>
+        <p style="margin-bottom:10px;font-size:13px">
+          ${err.message || err}
+        </p>
+        <p style="font-size:12px;color:#64748b;margin-bottom:6px">Pasos para resolver:</p>
+        <ol style="font-size:12px;color:#64748b;padding-left:18px;line-height:1.8">
+          <li>Ve a tu Google Sheet → Extensiones → Apps Script</li>
+          <li>Reemplaza el código con la versión actualizada (usa getDisplayValues)</li>
+          <li>Implementar → Administrar implementaciones → Editar → Nueva versión → Guardar</li>
+          <li>Vuelve aquí y recarga</li>
+        </ol>
+        <div style="margin-top:14px;display:flex;gap:10px">
+          <button onclick="location.reload()" style="padding:8px 18px;background:#1a2744;border:1px solid rgba(255,255,255,.1);border-radius:8px;color:#e2e8f0;cursor:pointer;font-family:'DM Sans',sans-serif;font-size:12px">↻ Reintentar</button>
+          <a href="${API_URL}" target="_blank" style="padding:8px 18px;background:#1a2744;border:1px solid rgba(255,255,255,.1);border-radius:8px;color:#60a5fa;cursor:pointer;font-family:'DM Sans',sans-serif;font-size:12px;text-decoration:none">🔗 Probar URL directa</a>
+        </div>
+      </div>`;
+  }
+})();
+</script>
+</body>
+</html>
