@@ -1116,7 +1116,8 @@ function render(m) {
   // ── Embudos render (data comes from calc via m) ──────
   const embColors = {'Pago Atrasado':'t-emb','TRIAL SIN WA':'t-onb','TRIAL SIN FLOW':'t-onb','Cancelación':'t-ses'};
   const embLabels = {'Pago Atrasado':'Atrasados','TRIAL SIN WA':'Trial sin WA','TRIAL SIN FLOW':'Trial sin Flow','Cancelación':'Embudo cancelación'};
-  const embRows = flujos.map(f => {
+  const flujosRender = ['Pago Atrasado','TRIAL SIN WA','TRIAL SIN FLOW','Cancelación'];
+  const embRows = flujosRender.map(f => {
     const sem = m.embSem[f]||{count:0,vigentes:0,mrr:0};
     const prev = m.embPrev[f]||{count:0};
     const d = sem.count - prev.count;
