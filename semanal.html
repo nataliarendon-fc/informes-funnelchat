@@ -310,6 +310,12 @@ body{background:var(--navy);color:var(--text);font-family:'DM Sans',sans-serif;f
     </div>
   </div>
 
+  <!-- ═══ BLOQUE 4B: TENDENCIA 4 SEMANAS ═══ -->
+  <div class="block">
+    <div class="sec-label"><span class="sec-num">4b</span> Tendencia de acciones — últimas 4 semanas <span class="sec-desc">· verde = mejoró · rojo = empeoró vs semana anterior</span></div>
+    <div id="tendencia4Container"></div>
+  </div>
+
   <!-- ═══ BLOQUE 5: PLAN DE ACCIÓN ═══ -->
   <div class="block">
     <div class="sec-label">
@@ -929,6 +935,34 @@ function calc(weekOffset) {
     mrr_protegido_sem, pct_ret_con_onb, pct_ret_sin_onb, ret_diff: Math.round(ret_diff*100),
     onbImpact12, onbImpact_ses12, embImpact12,
     onb_propuestas, onb_agendados, onb_asistio, onb_noshow,
+    // 4-week trend for acciones table
+    trend4: (() => {
+      const weeks = [];
+      for (let i = -3; i <= 0; i++) {
+        const r = getWeekRange(weekOffset + i);
+        const lbl = fmtDate(r.start);
+        // Onboarding
+        const onbW = O.filter(rr => inRange(getOnbDate(rr), r));
+        const onbAsist = onbW.filter(rr => rr['Estado del onboarding']==='Asistió').length;
+        const onbAgen  = onbW.filter(rr => ['Agendó','Asistió','No show','No asistió'].includes(rr['Estado del onboarding'])).length;
+        const onbNS    = onbW.filter(rr => ['No show','No asistió'].includes(rr['Estado del onboarding'])).length;
+        const newP     = C.filter(rr => inRange(getCreatedAt(rr), r) && isPaga(rr)).length;
+        // Sessions
+        const sesW = S.filter(rr => { const d=parseSlash(rr['FECHA ATENCIÓN']); return d&&inRange(d,r)&&(rr['Asistio?']==='1'||rr['Asistio?']===1); });
+        const sesUniq = new Set(S.filter(rr=>{ const d=parseSlash(rr['FECHA ATENCIÓN']); return d&&inRange(d,r); }).map(rr=>rr['FECHA ATENCIÓN'])).size;
+        // Embudos
+        const embW = {};
+        ['Pago Atrasado','TRIAL SIN WA','TRIAL SIN FLOW','Cancelación'].forEach(f => {
+          const rows = RAW.embudos.filter(rr => (rr['Flujo']||'').trim()===f);
+          embW[f] = new Set(rows.filter(rr=>inRange(parseEmbDate(rr['fecha_asignacion_etiqueta']),r)).map(rr=>(rr['user_id']||'').toString()).filter(Boolean)).size;
+        });
+        weeks.push({ lbl, onbAsist, onbAgen, onbNS, onbNSPct: onbAgen>0?Math.round(onbNS/onbAgen*100):0,
+          cobPct: newP>0?Math.round(onbAsist/newP*100):0, newP,
+          sesAsist: sesW.length, sesSes: sesUniq,
+          emb: embW });
+      }
+      return weeks;
+    })(),
     onb_propuestas_mes, onb_agendados_mes,
     onb_asistio_mes_pagas, onb_asistio_mes_trial,
     onb_asistio_sem_pagas, onb_asistio_sem_trial,
@@ -1289,6 +1323,9 @@ function render(m) {
 
   window._quienesMode = window._quienesMode || 'pagas';
   renderQuienes(window._quienesMode);
+
+  // ── Bloque 4b: Tendencia 4 semanas ───────────────
+  renderTendencia4(m);
 }
 
 // ══════════════════════════════════════════════════════
@@ -1330,6 +1367,88 @@ function impactTable(title, labelA, labelB, data, color) {
       ${data.histConN?` · (histórico: con ${data.histConN}, sin ${data.histSinN})`:''}
     </div>
   </div>`;
+}
+
+// ══════════════════════════════════════════════════════
+// TENDENCIA 4 SEMANAS
+// ══════════════════════════════════════════════════════
+function renderTendencia4(m) {
+  const el = document.getElementById('tendencia4Container');
+  if (!el || !m.trend4 || m.trend4.length === 0) return;
+  const weeks = m.trend4;
+  const w = weeks.length;
+
+  // Color helper: compare current vs previous, green if better, red if worse
+  function cellColor(curr, prev, lowerIsBetter=false) {
+    if (prev === null || prev === undefined || curr === prev) return 'var(--muted)';
+    const better = lowerIsBetter ? curr < prev : curr > prev;
+    return better ? 'var(--green2)' : 'var(--red)';
+  }
+  function bgColor(curr, prev, lowerIsBetter=false) {
+    if (prev === null || prev === undefined || curr === prev) return 'transparent';
+    const better = lowerIsBetter ? curr < prev : curr > prev;
+    return better ? 'rgba(34,197,94,.08)' : 'rgba(248,113,113,.08)';
+  }
+  function arrow(curr, prev, lowerIsBetter=false) {
+    if (prev === null || prev === undefined || curr === prev) return '';
+    const better = lowerIsBetter ? curr < prev : curr > prev;
+    const d = Math.abs(curr - prev);
+    return better ? ` <span style="font-size:9px">▲${d}</span>` : ` <span style="font-size:9px">▼${d}</span>`;
+  }
+
+  function buildTable(title, color, rows) {
+    const hdrs = weeks.map((wk,i) => `<th style="padding:7px 10px;font-size:10px;font-weight:600;color:${i===w-1?color:'var(--muted)'};background:${i===w-1?'rgba(255,255,255,.04)':'transparent'};white-space:nowrap">${wk.lbl}${i===w-1?' ← actual':''}</th>`).join('');
+    const bodyRows = rows.map(({label, values, lowerIsBetter, fmt}) => {
+      const cells = values.map((v,i) => {
+        const prev = i > 0 ? values[i-1] : null;
+        const col = cellColor(v, prev, lowerIsBetter);
+        const bg  = bgColor(v, prev, lowerIsBetter);
+        const ar  = arrow(v, prev, lowerIsBetter);
+        const display = fmt === '%' ? v+'%' : v;
+        return `<td style="padding:7px 10px;font-size:11px;font-weight:${i===w-1?'700':'400'};color:${col};background:${bg};text-align:center;border-bottom:1px solid var(--border)">${display}${ar}</td>`;
+      }).join('');
+      return `<tr><td style="padding:7px 12px;font-size:11px;color:var(--muted);border-bottom:1px solid var(--border);white-space:nowrap">${label}</td>${cells}</tr>`;
+    }).join('');
+    return `<div style="background:var(--card);border:1px solid var(--border);border-radius:12px;overflow:hidden;margin-bottom:12px">
+      <div style="background:${color}18;border-bottom:1px solid var(--border);padding:9px 14px;display:flex;align-items:center;gap:8px">
+        <div style="width:8px;height:8px;border-radius:50%;background:${color}"></div>
+        <span style="font-family:'Syne',sans-serif;font-size:12px;font-weight:700;color:#fff">${title}</span>
+      </div>
+      <div style="overflow-x:auto">
+        <table style="width:100%;border-collapse:collapse">
+          <thead><tr>
+            <th style="padding:7px 12px;font-size:10px;font-weight:600;color:var(--muted);text-align:left;border-bottom:1px solid var(--border)">Métrica</th>
+            ${hdrs}
+          </tr></thead>
+          <tbody>${bodyRows}</tbody>
+        </table>
+      </div>
+    </div>`;
+  }
+
+  const onbTable = buildTable('🎯 Onboarding', 'var(--green2)', [
+    { label:'Asistentes', values: weeks.map(w=>w.onbAsist), lowerIsBetter:false, fmt:'n' },
+    { label:'Agendados', values: weeks.map(w=>w.onbAgen), lowerIsBetter:false, fmt:'n' },
+    { label:'No show', values: weeks.map(w=>w.onbNS), lowerIsBetter:true, fmt:'n' },
+    { label:'% No show', values: weeks.map(w=>w.onbNSPct), lowerIsBetter:true, fmt:'%' },
+    { label:'% Cobertura pagas', values: weeks.map(w=>w.cobPct), lowerIsBetter:false, fmt:'%' },
+  ]);
+
+  const sesTable = buildTable('🎙️ Sesiones en vivo', 'var(--pink)', [
+    { label:'Asistentes', values: weeks.map(w=>w.sesAsist), lowerIsBetter:false, fmt:'n' },
+    { label:'Sesiones realizadas', values: weeks.map(w=>w.sesSes), lowerIsBetter:false, fmt:'n' },
+    { label:'Prom. asist./sesión', values: weeks.map(w=>w.sesSes>0?Math.round(w.sesAsist/w.sesSes*10)/10:0), lowerIsBetter:false, fmt:'n' },
+  ]);
+
+  const embFlows = ['Pago Atrasado','TRIAL SIN WA','TRIAL SIN FLOW','Cancelación'];
+  const embLabelsM = {'Pago Atrasado':'Atrasados','TRIAL SIN WA':'Trial sin WA','TRIAL SIN FLOW':'Trial sin Flow','Cancelación':'Cancelación'};
+  const embTable = buildTable('🔁 Embudos', 'var(--blue)', embFlows.map(f => ({
+    label: embLabelsM[f]||f,
+    values: weeks.map(w=>w.emb[f]||0),
+    lowerIsBetter: false, fmt:'n'
+  })));
+
+  el.innerHTML = onbTable + sesTable + embTable;
 }
 
 // ══════════════════════════════════════════════════════
