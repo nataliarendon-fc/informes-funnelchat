@@ -994,7 +994,11 @@ function calc(weekOffset) {
           const vigN = [...uids].filter(uid=>acctMapT[uid]&&acctMapT[uid]['Vigencia del servicio']==='Vigente').length;
           embRetPct[f] = uids.size > 0 ? Math.round(vigN/uids.size*100) : null;
         });
-        weeks.push({ lbl, onbAsist, onbAgen, onbNS, onbNSPct: onbAgen>0?Math.round(onbNS/onbAgen*100):0,
+        weeks.push({ lbl, onbAsist, onbAgen, onbNS,
+          onbNSPct: onbAgen>0?Math.round(onbNS/onbAgen*100):0,
+          cobPct: newP>0?Math.round(onbAsist/newP*100):0,
+          asistPct: onbAgen>0?Math.round(onbAsist/onbAgen*100):0,
+          newP, onbProp, onbRetPct, sesRetPct, embRetPct,
           cobPct: newP>0?Math.round(onbAsist/newP*100):0, newP,
           sesAsist: sesW.length, sesSes: sesUniq,
           emb: embW });
@@ -1053,12 +1057,7 @@ function calc(weekOffset) {
           canWN: canW.length, pSinOnb, pSinFlow, pSinWA, pSinGrupo,
           // S3
           rNewTotal, rSinWA, rSinFlow, rSinGrp, rSinLogin, rSinOnb,
-          // S4 extra
-          onbProp, onbAsist, onbAgen, onbNS,
-          onbNSPct: onbAgen>0?Math.round(onbNS/onbAgen*100):0,
-          cobPct: newP>0?Math.round(onbAsist/newP*100):0,
-          asistPct: onbAgen>0?Math.round(onbAsist/onbAgen*100):0,
-          onbRetPct, sesRetPct, embRetPct
+
         });
       }
       return weeks;
