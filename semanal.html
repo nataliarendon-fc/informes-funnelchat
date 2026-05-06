@@ -525,6 +525,12 @@ function calc(weekOffset) {
   const cancel_trial    = cancelados.filter(isTrial);
   const atrasados       = C.filter(r => r['Vigencia del servicio'] === 'Atrasado');
   const atrasados_pagas = atrasados.filter(isPaga);
+  // Atrasadas de la semana: payment_till cae dentro del rango
+  const atr_sem = atrasados_pagas.filter(r => {
+    const pt = parseSpanishDate(r['payment_till']) || parseISO(r['payment_till']);
+    return pt && inRange(pt, range);
+  });
+  const mrr_atr_sem = Math.round(atr_sem.reduce((s,r)=>s+getMonthlyMRR(r),0));
 
   // Weekly counts — pagas only
   // Use created_at (ISO) as primary, fall back to Fecha creación
@@ -907,6 +913,7 @@ function calc(weekOffset) {
     vigentes_pagas: vigentes_pagas.length, vigentes_trial: vigentes_trial.length,
     cancelados_pagas: cancel_pagas.length, cancelados_trial: cancel_trial.length,
     atrasados_pagas: atrasados_pagas.length,
+    atr_sem: atr_sem.length, mrr_atr_sem,
     nuevos_sem_pagas: nuevos_sem_pagas.length, nuevos_sem_trial: nuevos_sem_trial.length,
     convertidos_sem: convertidos_sem.length,
     mrr_convertidos_sem: Math.round(convertidos_sem.reduce((s,r)=>s+getMonthlyMRR(r),0)),
@@ -948,19 +955,44 @@ function calc(weekOffset) {
         const r = getWeekRange(weekOffset + i);
         const lbl = fmtDate(r.start);
         // Onboarding
-        const onbW = O.filter(rr => inRange(getOnbDate(rr), r));
-        const onbAsist = onbW.filter(rr => rr['Estado del onboarding']==='Asistió').length;
-        const onbAgen  = onbW.filter(rr => ['Agendó','Asistió','No show','No asistió'].includes(rr['Estado del onboarding'])).length;
-        const onbNS    = onbW.filter(rr => ['No show','No asistió'].includes(rr['Estado del onboarding'])).length;
-        const newP     = C.filter(rr => inRange(getCreatedAt(rr), r) && isPaga(rr)).length;
+        const onbW    = O.filter(rr => inRange(getOnbDate(rr), r));
+        const onbProp = onbW.length;
+        const onbAsist= onbW.filter(rr => rr['Estado del onboarding']==='Asistió').length;
+        const onbAgen = onbW.filter(rr => ['Agendó','Asistió','No show','No asistió'].includes(rr['Estado del onboarding'])).length;
+        const onbNS   = onbW.filter(rr => ['No show','No asistió'].includes(rr['Estado del onboarding'])).length;
+        const newP    = C.filter(rr => inRange(getCreatedAt(rr), r) && isPaga(rr)).length;
+        // Retention: % of onboarding attendees still Vigente
+        const acctMapT = {};
+        C.forEach(rr=>{ const id=(rr['id']||'').toString().trim(); if(id) acctMapT[id]=rr; });
+        const onbAsistIds = onbW
+          .filter(rr=>rr['Estado del onboarding']==='Asistió')
+          .map(rr=>(rr['user_id']||'').toString().trim()).filter(Boolean);
+        const onbRetN = onbAsistIds.filter(uid=>acctMapT[uid]&&acctMapT[uid]['Vigencia del servicio']==='Vigente').length;
+        const onbRetPct = onbAsistIds.length>0 ? Math.round(onbRetN/onbAsistIds.length*100) : null;
         // Sessions
-        const sesW = S.filter(rr => { const d=parseSlash(rr['FECHA ATENCIÓN']); return d&&inRange(d,r)&&(rr['Asistio?']==='1'||rr['Asistio?']===1); });
+        const sesW    = S.filter(rr => { const d=parseSlash(rr['FECHA ATENCIÓN']); return d&&inRange(d,r)&&(rr['Asistio?']==='1'||rr['Asistio?']===1); });
         const sesUniq = new Set(S.filter(rr=>{ const d=parseSlash(rr['FECHA ATENCIÓN']); return d&&inRange(d,r); }).map(rr=>rr['FECHA ATENCIÓN'])).size;
+        // Sessions retention
+        const sesIds = [...new Set(sesW.map(rr=>(rr['USUARIO']||rr['Usuarios']||rr['Usuario']||'').trim()).filter(e=>e&&e.includes('@')))];
+        const sesRetPct = sesIds.length > 0
+          ? Math.round(Object.values(acctMapT).filter(rr=>
+              rr['Vigencia del servicio']==='Vigente' &&
+              (rr['Sesiones en vivo']==='Asistió') &&
+              inRange(getCreatedAt(rr), {start:new Date(r.end.getFullYear()-1,r.end.getMonth(),r.end.getDate()), end:r.end})
+            ).length / Math.max(Object.values(acctMapT).filter(rr=>
+              rr['Sesiones en vivo']==='Asistió' &&
+              inRange(getCreatedAt(rr), {start:new Date(r.end.getFullYear()-1,r.end.getMonth(),r.end.getDate()), end:r.end})
+            ).length, 1) * 100)
+          : null;
         // Embudos
         const embW = {};
+        const embRetPct = {};
         ['Pago Atrasado','TRIAL SIN WA','TRIAL SIN FLOW','Cancelación'].forEach(f => {
           const rows = RAW.embudos.filter(rr => (rr['Flujo']||'').trim()===f);
-          embW[f] = new Set(rows.filter(rr=>inRange(parseEmbDate(rr['fecha_asignacion_etiqueta']),r)).map(rr=>(rr['user_id']||'').toString()).filter(Boolean)).size;
+          const uids = new Set(rows.filter(rr=>inRange(parseEmbDate(rr['fecha_asignacion_etiqueta']),r)).map(rr=>(rr['user_id']||'').toString()).filter(Boolean));
+          embW[f] = uids.size;
+          const vigN = [...uids].filter(uid=>acctMapT[uid]&&acctMapT[uid]['Vigencia del servicio']==='Vigente').length;
+          embRetPct[f] = uids.size > 0 ? Math.round(vigN/uids.size*100) : null;
         });
         weeks.push({ lbl, onbAsist, onbAgen, onbNS, onbNSPct: onbAgen>0?Math.round(onbNS/onbAgen*100):0,
           cobPct: newP>0?Math.round(onbAsist/newP*100):0, newP,
@@ -981,7 +1013,12 @@ function calc(weekOffset) {
         const nuevasP  = C.filter(rr => inRange(getCreatedAt(rr),r) && isPaga(rr)).length;
         const nuevasT  = C.filter(rr => inRange(getCreatedAt(rr),r) && isTrial(rr)).length;
         const cancSem  = cancel_pagas.filter(rr => inRange(cancelDate(rr),r)).length;
-        const atrP     = C.filter(rr => rr['Vigencia del servicio']==='Atrasado' && isPaga(rr)).length;
+        // Atrasadas de la semana: payment_till cae en este rango
+        const atrP = C.filter(rr => {
+          if (rr['Vigencia del servicio']!=='Atrasado' || !isPaga(rr)) return false;
+          const pt = parseSpanishDate(rr['payment_till']) || parseISO(rr['payment_till']);
+          return pt && inRange(pt, r);
+        }).length;
         const convW    = C.filter(rr => {
           const convD = (() => { const ca=getCreatedAt(rr); if(!ca)return null; const d=new Date(ca);d.setDate(d.getDate()+3);return d; })();
           if(!inRange(convD,r)||!isPaga(rr))return false;
@@ -1015,7 +1052,13 @@ function calc(weekOffset) {
           // S2
           canWN: canW.length, pSinOnb, pSinFlow, pSinWA, pSinGrupo,
           // S3
-          rNewTotal, rSinWA, rSinFlow, rSinGrp, rSinLogin, rSinOnb
+          rNewTotal, rSinWA, rSinFlow, rSinGrp, rSinLogin, rSinOnb,
+          // S4 extra
+          onbProp, onbAsist, onbAgen, onbNS,
+          onbNSPct: onbAgen>0?Math.round(onbNS/onbAgen*100):0,
+          cobPct: newP>0?Math.round(onbAsist/newP*100):0,
+          asistPct: onbAgen>0?Math.round(onbAsist/onbAgen*100):0,
+          onbRetPct, sesRetPct, embRetPct
         });
       }
       return weeks;
@@ -1101,10 +1144,10 @@ function render(m) {
       <div class="p-context" style="margin-top:4px;font-size:9px;color:#475569">⏱ Semanas recientes pueden verse incompletas — el dato es definitivo 21 días después del vencimiento</div>
     </div>
     <div class="p-card c-orange">
-      <div class="p-label">Atrasadas (pagas)</div>
-      <div class="p-value" style="color:var(--orange)">${m.atrasados_pagas}</div>
-      <div class="p-delta neg">⚠ MRR en riesgo</div>
-      <div class="p-context">$${m.mrr_riesgo.toLocaleString('es-CO')} en riesgo real</div>
+      <div class="p-label">Atrasadas esta semana</div>
+      <div class="p-value" style="color:var(--orange)">${m.atr_sem}</div>
+      <div class="p-delta neg">⚠ ${fmt$(m.mrr_atr_sem)} MRR en riesgo</div>
+      <div class="p-context">Total atrasadas acumuladas: <strong>${m.atrasados_pagas}</strong> · ${fmt$(m.mrr_riesgo)} MRR total</div>
     </div>
     <div class="p-card c-pink">
       <div class="p-label">Retención neta (pagas)</div>
@@ -1465,6 +1508,7 @@ function renderTendencia4(m) {
         const col = cellColor(v, prev, lowerIsBetter);
         const bg  = bgColor(v, prev, lowerIsBetter);
         const ar  = arrow(v, prev, lowerIsBetter);
+        if (v === null || v === undefined) { return `<td style="padding:7px 10px;font-size:11px;color:var(--muted);text-align:center;border-bottom:1px solid var(--border)">—</td>`; }
         const display = fmt === '%' ? v+'%' : v;
         return `<td style="padding:7px 10px;font-size:11px;font-weight:${i===w-1?'700':'400'};color:${col};background:${bg};text-align:center;border-bottom:1px solid var(--border)">${display}${ar}</td>`;
       }).join('');
@@ -1488,26 +1532,32 @@ function renderTendencia4(m) {
   }
 
   const onbTable = buildTable('🎯 Onboarding', 'var(--green2)', [
-    { label:'Asistentes', values: weeks.map(w=>w.onbAsist), lowerIsBetter:false, fmt:'n' },
-    { label:'Agendados', values: weeks.map(w=>w.onbAgen), lowerIsBetter:false, fmt:'n' },
-    { label:'No show', values: weeks.map(w=>w.onbNS), lowerIsBetter:true, fmt:'n' },
-    { label:'% No show', values: weeks.map(w=>w.onbNSPct), lowerIsBetter:true, fmt:'%' },
-    { label:'% Cobertura pagas', values: weeks.map(w=>w.cobPct), lowerIsBetter:false, fmt:'%' },
+    { label:'Nuevas pagas creadas',    values: weeks.map(w=>w.newP||w.nuevasP||0), lowerIsBetter:false, fmt:'n' },
+    { label:'ONB propuesto',           values: weeks.map(w=>w.onbProp||0),   lowerIsBetter:false, fmt:'n' },
+    { label:'Agendados',               values: weeks.map(w=>w.onbAgen||0),   lowerIsBetter:false, fmt:'n' },
+    { label:'Asistentes',              values: weeks.map(w=>w.onbAsist||0),  lowerIsBetter:false, fmt:'n' },
+    { label:'No show',                 values: weeks.map(w=>w.onbNS||0),     lowerIsBetter:true,  fmt:'n' },
+    { label:'% No show',               values: weeks.map(w=>w.onbNSPct||0),  lowerIsBetter:true,  fmt:'%' },
+    { label:'% Tasa de asistencia',    values: weeks.map(w=>w.asistPct||0),  lowerIsBetter:false, fmt:'%' },
+    { label:'% Cobertura pagas',       values: weeks.map(w=>w.cobPct||0),    lowerIsBetter:false, fmt:'%' },
+    { label:'% Retención asistentes',  values: weeks.map(w=>w.onbRetPct), lowerIsBetter:false, fmt:'%', nullable:true },
   ]);
 
   const sesTable = buildTable('🎙️ Sesiones en vivo', 'var(--pink)', [
-    { label:'Asistentes', values: weeks.map(w=>w.sesAsist), lowerIsBetter:false, fmt:'n' },
-    { label:'Sesiones realizadas', values: weeks.map(w=>w.sesSes), lowerIsBetter:false, fmt:'n' },
+    { label:'Asistentes',          values: weeks.map(w=>w.sesAsist), lowerIsBetter:false, fmt:'n' },
+    { label:'Sesiones realizadas', values: weeks.map(w=>w.sesSes),   lowerIsBetter:false, fmt:'n' },
     { label:'Prom. asist./sesión', values: weeks.map(w=>w.sesSes>0?Math.round(w.sesAsist/w.sesSes*10)/10:0), lowerIsBetter:false, fmt:'n' },
+    { label:'% Retención asistentes', values: weeks.map(w=>w.sesRetPct), lowerIsBetter:false, fmt:'%', nullable:true },
   ]);
 
   const embFlows = ['Pago Atrasado','TRIAL SIN WA','TRIAL SIN FLOW','Cancelación'];
   const embLabelsM = {'Pago Atrasado':'Atrasados','TRIAL SIN WA':'Trial sin WA','TRIAL SIN FLOW':'Trial sin Flow','Cancelación':'Cancelación'};
-  const embTable = buildTable('🔁 Embudos', 'var(--blue)', embFlows.map(f => ({
-    label: embLabelsM[f]||f,
-    values: weeks.map(w=>w.emb[f]||0),
-    lowerIsBetter: false, fmt:'n'
-  })));
+  const embRows = [];
+  embFlows.forEach(f => {
+    embRows.push({ label: embLabelsM[f]||f, values: weeks.map(w=>w.emb[f]||0), lowerIsBetter:false, fmt:'n' });
+    embRows.push({ label: `  └ % Retención`, values: weeks.map(w=>w.embRetPct?.[f]), lowerIsBetter:false, fmt:'%', nullable:true });
+  });
+  const embTable = buildTable('🔁 Embudos', 'var(--blue)', embRows);
 
   el.innerHTML = onbTable + sesTable + embTable;
 }
@@ -1570,7 +1620,7 @@ function renderTrend4_s123(m) {
     {label:'Nuevas pagas',      values:wks.map(w=>w.nuevasP),  inv:false, fmt:'n'},
     {label:'Nuevas trial',      values:wks.map(w=>w.nuevasT),  inv:false, fmt:'n'},
     {label:'Cancelaciones',     values:wks.map(w=>w.cancSem),  inv:true,  fmt:'n'},
-    {label:'Atrasadas (pagas)', values:wks.map(w=>w.atrP),     inv:true,  fmt:'n'},
+    {label:'Nuevas atrasadas sem.', values:wks.map(w=>w.atrP), inv:true,  fmt:'n'},
     {label:'Convertidos trial', values:wks.map(w=>w.convW),    inv:false, fmt:'n'},
     {label:'Retención neta',    values:wks.map(w=>w.retNeta),  inv:false, fmt:'n'},
   ]);
