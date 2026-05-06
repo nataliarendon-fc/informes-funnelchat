@@ -1000,13 +1000,14 @@ function calc(weekOffset) {
         const pSinWA    = Math.round(canW.filter(rr=>(rr['Usa API?']||'')!=='Sí'&&(rr['Usa Business?']||'')!=='Sí').length/canWN*100);
         const pSinGrupo = Math.round(canW.filter(rr=>rr['Usa grupos?']==='0'||rr['Usa grupos?']===0).length/canWN*100);
 
-        // Section 3 — Riesgo (total vigentes pagas)
-        const vP = C.filter(rr=>rr['Vigencia del servicio']==='Vigente'&&isPaga(rr));
-        const rSinWA    = vP.filter(rr=>(rr['Usa API?']||'')!=='Sí'&&(rr['Usa Business?']||'')!=='Sí').length;
-        const rSinFlow  = vP.filter(rr=>rr['Usa flows']==='0'||rr['Usa flows']===0).length;
-        const rSinGrp   = vP.filter(rr=>rr['Usa grupos?']==='0'||rr['Usa grupos?']===0).length;
-        const rSinLogin = vP.filter(rr=>{const ll=parseISO(rr['last_login_at']);return!ll||(new Date()-ll)/86400000>14;}).length;
-        const rSinOnb   = vP.filter(rr=>rr['Onboarding']==='Sin onboarding').length;
+        // Section 3 — Riesgo: nuevas cuentas de la semana con señal de riesgo
+        const newVP = C.filter(rr => inRange(getCreatedAt(rr),r) && isPaga(rr) && rr['Vigencia del servicio']==='Vigente');
+        const rSinWA    = newVP.filter(rr=>(rr['Usa API?']||'')!=='Sí'&&(rr['Usa Business?']||'')!=='Sí').length;
+        const rSinFlow  = newVP.filter(rr=>rr['Usa flows']==='0'||rr['Usa flows']===0).length;
+        const rSinGrp   = newVP.filter(rr=>rr['Usa grupos?']==='0'||rr['Usa grupos?']===0).length;
+        const rSinLogin = newVP.filter(rr=>{const ll=parseISO(rr['last_login_at']);return!ll||(new Date()-ll)/86400000>14;}).length;
+        const rSinOnb   = newVP.filter(rr=>rr['Onboarding']==='Sin onboarding').length;
+        const rNewTotal = newVP.length;
 
         weeks.push({ lbl,
           // S1
@@ -1014,7 +1015,7 @@ function calc(weekOffset) {
           // S2
           canWN: canW.length, pSinOnb, pSinFlow, pSinWA, pSinGrupo,
           // S3
-          rSinWA, rSinFlow, rSinGrp, rSinLogin, rSinOnb
+          rNewTotal, rSinWA, rSinFlow, rSinGrp, rSinLogin, rSinOnb
         });
       }
       return weeks;
@@ -1586,12 +1587,13 @@ function renderTrend4_s123(m) {
 
   // SECTION 3 — Riesgo
   const el3 = document.getElementById('trend4_s3Container');
-  if (el3) el3.innerHTML = buildT('Histórico 4 semanas — Análisis de riesgo', 'var(--red)', [
-    {label:'Sin WA conectado',   values:wks.map(w=>w.rSinWA),    inv:true, fmt:'n'},
-    {label:'Sin flow activo',    values:wks.map(w=>w.rSinFlow),  inv:true, fmt:'n'},
-    {label:'Sin grupos activos', values:wks.map(w=>w.rSinGrp),   inv:true, fmt:'n'},
-    {label:'Sin login +14d',     values:wks.map(w=>w.rSinLogin), inv:true, fmt:'n'},
-    {label:'Sin onboarding',     values:wks.map(w=>w.rSinOnb),   inv:true, fmt:'n'},
+  if (el3) el3.innerHTML = buildT('Histórico 4 semanas — Nuevas pagas con señal de riesgo', 'var(--red)', [
+    {label:'Nuevas pagas totales', values:wks.map(w=>w.rNewTotal), inv:false, fmt:'n'},
+    {label:'Sin WA conectado',     values:wks.map(w=>w.rSinWA),    inv:true,  fmt:'n'},
+    {label:'Sin flow activo',      values:wks.map(w=>w.rSinFlow),  inv:true,  fmt:'n'},
+    {label:'Sin grupos activos',   values:wks.map(w=>w.rSinGrp),   inv:true,  fmt:'n'},
+    {label:'Sin login +14d',       values:wks.map(w=>w.rSinLogin), inv:true,  fmt:'n'},
+    {label:'Sin onboarding',       values:wks.map(w=>w.rSinOnb),   inv:true,  fmt:'n'},
   ]);
 }
 
