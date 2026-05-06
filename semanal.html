@@ -206,6 +206,8 @@ body{background:var(--navy);color:var(--text);font-family:'DM Sans',sans-serif;f
     <div class="pulso-grid" id="pulsoGrid"></div>
   </div>
 
+  <div id="trend4_s1Container" style="margin-top:12px"></div>
+
   <!-- ═══ BLOQUE 2: HALLAZGOS ═══ -->
   <div class="block">
     <div class="sec-label">
@@ -254,6 +256,8 @@ body{background:var(--navy);color:var(--text);font-family:'DM Sans',sans-serif;f
     </div>
   </div>
 
+  <div id="trend4_s2Container" style="margin-top:12px"></div>
+
   <!-- ═══ BLOQUE 2B: RAZONES DE CANCELACIÓN ═══ -->
   <div class="block">
     <div class="sec-label"><span class="sec-num">02b</span> Razones de cancelación <span class="sec-desc">· Desde encuesta · semana seleccionada</span></div>
@@ -285,6 +289,8 @@ body{background:var(--navy);color:var(--text);font-family:'DM Sans',sans-serif;f
       <div class="chart-wrap"><canvas id="churnChart"></canvas></div>
     </div>
   </div>
+
+  <div id="trend4_s3Container" style="margin-top:12px"></div>
 
   <!-- ═══ BLOQUE 4: ACCIONES DE RETENCIÓN ═══ -->
   <div class="block">
@@ -963,6 +969,56 @@ function calc(weekOffset) {
       }
       return weeks;
     })(),
+
+    // Sections 1, 2, 3 historical data
+    trend4_s123: (() => {
+      const weeks = [];
+      for (let i = -3; i <= 0; i++) {
+        const r = getWeekRange(weekOffset + i);
+        const lbl = fmtDate(r.start);
+
+        // Section 1 — Datos duros
+        const nuevasP  = C.filter(rr => inRange(getCreatedAt(rr),r) && isPaga(rr)).length;
+        const nuevasT  = C.filter(rr => inRange(getCreatedAt(rr),r) && isTrial(rr)).length;
+        const cancSem  = cancel_pagas.filter(rr => inRange(cancelDate(rr),r)).length;
+        const atrP     = C.filter(rr => rr['Vigencia del servicio']==='Atrasado' && isPaga(rr)).length;
+        const convW    = C.filter(rr => {
+          const convD = (() => { const ca=getCreatedAt(rr); if(!ca)return null; const d=new Date(ca);d.setDate(d.getDate()+3);return d; })();
+          if(!inRange(convD,r)||!isPaga(rr))return false;
+          const ca=getCreatedAt(rr), pt=parseSpanishDate(rr['payment_till'])||parseISO(rr['payment_till']);
+          if(!ca||!pt)return false;
+          const diff=(pt-ca)/86400000, period=({0:30,1:90,2:180,3:365,4:3}[parseInt((rr['payment_type']||'0').toString())||0]||30);
+          return diff-period>=1.5&&diff-period<=8;
+        }).length;
+        const retNeta = nuevasP - cancSem;
+
+        // Section 2 — Hallazgos (% of week's cancelled pagas)
+        const canW = cancel_pagas.filter(rr => inRange(cancelDate(rr),r));
+        const canWN = canW.length || 1;
+        const pSinOnb   = Math.round(canW.filter(rr=>rr['Onboarding']==='Sin onboarding').length/canWN*100);
+        const pSinFlow  = Math.round(canW.filter(rr=>rr['Usa flows']==='0'||rr['Usa flows']===0).length/canWN*100);
+        const pSinWA    = Math.round(canW.filter(rr=>(rr['Usa API?']||'')!=='Sí'&&(rr['Usa Business?']||'')!=='Sí').length/canWN*100);
+        const pSinGrupo = Math.round(canW.filter(rr=>rr['Usa grupos?']==='0'||rr['Usa grupos?']===0).length/canWN*100);
+
+        // Section 3 — Riesgo (total vigentes pagas)
+        const vP = C.filter(rr=>rr['Vigencia del servicio']==='Vigente'&&isPaga(rr));
+        const rSinWA    = vP.filter(rr=>(rr['Usa API?']||'')!=='Sí'&&(rr['Usa Business?']||'')!=='Sí').length;
+        const rSinFlow  = vP.filter(rr=>rr['Usa flows']==='0'||rr['Usa flows']===0).length;
+        const rSinGrp   = vP.filter(rr=>rr['Usa grupos?']==='0'||rr['Usa grupos?']===0).length;
+        const rSinLogin = vP.filter(rr=>{const ll=parseISO(rr['last_login_at']);return!ll||(new Date()-ll)/86400000>14;}).length;
+        const rSinOnb   = vP.filter(rr=>rr['Onboarding']==='Sin onboarding').length;
+
+        weeks.push({ lbl,
+          // S1
+          nuevasP, nuevasT, cancSem, atrP, convW, retNeta,
+          // S2
+          canWN: canW.length, pSinOnb, pSinFlow, pSinWA, pSinGrupo,
+          // S3
+          rSinWA, rSinFlow, rSinGrp, rSinLogin, rSinOnb
+        });
+      }
+      return weeks;
+    })(),
     onb_propuestas_mes, onb_agendados_mes,
     onb_asistio_mes_pagas, onb_asistio_mes_trial,
     onb_asistio_sem_pagas, onb_asistio_sem_trial,
@@ -1326,6 +1382,7 @@ function render(m) {
 
   // ── Bloque 4b: Tendencia 4 semanas ───────────────
   renderTendencia4(m);
+  renderTrend4_s123(m);
 }
 
 // ══════════════════════════════════════════════════════
@@ -1392,8 +1449,11 @@ function renderTendencia4(m) {
   function arrow(curr, prev, lowerIsBetter=false) {
     if (prev === null || prev === undefined || curr === prev) return '';
     const better = lowerIsBetter ? curr < prev : curr > prev;
-    const d = Math.abs(curr - prev);
-    return better ? ` <span style="font-size:9px">▲${d}</span>` : ` <span style="font-size:9px">▼${d}</span>`;
+    const d = Math.round(Math.abs(curr - prev) * 10) / 10;
+    const dStr = Number.isInteger(d) ? d : d.toFixed(1);
+    const color = better ? 'var(--green2)' : 'var(--red)';
+    const sym = curr > prev ? '▲' : '▼';
+    return ` <span style="font-size:9px;color:${color}">${sym}${dStr}</span>`;
   }
 
   function buildTable(title, color, rows) {
@@ -1449,6 +1509,90 @@ function renderTendencia4(m) {
   })));
 
   el.innerHTML = onbTable + sesTable + embTable;
+}
+
+// ══════════════════════════════════════════════════════
+// TREND 4 WEEKS — SECTIONS 1, 2, 3
+// ══════════════════════════════════════════════════════
+function renderTrend4_s123(m) {
+  if (!m.trend4_s123 || m.trend4_s123.length === 0) return;
+  const wks = m.trend4_s123;
+
+  // Reuse color/arrow helpers from renderTendencia4 scope — define inline
+  function col(curr, prev, inv=false) {
+    if (prev===null||prev===undefined||curr===prev) return 'var(--muted)';
+    return (inv ? curr<prev : curr>prev) ? 'var(--green2)' : 'var(--red)';
+  }
+  function bg(curr, prev, inv=false) {
+    if (prev===null||prev===undefined||curr===prev) return 'transparent';
+    return (inv ? curr<prev : curr>prev) ? 'rgba(34,197,94,.08)' : 'rgba(248,113,113,.08)';
+  }
+  function ar(curr, prev, inv=false, fmt='n') {
+    if (prev===null||prev===undefined||curr===prev) return '';
+    const d = Math.round(Math.abs(curr-prev)*10)/10;
+    const dStr = Number.isInteger(d) ? d : d.toFixed(1);
+    const better = inv ? curr<prev : curr>prev;
+    const c = better ? 'var(--green2)' : 'var(--red)';
+    const s = curr>prev?'▲':'▼';
+    return ` <span style="font-size:9px;color:${c}">${s}${dStr}${fmt==='%'?'pp':''}</span>`;
+  }
+
+  function buildT(title, color, rows) {
+    const hdrs = wks.map((wk,i)=>
+      `<th style="padding:6px 10px;font-size:10px;font-weight:600;color:${i===wks.length-1?color:'var(--muted)'};background:${i===wks.length-1?'rgba(255,255,255,.04)':'transparent'};white-space:nowrap">${wk.lbl}${i===wks.length-1?' ← actual':''}</th>`
+    ).join('');
+    const body = rows.map(({label,values,inv,fmt}) => {
+      const cells = values.map((v,i) => {
+        const prev = i>0?values[i-1]:null;
+        const display = fmt==='%' ? v+'%' : v;
+        return `<td style="padding:6px 10px;font-size:11px;font-weight:${i===wks.length-1?'700':'400'};color:${col(v,prev,inv)};background:${bg(v,prev,inv)};text-align:center;border-bottom:1px solid var(--border)">${display}${ar(v,prev,inv,fmt)}</td>`;
+      }).join('');
+      return `<tr><td style="padding:6px 12px;font-size:11px;color:var(--muted);border-bottom:1px solid var(--border);white-space:nowrap">${label}</td>${cells}</tr>`;
+    }).join('');
+    return `<div style="background:var(--card);border:1px solid var(--border);border-radius:12px;overflow:hidden;margin-bottom:0">
+      <div style="background:${color}18;border-bottom:1px solid var(--border);padding:8px 14px;display:flex;align-items:center;gap:8px">
+        <div style="width:7px;height:7px;border-radius:50%;background:${color}"></div>
+        <span style="font-family:'Syne',sans-serif;font-size:11px;font-weight:700;color:#fff">${title}</span>
+      </div>
+      <div style="overflow-x:auto">
+        <table style="width:100%;border-collapse:collapse">
+          <thead><tr><th style="padding:6px 12px;font-size:10px;font-weight:600;color:var(--muted);text-align:left;border-bottom:1px solid var(--border)">Métrica</th>${hdrs}</tr></thead>
+          <tbody>${body}</tbody>
+        </table>
+      </div>
+    </div>`;
+  }
+
+  // SECTION 1 — Datos duros
+  const el1 = document.getElementById('trend4_s1Container');
+  if (el1) el1.innerHTML = buildT('Histórico 4 semanas — Datos duros', 'var(--teal)', [
+    {label:'Nuevas pagas',      values:wks.map(w=>w.nuevasP),  inv:false, fmt:'n'},
+    {label:'Nuevas trial',      values:wks.map(w=>w.nuevasT),  inv:false, fmt:'n'},
+    {label:'Cancelaciones',     values:wks.map(w=>w.cancSem),  inv:true,  fmt:'n'},
+    {label:'Atrasadas (pagas)', values:wks.map(w=>w.atrP),     inv:true,  fmt:'n'},
+    {label:'Convertidos trial', values:wks.map(w=>w.convW),    inv:false, fmt:'n'},
+    {label:'Retención neta',    values:wks.map(w=>w.retNeta),  inv:false, fmt:'n'},
+  ]);
+
+  // SECTION 2 — Hallazgos
+  const el2 = document.getElementById('trend4_s2Container');
+  if (el2) el2.innerHTML = buildT('Histórico 4 semanas — Perfil cancelados', 'var(--orange)', [
+    {label:'Cancelados pagas total', values:wks.map(w=>w.canWN),   inv:true,  fmt:'n'},
+    {label:'% Sin onboarding',       values:wks.map(w=>w.pSinOnb),  inv:true, fmt:'%'},
+    {label:'% Sin flow activo',      values:wks.map(w=>w.pSinFlow), inv:true, fmt:'%'},
+    {label:'% Sin WA conectado',     values:wks.map(w=>w.pSinWA),   inv:true, fmt:'%'},
+    {label:'% Sin grupos',           values:wks.map(w=>w.pSinGrupo),inv:true, fmt:'%'},
+  ]);
+
+  // SECTION 3 — Riesgo
+  const el3 = document.getElementById('trend4_s3Container');
+  if (el3) el3.innerHTML = buildT('Histórico 4 semanas — Análisis de riesgo', 'var(--red)', [
+    {label:'Sin WA conectado',   values:wks.map(w=>w.rSinWA),    inv:true, fmt:'n'},
+    {label:'Sin flow activo',    values:wks.map(w=>w.rSinFlow),  inv:true, fmt:'n'},
+    {label:'Sin grupos activos', values:wks.map(w=>w.rSinGrp),   inv:true, fmt:'n'},
+    {label:'Sin login +14d',     values:wks.map(w=>w.rSinLogin), inv:true, fmt:'n'},
+    {label:'Sin onboarding',     values:wks.map(w=>w.rSinOnb),   inv:true, fmt:'n'},
+  ]);
 }
 
 // ══════════════════════════════════════════════════════
