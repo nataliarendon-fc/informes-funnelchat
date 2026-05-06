@@ -1102,6 +1102,7 @@ function calcChurnPlan(plan, range) {
 // RENDER
 // ══════════════════════════════════════════════════════
 function render(m) {
+  console.log("Render M", m);
   // Header period
   document.getElementById('hdrPeriod').textContent =
     fmtDate(m.range.start) + ' – ' + fmtDate(m.range.end) + ' · ' + m.range.start.getFullYear();
@@ -1729,6 +1730,8 @@ function downloadRiskCSV(key, label) {
 // GLOBAL TOGGLE FUNCTIONS (called from onclick)
 // ══════════════════════════════════════════════════════
 function renderHallazgoBars(mode) {
+  console.log("Mode", mode);
+  console.log("window",window);
   const m = window._metrics;
   if (!m) return;
   window._hallazgoMode = mode;
