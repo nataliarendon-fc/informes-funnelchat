@@ -1620,8 +1620,9 @@ function ahaTable(statsMes, stats6m) {
   function cell(s, color, dim=false) {
     if (!s || s.avg === null) return '<span style="color:var(--muted);font-size:10px">—</span>';
     const c = dim ? 'rgba(148,163,184,.6)' : color;
+    const pct = s.total > 0 ? Math.round(s.n / s.total * 100) : 0;
     return `<span style="font-family:'Syne',sans-serif;font-weight:700;font-size:${dim?'12':'14'}px;color:${c}">${s.avg}d</span>`
-         + `<br><span style="font-size:9px;color:var(--muted)">${s.n} cuentas</span>`;
+         + `<br><span style="font-size:9px;color:var(--muted)">${s.n} de ${s.total} · ${pct}%</span>`;
   }
   function diffCell(a, b) {
     if (!a || !b || a.avg===null || b.avg===null) return '<span style="color:var(--muted);font-size:10px">—</span>';
