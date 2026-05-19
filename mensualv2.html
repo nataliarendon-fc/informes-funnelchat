@@ -185,13 +185,21 @@ body{background:var(--navy);color:var(--text);font-family:'DM Sans',sans-serif;f
         <div class="insight" id="motivosInsight"></div>
       </div>
       <div class="card">
-        <div class="chart-title">Perfil de los que cancelaron</div>
-        <div class="chart-sub">Características comunes · solo pagas · tiempo de vida promedio <span id="ltAvgBadge" style="color:var(--orange)"></span></div>
-        <div class="chart-title" style="font-size:12px;margin-bottom:6px">Comparativa mes vs histórico total</div>
-        <div style="font-size:10px;color:var(--muted);margin-bottom:10px">Barra de color = este mes · barra gris = histórico total cancelados pagas</div>
-        <div id="histBarsContainer"></div>
-
-
+        <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:8px">
+          <div>
+            <div class="chart-title" style="margin-bottom:2px">Perfil de los que cancelaron</div>
+            <div class="chart-sub" style="margin-bottom:0">Características comunes · pagas · <span id="ltAvgBadge" style="color:var(--orange)"></span></div>
+          </div>
+          <div style="display:flex;gap:6px">
+            <button id="perfilViewBars" class="mn-btn active" onclick="switchPerfilView('bars')">Barras</button>
+            <button id="perfilViewTable" class="mn-btn" onclick="switchPerfilView('table')">Evolución 6m</button>
+          </div>
+        </div>
+        <div id="perfilBarsView">
+          <div style="font-size:10px;color:var(--muted);margin-bottom:10px">Barra de color = este mes · barra gris = histórico total cancelados pagas</div>
+          <div id="histBarsContainer"></div>
+        </div>
+        <div id="perfilTableView" style="display:none"></div>
       </div>
     </div>
 
