@@ -841,6 +841,46 @@ function calcMonth(off){
       const rSinFlw = newVigP.filter(r=>r['Usa flows']==='0'||r['Usa flows']===0).length;
       const rSinOnb = newVigP.filter(r=>r['Onboarding']==='Sin onboarding').length;
 
+      // Retención ONB — asistentes del mes que siguen Vigentes hoy
+      const acctMapH={};
+      C.forEach(r=>{const id=(r['id']||'').toString().trim();if(id)acctMapH[id]=r;});
+      const onbAsistIds = onbM
+        .filter(r=>r['Estado del onboarding']==='Asistió')
+        .map(r=>(r['user_id']||'').toString().trim()).filter(Boolean);
+      const onbRetN = onbAsistIds.filter(uid=>acctMapH[uid]&&acctMapH[uid]['Vigencia del servicio']==='Vigente').length;
+      const onbRetPct = onbAsistIds.length>0?Math.round(onbRetN/onbAsistIds.length*100):null;
+      const onbRetVig = onbRetN;
+
+      // Retención Sesiones — clientes con sesión en vivo creados ese mes que siguen Vigentes
+      const conSesM = C.filter(r=>inRange(getCA(r),mRange)&&isPaga(r)&&r['Sesiones en vivo']==='Asistió');
+      const sinSesM = C.filter(r=>inRange(getCA(r),mRange)&&isPaga(r)&&r['Sesiones en vivo']==='No asistió');
+      const sesRetPct = conSesM.length>0?Math.round(conSesM.filter(r=>r['Vigencia del servicio']==='Vigente').length/conSesM.length*100):null;
+
+      // Retención Embudos por flujo
+      const embRetM={};
+      ['Pago Atrasado','TRIAL SIN WA','TRIAL SIN FLOW','Cancelación'].forEach(f=>{
+        const embDateCol='fecha_asignacion_etiqueta';
+        const parseED=s=>{
+          if(!s)return null;
+          const str=s.toString().trim();
+          if(/^[0-9]{4}-/.test(str)){const d=new Date(str);return isNaN(d)?null:d;}
+          const mo={enero:0,febrero:1,marzo:2,abril:3,mayo:4,junio:5,julio:6,agosto:7,septiembre:8,octubre:9,noviembre:10,diciembre:11};
+          const lw=str.toLowerCase();
+          const parts=lw.match(/([a-záéíóú]+)\s+(\d{1,2}),\s+(\d{4})/);
+          if(parts){const mv=mo[parts[1]];if(mv!==undefined)return new Date(parseInt(parts[3]),mv,parseInt(parts[2]));}
+          try{const d=new Date(str);return isNaN(d)?null:d;}catch{return null;}
+        };
+        const rows=RAW.embudos.filter(r=>(r['Flujo']||'').trim()===f);
+        const mesRows=rows.filter(r=>inRange(parseED(r[embDateCol]),mRange));
+        const uids=new Set(mesRows.map(r=>(r['user_id']||'').toString().trim()).filter(Boolean));
+        const vigN=[...uids].filter(uid=>acctMapH[uid]&&acctMapH[uid]['Vigencia del servicio']==='Vigente').length;
+        embRetM[f]={
+          total:uids.size,
+          vigentes:vigN,
+          retPct:uids.size>0?Math.round(vigN/uids.size*100):null
+        };
+      });
+
       months.push({
         lbl,
         // Sección 1
@@ -855,8 +895,12 @@ function calcMonth(off){
         onbProp:onbM.length, onbAgen:onbAgenM,
         onbAsist:onbAsistM, onbNS:onbNSM,
         onbCob:cobM, onbAsistTasa:asistTasaM,
+        onbRetPct, onbRetVig,
         // Sesiones
         sesAsist:sesM.asist, sesSes:sesM.sesiones,
+        sesRetPct,
+        // Embudos
+        embRetM,
         // Riesgo nuevas
         rNewP:newVigP.length, rSinWA, rSinFlw, rSinOnb
       });
@@ -1554,21 +1598,40 @@ function renderHist6(m) {
     {label:'Tasa respuesta (%)',  values:H.map(h=>h.survPct),  inv:false, fmt:'%'},
   ]);
 
-  // SECCIÓN 3 — Onboarding + Sesiones
+  // SECCIÓN 3 — Onboarding + Sesiones + Embudos
   const el3 = document.getElementById('hist6_s3');
-  if (el3) el3.innerHTML =
-    buildH('Histórico 6 meses — Onboarding', 'var(--green2)', [
-      {label:'ONB propuesto',        values:H.map(h=>h.onbProp),     inv:false, fmt:'n'},
-      {label:'Agendados',            values:H.map(h=>h.onbAgen),     inv:false, fmt:'n'},
-      {label:'Asistentes',           values:H.map(h=>h.onbAsist),    inv:false, fmt:'n'},
-      {label:'No show',              values:H.map(h=>h.onbNS),       inv:true,  fmt:'n'},
-      {label:'% Cobertura pagas',    values:H.map(h=>h.onbCob),      inv:false, fmt:'%'},
-      {label:'% Tasa asistencia',    values:H.map(h=>h.onbAsistTasa),inv:false, fmt:'%'},
-    ]) +
-    buildH('Histórico 6 meses — Sesiones en vivo', 'var(--pink)', [
-      {label:'Asistentes',           values:H.map(h=>h.sesAsist),    inv:false, fmt:'n'},
-      {label:'Sesiones realizadas',  values:H.map(h=>h.sesSes),      inv:false, fmt:'n'},
-    ]);
+  if (el3) {
+    // Embudos tables
+    const flujosH = ['Pago Atrasado','TRIAL SIN WA','TRIAL SIN FLOW','Cancelación'];
+    const embLabsH = {'Pago Atrasado':'Atrasados','TRIAL SIN WA':'Trial sin WA','TRIAL SIN FLOW':'Trial sin Flow','Cancelación':'Cancelación'};
+    const embColorsH = {'Pago Atrasado':'var(--orange)','TRIAL SIN WA':'var(--blue)','TRIAL SIN FLOW':'var(--blue)','Cancelación':'var(--red)'};
+    const embTablesHtml = flujosH.map(f =>
+      buildH(`Histórico 6 meses — Embudo ${embLabsH[f]}`, embColorsH[f]||'var(--blue)', [
+        {label:'Impactados (únicos)', values:H.map(h=>h.embRetM?.[f]?.total??null), inv:false, fmt:'n'},
+        {label:'Siguen vigentes',     values:H.map(h=>h.embRetM?.[f]?.vigentes??null), inv:false, fmt:'n'},
+        {label:'% Retención',         values:H.map(h=>h.embRetM?.[f]?.retPct??null), inv:false, fmt:'%'},
+      ])
+    ).join('');
+
+    el3.innerHTML =
+      buildH('Histórico 6 meses — Onboarding', 'var(--green2)', [
+        {label:'Nuevas pagas del mes', values:H.map(h=>h.newP),         inv:false, fmt:'n'},
+        {label:'ONB propuesto',        values:H.map(h=>h.onbProp),      inv:false, fmt:'n'},
+        {label:'Agendados',            values:H.map(h=>h.onbAgen),      inv:false, fmt:'n'},
+        {label:'Asistentes',           values:H.map(h=>h.onbAsist),     inv:false, fmt:'n'},
+        {label:'No show',              values:H.map(h=>h.onbNS),        inv:true,  fmt:'n'},
+        {label:'% Cobertura pagas',    values:H.map(h=>h.onbCob),       inv:false, fmt:'%'},
+        {label:'% Tasa asistencia',    values:H.map(h=>h.onbAsistTasa), inv:false, fmt:'%'},
+        {label:'Asistentes vigentes',  values:H.map(h=>h.onbRetVig),    inv:false, fmt:'n'},
+        {label:'% Retención asistentes', values:H.map(h=>h.onbRetPct),  inv:false, fmt:'%'},
+      ]) +
+      buildH('Histórico 6 meses — Sesiones en vivo', 'var(--pink)', [
+        {label:'Asistentes',             values:H.map(h=>h.sesAsist),  inv:false, fmt:'n'},
+        {label:'Sesiones realizadas',    values:H.map(h=>h.sesSes),    inv:false, fmt:'n'},
+        {label:'% Retención asistentes', values:H.map(h=>h.sesRetPct), inv:false, fmt:'%'},
+      ]) +
+      embTablesHtml;
+  }
 
   // SECCIÓN 4 — Riesgo
   const el4 = document.getElementById('hist6_s4');
