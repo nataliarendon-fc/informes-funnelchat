@@ -1,0 +1,395 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tracker KAM Semanal · Funnelchat</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --navy:#0d1528;--navy2:#131e35;--navy3:#1a2744;--navy4:#1f2f52;
+  --teal:#2dd4bf;--green:#22c55e;--red:#f87171;--orange:#fb923c;
+  --blue:#60a5fa;--purple:#a78bfa;--yellow:#fbbf24;--pink:#f472b6;
+  --text:#e2e8f0;--muted:#64748b;--border:rgba(255,255,255,.07);
+  --card:rgba(255,255,255,.03);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--navy);color:var(--text);font-family:'DM Sans',sans-serif;font-size:13px;min-height:100vh}
+.hdr{background:linear-gradient(135deg,#0d1528,#1a2744);border-bottom:1px solid var(--border);padding:18px 36px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100}
+.logo-text{font-family:'Syne',sans-serif;font-weight:800;font-size:16px;color:#fff}
+.logo-text span{color:var(--orange)}
+.hdr-badge{font-size:10px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--orange);background:rgba(251,146,60,.1);border:1px solid rgba(251,146,60,.2);padding:4px 12px;border-radius:20px}
+.loading{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:70vh;gap:14px}
+.spinner{width:36px;height:36px;border:3px solid var(--navy3);border-top-color:var(--orange);border-radius:50%;animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.main{padding:28px 36px 80px;max-width:1800px;margin:0 auto}
+.controls{display:flex;align-items:center;gap:10px;margin-bottom:20px;flex-wrap:wrap}
+.ctrl-label{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em}
+.btn{padding:7px 16px;border-radius:8px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer;font-family:'DM Sans',sans-serif;font-size:11px;font-weight:600;transition:all .15s}
+.btn:hover{border-color:var(--orange);color:var(--orange)}
+.btn.active{background:rgba(251,146,60,.12);border-color:rgba(251,146,60,.35);color:var(--orange)}
+.btn-dl{background:rgba(34,197,94,.1);border-color:rgba(34,197,94,.3);color:var(--green)}
+.btn-dl:hover{background:rgba(34,197,94,.2)}
+.btn-save{background:rgba(45,212,191,.1);border-color:rgba(45,212,191,.3);color:var(--teal)}
+.btn-save:hover{background:rgba(45,212,191,.2)}
+
+/* STATS */
+.stats-row{display:grid;grid-template-columns:repeat(6,1fr);gap:12px;margin-bottom:24px}
+.stat-card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:14px 16px}
+.stat-label{font-size:9px;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);margin-bottom:6px}
+.stat-val{font-family:'Syne',sans-serif;font-size:22px;font-weight:800;line-height:1}
+.stat-sub{font-size:10px;color:var(--muted);margin-top:4px}
+
+/* NOTE */
+.note{background:rgba(251,146,60,.06);border:1px solid rgba(251,146,60,.15);border-radius:10px;padding:10px 16px;font-size:11px;color:var(--muted);margin-bottom:20px;display:flex;align-items:flex-start;gap:8px}
+.note strong{color:var(--orange)}
+
+/* TABLE */
+.tbl-wrap{overflow-x:auto;border-radius:14px;border:1px solid var(--border)}
+table{width:100%;border-collapse:collapse;min-width:1400px}
+.group-row th{padding:7px 10px;font-size:9px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;text-align:center;border-bottom:1px solid rgba(255,255,255,.05)}
+.g-meta{background:#0d1528;color:var(--muted)}
+.g-auto{background:rgba(45,212,191,.06);color:var(--teal)}
+.g-seg{background:rgba(96,165,250,.06);color:var(--blue)}
+.g-manual{background:rgba(251,146,60,.06);color:var(--orange)}
+.g-result{background:rgba(248,113,113,.06);color:var(--red)}
+.g-growth{background:rgba(34,197,94,.06);color:var(--green)}
+
+.col-row th{padding:6px 8px;font-size:10px;font-weight:600;color:var(--muted);text-align:center;border-bottom:2px solid rgba(255,255,255,.06);white-space:nowrap;background:var(--navy2)}
+.col-row th.left{text-align:left;padding-left:14px}
+
+tbody tr{border-bottom:1px solid rgba(255,255,255,.04);transition:background .1s}
+tbody tr:hover{background:rgba(255,255,255,.02)}
+tbody tr.kam-header{background:rgba(255,255,255,.04)}
+tbody tr:last-child{border-bottom:none}
+
+td{padding:8px 8px;text-align:center;font-family:'DM Mono',monospace;font-size:12px;vertical-align:middle}
+td.td-week{text-align:left;padding-left:14px;font-family:'Syne',sans-serif;font-size:11px;font-weight:700;color:#fff;white-space:nowrap;min-width:130px}
+td.td-kam{text-align:left;padding-left:10px;font-family:'Syne',sans-serif;font-size:11px;font-weight:700;white-space:nowrap;min-width:90px}
+
+/* EDITABLE */
+td.editable{background:rgba(251,146,60,.04);border-left:1px solid rgba(251,146,60,.08)}
+td.editable input{width:100%;background:transparent;border:none;outline:none;color:var(--orange);font-family:'DM Mono',monospace;font-size:12px;text-align:center;padding:2px 4px}
+td.editable input:focus{background:rgba(251,146,60,.1);border-radius:4px}
+
+.c-teal{color:var(--teal)}.c-blue{color:var(--blue)}.c-orange{color:var(--orange)}
+.c-red{color:var(--red)}.c-green{color:var(--green)}.c-muted{color:var(--muted)}
+.c-yellow{color:var(--yellow)}
+.zero{color:rgba(100,116,139,.35)}
+
+.saved-indicator{font-size:10px;color:var(--teal);opacity:0;transition:opacity .3s}
+.footer{margin-top:20px;font-size:10px;color:var(--muted);text-align:center;padding-top:16px;border-top:1px solid var(--border)}
+.error-box{background:rgba(248,113,113,.08);border:1px solid rgba(248,113,113,.2);border-radius:12px;padding:20px 24px;max-width:520px;margin:40px auto}
+.error-box h3{color:var(--red);font-family:'Syne',sans-serif;margin-bottom:8px}
+.error-box p{font-size:12px;color:var(--muted);line-height:1.7}
+</style>
+</head>
+<body>
+
+<header class="hdr">
+  <div>
+    <div class="logo-text">Funnel<span>chat</span></div>
+    <div style="font-size:10px;color:var(--muted);margin-top:1px">Tracker KAM Semanal</div>
+  </div>
+  <div class="hdr-badge">KAM · Gestión de Cuentas</div>
+</header>
+
+<div id="loadingState" class="loading">
+  <div class="spinner"></div>
+  <div style="font-family:'Syne',sans-serif;font-size:12px;color:var(--muted)" id="loadingText">Conectando con Google Sheets...</div>
+</div>
+
+<main id="mainContent" class="main" style="display:none">
+  <div class="controls">
+    <span class="ctrl-label">Ver</span>
+    <button class="btn active" id="btnTodos" onclick="setKam('todos')">Todos</button>
+    <button class="btn" id="btnNicolas" onclick="setKam('Nicolás')">Nicolás</button>
+    <button class="btn" id="btnNatalia" onclick="setKam('Natalia')">Natalia</button>
+    <div style="flex:1"></div>
+    <span class="saved-indicator" id="savedIndicator">✓ Guardado</span>
+    <button class="btn btn-save" onclick="saveAll()">💾 Guardar datos manuales</button>
+    <button class="btn btn-dl" onclick="downloadCSV()">↓ Descargar CSV</button>
+    <button class="btn" onclick="location.reload()">↻ Actualizar</button>
+  </div>
+
+  <div class="note">
+    <strong>ℹ</strong>
+    <span>Columnas <strong style="color:var(--teal)">teal</strong> = calculadas automáticamente desde el Sheet.
+    Columnas <strong style="color:var(--orange)">naranja</strong> = ingreso manual del KAM — se guardan en este navegador.
+    Presiona <strong>Guardar</strong> después de completar.</span>
+  </div>
+
+  <div class="stats-row" id="statsRow"></div>
+  <div class="tbl-wrap">
+    <table id="mainTable">
+      <thead>
+        <tr class="group-row" id="groupRow"></tr>
+        <tr class="col-row" id="colRow"></tr>
+      </thead>
+      <tbody id="tableBody"></tbody>
+    </table>
+  </div>
+  <div class="footer" id="footer"></div>
+</main>
+
+<script>
+const API_URL = 'https://script.google.com/macros/s/AKfycbwNp-Hnmi1imEggg6Qz7xRP_fR57ZvcQb9hFR2WUPn1c-BdsN23x2vrnlU5zY6Rydrlng/exec';
+const INICIO = new Date(2026, 3, 1);
+const KAMS = ['Nicolás','Natalia'];
+let RAW = { cuentas:[] };
+let currentKam = 'todos';
+let tableData = [];
+
+// ── DATE HELPERS ──────────────────────────────────────
+function parseISO(s) {
+  if (!s||!s.trim()) return null;
+  const d=new Date(s.toString().trim()); return isNaN(d)?null:d;
+}
+function parseSpanishDate(s) {
+  if (!s||!s.trim()) return null;
+  const m=s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+  if(m) return new Date(+m[3],+m[2]-1,+m[1]);
+  return parseISO(s);
+}
+function getCA(r){ return parseISO(r['created_at'])||parseISO(r['Fecha creación']); }
+function cancelDate(r){
+  const pt=parseSpanishDate(r['payment_till'])||parseISO(r['payment_till']);
+  if(!pt) return null;
+  const d=new Date(pt); d.setDate(d.getDate()+21); return d;
+}
+function getMondayOf(d){ const dt=new Date(d); dt.setHours(0,0,0,0); const dow=dt.getDay()||7; dt.setDate(dt.getDate()-dow+1); return dt; }
+function getWeekRange(mon){ const sun=new Date(mon); sun.setDate(mon.getDate()+6); sun.setHours(23,59,59,999); return {start:mon,end:sun}; }
+function inRange(d,r){ return d&&d>=r.start&&d<=r.end; }
+function fmtD(d){ return d.toLocaleDateString('es-CO',{day:'2-digit',month:'short'}); }
+function fmtWeek(mon){ const sun=new Date(mon); sun.setDate(mon.getDate()+6); return fmtD(mon)+' – '+fmtD(sun); }
+function weekKey(mon){ return mon.toISOString().slice(0,10); }
+
+// ── LOAD ──────────────────────────────────────────────
+async function loadAll() {
+  const res = await Promise.race([
+    fetch(API_URL),
+    new Promise((_,r)=>setTimeout(()=>r(new Error('Timeout 30s')),30000))
+  ]);
+  if(!res.ok) throw new Error('HTTP '+res.status);
+  const json = await res.json();
+  RAW.cuentas = (json.cuentas||[]).filter(r=>Object.keys(r).length>1);
+  if(!RAW.cuentas.length) throw new Error('Hoja vacía');
+}
+
+function isPaga(r){ const t=(r['trial']||'').toString().trim().toUpperCase(); return t!=='TRUE'&&t!=='1'&&t!=='SI'&&t!=='SÍ'; }
+function getSegmento(r){ return (r['Segmento de cliente (priorización de cliente)']||'').trim(); }
+function getKam(r){ return (r['KAM']||'Sin KAM').trim(); }
+
+// ── LOCAL STORAGE ────────────────────────────────────
+const LS_KEY = 'fch_kam_tracker_v1';
+function loadManual(){ try{ return JSON.parse(localStorage.getItem(LS_KEY)||'{}'); }catch{return {};} }
+function saveManual(data){ localStorage.setItem(LS_KEY,JSON.stringify(data)); }
+
+const MANUAL_COLS = ['contactos','contA','contB','contC','sinContacto','riesgoInterv','downgrades','upsells'];
+
+function getManualVal(data, kam, wk, col){ return (data[kam]?.[wk]?.[col])||''; }
+function setManualVal(data, kam, wk, col, val){ if(!data[kam]) data[kam]={}; if(!data[kam][wk]) data[kam][wk]={}; data[kam][wk][col]=val; }
+
+// ── CALC ──────────────────────────────────────────────
+function calcWeeks() {
+  const weeks = [];
+  const today = new Date();
+  const curMon = getMondayOf(today);
+  let mon = getMondayOf(INICIO);
+  while(mon<=curMon){ weeks.push(new Date(mon)); mon.setDate(mon.getDate()+7); }
+  weeks.reverse();
+
+  return weeks.map(mon => {
+    const r = getWeekRange(mon);
+    const kamData = {};
+    KAMS.forEach(k => {
+      const accounts = RAW.cuentas.filter(rr => getKam(rr)===k && isPaga(rr));
+      const vigentes = accounts.filter(rr => rr['Vigencia del servicio']==='Vigente');
+      const segA = vigentes.filter(rr => getSegmento(rr)==='A').length;
+      const segB = vigentes.filter(rr => getSegmento(rr)==='B').length;
+      const segC = vigentes.filter(rr => getSegmento(rr)==='C').length;
+      const canceladas = accounts.filter(rr => rr['Vigencia del servicio']==='Cancelado' && inRange(cancelDate(rr),r)).length;
+      kamData[k] = { total:vigentes.length, segA, segB, segC, canceladas };
+    });
+    return { mon, label:fmtWeek(mon), key:weekKey(mon), kamData };
+  });
+}
+
+// ── RENDER ────────────────────────────────────────────
+const GROUPS = [
+  { label:'SEMANA',         cls:'g-meta',   span:1 },
+  { label:'KAM',            cls:'g-meta',   span:1 },
+  { label:'BASE ASIGNADA',  cls:'g-auto',   span:4 },
+  { label:'CONTACTOS (manual)', cls:'g-manual', span:4 },
+  { label:'RIESGO',         cls:'g-manual', span:2 },
+  { label:'RESULTADO',      cls:'g-result', span:2 },
+  { label:'CRECIMIENTO',    cls:'g-growth', span:1 },
+];
+const COLS = [
+  {label:'Semana',            key:'week',       cls:'',         auto:true },
+  {label:'KAM',               key:'kam',        cls:'',         auto:true },
+  {label:'Cuentas Asig.',     key:'total',      cls:'c-teal',   auto:true },
+  {label:'Seg A',             key:'segA',       cls:'c-blue',   auto:true },
+  {label:'Seg B',             key:'segB',       cls:'c-blue',   auto:true },
+  {label:'Seg C',             key:'segC',       cls:'c-blue',   auto:true },
+  {label:'Contactos',         key:'contactos',  cls:'c-orange', auto:false},
+  {label:'Cont. A',           key:'contA',      cls:'c-orange', auto:false},
+  {label:'Cont. B',           key:'contB',      cls:'c-orange', auto:false},
+  {label:'Cont. C',           key:'contC',      cls:'c-orange', auto:false},
+  {label:'Sin cont. >30d',    key:'sinContacto',cls:'c-yellow', auto:false},
+  {label:'Riesgo interv.',    key:'riesgoInterv',cls:'c-yellow',auto:false},
+  {label:'Cancelaciones',     key:'canceladas', cls:'c-red',    auto:true },
+  {label:'Downgrades',        key:'downgrades', cls:'c-red',    auto:false},
+  {label:'Upsells/Expans.',   key:'upsells',    cls:'c-green',  auto:false},
+];
+
+// Build group row
+document.getElementById('groupRow').innerHTML = GROUPS.map(g=>
+  `<th colspan="${g.span}" class="${g.cls}">${g.label}</th>`
+).join('');
+document.getElementById('colRow').innerHTML = COLS.map((c,i)=>
+  `<th class="${i<2?'left':''}">${c.label}</th>`
+).join('');
+
+function render(kamFilter) {
+  currentKam = kamFilter;
+  ['todos','Nicolás','Natalia'].forEach(k => {
+    const id = 'btn'+k.replace('á','a').replace('ó','o').charAt(0).toUpperCase()+k.slice(1).replace('á','a').replace('ó','o').replace('é','e').replace('í','i');
+    const btn = document.getElementById('btn'+k.replace(/[^a-zA-Z]/g,''));
+    if(btn) btn.className = 'btn'+(k===kamFilter?' active':'');
+  });
+  document.getElementById('btnTodos').className = 'btn'+('todos'===kamFilter?' active':'');
+  document.getElementById('btnNicolas').className = 'btn'+('Nicolás'===kamFilter?' active':'');
+  document.getElementById('btnNatalia').className = 'btn'+('Natalia'===kamFilter?' active':'');
+
+  const manualData = loadManual();
+  const kamsToShow = kamFilter==='todos' ? KAMS : [kamFilter];
+
+  // Stats — totals per active KAM
+  const statKam = kamFilter==='todos' ? KAMS[0] : kamFilter;
+  const first = tableData[0];
+  if(first) {
+    const d = first.kamData[statKam]||{total:0,segA:0,segB:0,segC:0};
+    const totalUpsells = tableData.reduce((s,w)=>{
+      const v=getManualVal(manualData,statKam,w.key,'upsells');
+      return s+(parseInt(v)||0);
+    },0);
+    const totalCancels = tableData.reduce((s,w)=>s+(w.kamData[statKam]?.canceladas||0),0);
+    document.getElementById('statsRow').innerHTML = [
+      {label:'Cuentas asignadas hoy', val:d.total, color:'var(--teal)', sub:`Seg A:${d.segA} · B:${d.segB} · C:${d.segC}`},
+      {label:'Cuentas Seg A',  val:d.segA,  color:'var(--blue)',   sub:'Prioridad máxima'},
+      {label:'Cuentas Seg B',  val:d.segB,  color:'var(--purple)', sub:'Prioridad media'},
+      {label:'Cuentas Seg C',  val:d.segC,  color:'var(--muted)',  sub:'Prioridad estándar'},
+      {label:'Cancelaciones (desde Abr)', val:totalCancels, color:'var(--red)', sub:'Base KAM'},
+      {label:'Upsells (desde Abr)', val:totalUpsells, color:'var(--green)', sub:'Ingresados manualmente'},
+    ].map(s=>`<div class="stat-card">
+      <div class="stat-label">${s.label}</div>
+      <div class="stat-val" style="color:${s.color}">${s.val}</div>
+      <div class="stat-sub">${s.sub}</div>
+    </div>`).join('');
+  }
+
+  // Table rows
+  const rows = [];
+  tableData.forEach((wk, wi) => {
+    kamsToShow.forEach((kam, ki) => {
+      const auto = wk.kamData[kam]||{total:0,segA:0,segB:0,segC:0,canceladas:0};
+      const isRecent = wi===0;
+      const bg = isRecent ? 'background:rgba(251,146,60,.04);' : (wi%2===0?'background:rgba(255,255,255,.01);':'');
+      const kamColor = kam==='Nicolás'?'var(--blue)':'var(--pink)';
+
+      const cells = COLS.map((col,ci) => {
+        if(col.key==='week') {
+          return `<td class="td-week">${wk.label}${isRecent?' <span style="font-size:9px;color:var(--orange)">← actual</span>':''}</td>`;
+        }
+        if(col.key==='kam') return `<td class="td-kam" style="color:${kamColor}">${kam}</td>`;
+
+        if(col.auto) {
+          const v = auto[col.key]||0;
+          return `<td class="${v===0?'zero':col.cls}">${v===0?'—':v}</td>`;
+        }
+        // Manual input
+        const stored = getManualVal(manualData,kam,wk.key,col.key);
+        return `<td class="editable"><input type="number" min="0" value="${stored}"
+          data-kam="${kam}" data-wk="${wk.key}" data-col="${col.key}"
+          oninput="onManualInput(this)" placeholder="—"></td>`;
+      });
+
+      rows.push(`<tr style="${bg}">${cells.join('')}</tr>`);
+    });
+  });
+
+  document.getElementById('tableBody').innerHTML = rows.join('');
+  document.getElementById('footer').textContent =
+    `${tableData.length} semanas · ${RAW.cuentas.length} cuentas · Datos auto = tiempo real · Datos manuales = guardados localmente`;
+}
+
+function onManualInput(el) {
+  // Auto-save debounced
+  clearTimeout(window._saveTimer);
+  window._saveTimer = setTimeout(() => saveAll(true), 1500);
+}
+
+function saveAll(silent=false) {
+  const data = loadManual();
+  document.querySelectorAll('td.editable input').forEach(input => {
+    const { kam, wk, col } = input.dataset;
+    setManualVal(data, kam, wk, col, input.value);
+  });
+  saveManual(data);
+  if(!silent) {
+    const ind = document.getElementById('savedIndicator');
+    ind.style.opacity='1';
+    setTimeout(()=>{ ind.style.opacity='0'; },2000);
+  }
+}
+
+function downloadCSV() {
+  saveAll(true);
+  const manualData = loadManual();
+  const kamsToShow = currentKam==='todos' ? KAMS : [currentKam];
+  const headers = COLS.filter(c=>c.key!=='week').map(c=>c.label);
+  const csvRows = [['Semana',...headers].join(',')];
+  tableData.forEach(wk => {
+    kamsToShow.forEach(kam => {
+      const auto = wk.kamData[kam]||{total:0,segA:0,segB:0,segC:0,canceladas:0};
+      const row = [
+        `"${wk.label}"`,
+        kam,
+        auto.total, auto.segA, auto.segB, auto.segC,
+        ...MANUAL_COLS.map(c => getManualVal(manualData,kam,wk.key,c)||0),
+        auto.canceladas,
+        getManualVal(manualData,kam,wk.key,'downgrades')||0,
+        getManualVal(manualData,kam,wk.key,'upsells')||0,
+      ];
+      csvRows.push(row.join(','));
+    });
+  });
+  const csv = '\uFEFF'+csvRows.join('\n');
+  const blob = new Blob([csv],{type:'text/csv;charset=utf-8;'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href=url; a.download=`funnelchat_kam_${new Date().toISOString().slice(0,10)}.csv`;
+  a.click(); URL.revokeObjectURL(url);
+}
+
+// ── INIT ──────────────────────────────────────────────
+(async()=>{
+  try {
+    await loadAll();
+    document.getElementById('loadingState').style.display='none';
+    document.getElementById('mainContent').style.display='block';
+    tableData = calcWeeks();
+    render('todos');
+  } catch(err) {
+    document.getElementById('loadingState').innerHTML=`
+      <div class="error-box">
+        <h3>Error al cargar</h3>
+        <p>${err.message}</p>
+        <button class="btn" onclick="location.reload()" style="margin-top:12px">↻ Reintentar</button>
+      </div>`;
+  }
+})();
+</script>
+</body>
+</html>
