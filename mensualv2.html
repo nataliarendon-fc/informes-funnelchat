@@ -869,6 +869,15 @@ function calcMonth(off){
       const cobM      = newP.length>0?Math.round(onbAsistM/newP.length*100):0;
       const asistTasaM= onbAgenM>0?Math.round(onbAsistM/onbAgenM*100):0;
 
+      // AHA — tiempo al hito por mes, con ONB vs sin ONB
+      const conOnbM = newP.filter(r => r['Onboarding']==='Con onboarding');
+      const sinOnbM = newP.filter(r => r['Onboarding']==='Sin onboarding');
+      const ahaM = {
+        wa:     { con: ahaStats(conOnbM,'AHA WA'),     sin: ahaStats(sinOnbM,'AHA WA')     },
+        flows:  { con: ahaStats(conOnbM,'AHA flows'),  sin: ahaStats(sinOnbM,'AHA flows')  },
+        grupos: { con: ahaStats(conOnbM,'AHA grupos'), sin: ahaStats(sinOnbM,'AHA grupos') },
+      };
+
       // Sesiones
       const sesM = (() => {
         const sesRows = RAW.sesiones.filter(r=>{
@@ -937,6 +946,7 @@ function calcMonth(off){
         onbAsist:onbAsistM, onbNS:onbNSM,
         onbCob:cobM, onbAsistTasa:asistTasaM,
         onbRetPct, onbRetVig,
+        ahaM,
         // Sesiones
         sesAsist:sesM.asist, sesSes:sesM.sesiones,
         sesRetPct,
@@ -1771,16 +1781,29 @@ function renderHist6(m) {
 
     el3.innerHTML =
       buildH('Histórico 6 meses — Onboarding', 'var(--green2)', [
-        {label:'Nuevas pagas del mes',   values:H.map(h=>h.newP),          inv:false, fmt:'n'},
-        {label:'ONB propuesto',          values:H.map(h=>h.onbProp),       inv:false, fmt:'n'},
-        {label:'Agendados',              values:H.map(h=>h.onbAgen),       inv:false, fmt:'n'},
-        {label:'Asistentes',             values:H.map(h=>h.onbAsist),      inv:false, fmt:'n'},
-        {label:'No show',                values:H.map(h=>h.onbNS),         inv:true,  fmt:'n'},
-        {label:'% No show',              values:H.map(h=>h.onbAgen>0?Math.round(h.onbNS/h.onbAgen*100):0), inv:true, fmt:'%'},
-        {label:'% Cobertura pagas',      values:H.map(h=>h.onbCob),        inv:false, fmt:'%'},
-        {label:'% Tasa asistencia',      values:H.map(h=>h.onbAsistTasa),  inv:false, fmt:'%'},
-        {label:'Asistentes vigentes',    values:H.map(h=>h.onbRetVig),     inv:false, fmt:'n'},
-        {label:'% Retención asistentes', values:H.map(h=>h.onbRetPct),     inv:false, fmt:'%'},
+        {label:'Nuevas pagas del mes',         values:H.map(h=>h.newP),          inv:false, fmt:'n'},
+        {label:'ONB propuesto',                values:H.map(h=>h.onbProp),       inv:false, fmt:'n'},
+        {label:'Agendados',                    values:H.map(h=>h.onbAgen),       inv:false, fmt:'n'},
+        {label:'Asistentes',                   values:H.map(h=>h.onbAsist),      inv:false, fmt:'n'},
+        {label:'No show',                      values:H.map(h=>h.onbNS),         inv:true,  fmt:'n'},
+        {label:'% No show',                    values:H.map(h=>h.onbAgen>0?Math.round(h.onbNS/h.onbAgen*100):0), inv:true, fmt:'%'},
+        {label:'% Cobertura pagas',            values:H.map(h=>h.onbCob),        inv:false, fmt:'%'},
+        {label:'% Tasa asistencia',            values:H.map(h=>h.onbAsistTasa),  inv:false, fmt:'%'},
+        {label:'Asistentes vigentes',          values:H.map(h=>h.onbRetVig),     inv:false, fmt:'n'},
+        {label:'% Retención asistentes',       values:H.map(h=>h.onbRetPct),     inv:false, fmt:'%'},
+        // AHA — con ONB
+        {label:'AHA WA · con ONB (días)',      values:H.map(h=>h.ahaM?.wa?.con?.avg??null),    inv:true,  fmt:'n'},
+        {label:'AHA WA · con ONB (%)',         values:H.map(h=>h.ahaM?.wa?.con?.pct??null),    inv:false, fmt:'%'},
+        {label:'AHA WA · sin ONB (días)',      values:H.map(h=>h.ahaM?.wa?.sin?.avg??null),    inv:true,  fmt:'n'},
+        {label:'AHA WA · sin ONB (%)',         values:H.map(h=>h.ahaM?.wa?.sin?.pct??null),    inv:false, fmt:'%'},
+        {label:'AHA Flow · con ONB (días)',    values:H.map(h=>h.ahaM?.flows?.con?.avg??null), inv:true,  fmt:'n'},
+        {label:'AHA Flow · con ONB (%)',       values:H.map(h=>h.ahaM?.flows?.con?.pct??null), inv:false, fmt:'%'},
+        {label:'AHA Flow · sin ONB (días)',    values:H.map(h=>h.ahaM?.flows?.sin?.avg??null), inv:true,  fmt:'n'},
+        {label:'AHA Flow · sin ONB (%)',       values:H.map(h=>h.ahaM?.flows?.sin?.pct??null), inv:false, fmt:'%'},
+        {label:'AHA Grupos · con ONB (días)',  values:H.map(h=>h.ahaM?.grupos?.con?.avg??null),inv:true,  fmt:'n'},
+        {label:'AHA Grupos · con ONB (%)',     values:H.map(h=>h.ahaM?.grupos?.con?.pct??null),inv:false, fmt:'%'},
+        {label:'AHA Grupos · sin ONB (días)',  values:H.map(h=>h.ahaM?.grupos?.sin?.avg??null),inv:true,  fmt:'n'},
+        {label:'AHA Grupos · sin ONB (%)',     values:H.map(h=>h.ahaM?.grupos?.sin?.pct??null),inv:false, fmt:'%'},
       ]) +
       buildH('Histórico 6 meses — Sesiones en vivo', 'var(--pink)', [
         {label:'Asistentes',             values:H.map(h=>h.sesAsist),  inv:false, fmt:'n'},
