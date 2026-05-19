@@ -172,6 +172,8 @@ body{background:var(--navy);color:var(--text);font-family:'DM Sans',sans-serif;f
     </div>
   </div>
 
+    <div id="hist6_s1" style="margin-top:14px;margin-bottom:28px"></div>
+
   <!-- BLOQUE 3 -->
   <div class="block">
     <div class="sec-label"><span class="sec-num">03</span> ¿Por qué se van? <span class="sec-desc">· Motivos de cancelación + perfil del cliente que cancela</span></div>
@@ -183,13 +185,21 @@ body{background:var(--navy);color:var(--text);font-family:'DM Sans',sans-serif;f
         <div class="insight" id="motivosInsight"></div>
       </div>
       <div class="card">
-        <div class="chart-title">Perfil de los que cancelaron</div>
-        <div class="chart-sub">Características comunes · solo pagas · tiempo de vida promedio <span id="ltAvgBadge" style="color:var(--orange)"></span></div>
-        <div class="chart-title" style="font-size:12px;margin-bottom:6px">Comparativa mes vs histórico total</div>
-        <div style="font-size:10px;color:var(--muted);margin-bottom:10px">Barra de color = este mes · barra gris = histórico total cancelados pagas</div>
-        <div id="histBarsContainer"></div>
-
-
+        <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:8px">
+          <div>
+            <div class="chart-title" style="margin-bottom:2px">Perfil de los que cancelaron</div>
+            <div class="chart-sub" style="margin-bottom:0">Características comunes · pagas · <span id="ltAvgBadge" style="color:var(--orange)"></span></div>
+          </div>
+          <div style="display:flex;gap:6px">
+            <button id="perfilViewBars" class="mn-btn active" onclick="switchPerfilView('bars')">Barras</button>
+            <button id="perfilViewTable" class="mn-btn" onclick="switchPerfilView('table')">Evolución 6m</button>
+          </div>
+        </div>
+        <div id="perfilBarsView">
+          <div style="font-size:10px;color:var(--muted);margin-bottom:10px">Barra de color = este mes · barra gris = histórico total cancelados pagas</div>
+          <div id="histBarsContainer"></div>
+        </div>
+        <div id="perfilTableView" style="display:none"></div>
       </div>
     </div>
 
@@ -227,6 +237,8 @@ body{background:var(--navy);color:var(--text);font-family:'DM Sans',sans-serif;f
       </div>
     </div>
   </div>
+
+    <div id="hist6_s2" style="margin-top:14px;margin-bottom:28px"></div>
 
   <!-- BLOQUE 4 -->
   <div class="block">
@@ -267,6 +279,8 @@ body{background:var(--navy);color:var(--text);font-family:'DM Sans',sans-serif;f
     </div>
   </div>
 
+    <div id="hist6_s3" style="margin-top:14px;margin-bottom:28px"></div>
+
   <!-- BLOQUE 5 -->
   <div class="block">
     <div class="sec-label"><span class="sec-num">05</span> Análisis de riesgo <span class="sec-desc">· Estado al cierre del mes · pagas vigentes con señales de pre-churn</span></div>
@@ -278,6 +292,8 @@ body{background:var(--navy);color:var(--text);font-family:'DM Sans',sans-serif;f
       <div class="insight" id="lifetimeInsight"></div>
     </div>
   </div>
+
+    <div id="hist6_s4" style="margin-top:14px;margin-bottom:28px"></div>
 
   <!-- BLOQUE 6 -->
   <div class="block">
@@ -346,6 +362,32 @@ function isPaga(r){const t=(r['trial']||'').toString().trim().toUpperCase();retu
 function isTrial(r){return!isPaga(r);}
 function getCA(r){return parseISO(r['created_at'])||parseISO(r['Fecha creación']);}
 function getOnbDate(r){return parseISO(r['Fecha registro'])||parseISO(r['Fecha estado onboarding'])||null;}
+function parseEmbDate(s){
+  if(!s)return null;
+  const str=s.toString().trim();
+  if(/^[0-9]{4}-/.test(str)){const d=new Date(str);return isNaN(d)?null:d;}
+  const mo={enero:0,febrero:1,marzo:2,abril:3,mayo:4,junio:5,julio:6,agosto:7,septiembre:8,octubre:9,noviembre:10,diciembre:11};
+  const lw=str.toLowerCase();
+  const m2=lw.match(/([a-záéíóú]+)\s+(\d{1,2}),\s+(\d{4})/);
+  if(m2){const mv=mo[m2[1]];if(mv!==undefined)return new Date(parseInt(m2[3]),mv,parseInt(m2[2]));}
+  const sl=str.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+  if(sl)return new Date(parseInt(sl[3]),parseInt(sl[2])-1,parseInt(sl[1]));
+  try{const d=new Date(str);return isNaN(d)?null:d;}catch{return null;}
+}
+// ── AHA / TTV helpers ────────────────────────────────
+function getTTV(r, ahaCol) {
+  const ca  = parseISO(r['created_at']) || parseISO(r['Fecha creación']);
+  const aha = parseISO(r[ahaCol]);
+  if (!ca || !aha || aha < ca) return null;
+  return Math.round((aha - ca) / 86400000);
+}
+function ahaStats(arr, ahaCol) {
+  const vals = arr.map(r => getTTV(r, ahaCol)).filter(v => v !== null && v >= 0);
+  if (!vals.length) return { avg: null, n: 0, pct: 0, total: arr.length };
+  const avg = Math.round(vals.reduce((a,b) => a+b, 0) / vals.length);
+  return { avg, n: vals.length, pct: Math.round(vals.length/arr.length*100), total: arr.length };
+}
+
 function getMRR(r){
   const amt=parseFloat((r['payment_amount']||'0').toString().replace(/[^0-9.]/g,''))||0;
   const t=parseInt((r['payment_type']||'0').toString())||0;
@@ -486,10 +528,10 @@ function calcMonth(off){
   // Perfil cancelados
   const cm=cancelMes.length||1;
   const cp_sin_onb=pct(cancelMes.filter(r=>r['Onboarding']==='Sin onboarding').length,cm);
-  const cp_sin_flow=pct(cancelMes.filter(r=>r['Usa flows']==='0'||r['Usa flows']===0).length,cm);
+  const cp_sin_flow=pct(cancelMes.filter(r=>(v=>v===''||v==='0')((r['Usa flows']||'').toString().trim())).length,cm);
   const cp_sin_wa=pct(cancelMes.filter(r=>(r['Usa API?']||'')!=='Sí'&&(r['Usa Business?']||'')!=='Sí').length,cm);
   const cp_sin_ses=pct(cancelMes.filter(r=>r['Sesiones en vivo']==='No asistió').length,cm);
-  const cp_sin_grupos=pct(cancelMes.filter(r=>r['Usa grupos?']==='0'||r['Usa grupos?']===0).length,cm);
+  const cp_sin_grupos=pct(cancelMes.filter(r=>(v=>v===''||v==='0')((r['Usa grupos?']||'').toString().trim())).length,cm);
   const cp_sin_trial=pct(cancelMes.filter(r=>(r['flow trial']||'').includes('No pasó')).length,cm);
   const cp_lt_avg=avg(cancelMes.map(r=>parseFloat(r['LT']||'0')).filter(n=>n>0));
   // ── Pagas cancelados este mes ──────────────────────
@@ -531,10 +573,10 @@ function calcMonth(off){
   // ── Histórico barras perfil ─────────────────────────
   const allCm=allCancelP.length||1;
   const hist_sin_onb=pct(allCancelP.filter(r=>r['Onboarding']==='Sin onboarding').length,allCm);
-  const hist_sin_flow=pct(allCancelP.filter(r=>r['Usa flows']==='0'||r['Usa flows']===0).length,allCm);
+  const hist_sin_flow=pct(allCancelP.filter(r=>(v=>v===''||v==='0')((r['Usa flows']||'').toString().trim())).length,allCm);
   const hist_sin_wa=pct(allCancelP.filter(r=>(r['Usa API?']||'')!=='Sí'&&(r['Usa Business?']||'')!=='Sí').length,allCm);
   const hist_sin_ses=pct(allCancelP.filter(r=>r['Sesiones en vivo']==='No asistió').length,allCm);
-  const hist_sin_grupos=pct(allCancelP.filter(r=>r['Usa grupos?']==='0'||r['Usa grupos?']===0).length,allCm);
+  const hist_sin_grupos=pct(allCancelP.filter(r=>(v=>v===''||v==='0')((r['Usa grupos?']||'').toString().trim())).length,allCm);
   const hist_sin_trial=pct(allCancelP.filter(r=>(r['flow trial']||'').includes('No pasó')).length,allCm);
 
   // ── Mes anterior comparativa ────────────────────────
@@ -695,8 +737,8 @@ function calcMonth(off){
 
   // Risk — total acumulado (vigentes pagas)
   const sinWa=vigP.filter(r=>(r['Usa API?']||'')!=='Sí'&&(r['Usa Business?']||'')!=='Sí');
-  const sinFlow=vigP.filter(r=>r['Usa flows']==='0'||r['Usa flows']===0);
-  const sinGrupos=vigP.filter(r=>r['Usa grupos?']==='0'||r['Usa grupos?']===0);
+  const sinFlow=vigP.filter(r=>(v=>v===''||v==='0')((r['Usa flows']||'').toString().trim()));
+  const sinGrupos=vigP.filter(r=>(v=>v===''||v==='0')((r['Usa grupos?']||'').toString().trim()));
   const sinLogin=vigP.filter(r=>{const ll=parseISO(r['last_login_at']);return!ll||(new Date()-ll)/86400000>14;});
   const sinOnb=vigP.filter(r=>r['Onboarding']==='Sin onboarding');
 
@@ -721,13 +763,34 @@ function calcMonth(off){
   // Risk — del período (nuevas pagas del mes con señales de riesgo)
   const nuevosMesPSet=new Set(nuevosMesP.map(r=>(r['id']||'').toString()));
   const sinWaMes=nuevosMesP.filter(r=>(r['Usa API?']||'')!=='Sí'&&(r['Usa Business?']||'')!=='Sí');
-  const sinFlowMes=nuevosMesP.filter(r=>r['Usa flows']==='0'||r['Usa flows']===0);
-  const sinGruposMes=nuevosMesP.filter(r=>r['Usa grupos?']==='0'||r['Usa grupos?']===0);
+  const sinFlowMes=nuevosMesP.filter(r=>(v=>v===''||v==='0')((r['Usa flows']||'').toString().trim()));
+  const sinGruposMes=nuevosMesP.filter(r=>(v=>v===''||v==='0')((r['Usa grupos?']||'').toString().trim()));
   const sinLoginMes=nuevosMesP.filter(r=>{const ll=parseISO(r['last_login_at']);return!ll||(new Date()-ll)/86400000>14;});
   const sinOnbMes=nuevosMesP.filter(r=>r['Onboarding']==='Sin onboarding');
 
+  // ── AHA stats — últimos 6 meses ─────────────────
+  const range6mAha = { start: new Date(range.end.getFullYear(), range.end.getMonth()-5, 1), end: range.end };
+  const C6aha = C.filter(r => { const ca=getCA(r); return ca && ca >= range6mAha.start; });
+  const ahaStatsData = (() => {
+    const conOnb6 = C6aha.filter(r => r['Onboarding']==='Con onboarding' && isPaga(r));
+    const sinOnb6 = C6aha.filter(r => r['Onboarding']==='Sin onboarding' && isPaga(r));
+    return {
+      wa:     { con: ahaStats(conOnb6,'AHA WA'),     sin: ahaStats(sinOnb6,'AHA WA')     },
+      flows:  { con: ahaStats(conOnb6,'AHA flows'),  sin: ahaStats(sinOnb6,'AHA flows')  },
+      grupos: { con: ahaStats(conOnb6,'AHA grupos'), sin: ahaStats(sinOnb6,'AHA grupos') },
+    };
+  })();
+
+  // AHA del mes actual
+  const conOnbMes = nuevosMesP.filter(r => r['Onboarding']==='Con onboarding');
+  const ahaStatsMes = {
+    wa:     { con: ahaStats(conOnbMes,'AHA WA'),     sin: ahaStats(sinOnbMes,'AHA WA')     },
+    flows:  { con: ahaStats(conOnbMes,'AHA flows'),  sin: ahaStats(sinOnbMes,'AHA flows')  },
+    grupos: { con: ahaStats(conOnbMes,'AHA grupos'), sin: ahaStats(sinOnbMes,'AHA grupos') },
+  };
+
   return{
-    range,
+    range, ahaStats:ahaStatsData, ahaStatsMes,
     vigP:vigP.length,vigT:vigT.length,activasInicioMes,
     nuevosMesP:nuevosMesP.length,nuevosMesT:nuevosMesT.length,
     cancelMes:cancelMes.length,convMes:convMes.length,atrP:atrP.length,
@@ -775,7 +838,136 @@ function calcMonth(off){
     mrrSinFlowMes:Math.round(sinFlowMes.reduce((s,r)=>s+getMRR(r),0)),
     mrrSinGruposMes:Math.round(sinGruposMes.reduce((s,r)=>s+getMRR(r),0)),
     mrrSinLoginMes:Math.round(sinLoginMes.reduce((s,r)=>s+getMRR(r),0)),
-    mrrSinOnbMes:Math.round(sinOnbMes.reduce((s,r)=>s+getMRR(r),0))
+    mrrSinOnbMes:Math.round(sinOnbMes.reduce((s,r)=>s+getMRR(r),0)),
+
+  // ── Histórico 6 meses ────────────────────────────
+  hist6: (() => {
+    const months = [];
+    for (let i = -5; i <= 0; i++) {
+      const mRange = getMonthRange(off + i);
+      const lbl = fmtMonth(mRange.start).slice(0,6);
+
+      // Datos duros
+      const newP  = C.filter(r=>inRange(getCA(r),mRange)&&isPaga(r));
+      const newT  = C.filter(r=>inRange(getCA(r),mRange)&&isTrial(r));
+      const canM  = canP.filter(r=>inRange(cancelDate(r),mRange));
+      const atrM  = C.filter(r=>{
+        if(r['Vigencia del servicio']!=='Atrasado'||!isPaga(r))return false;
+        const pt=parseISO(r['payment_till'])||parseSpanishDate(r['payment_till']);
+        return pt&&inRange(pt,mRange);
+      });
+      const vigIni = C.filter(r=>{
+        if(!isPaga(r))return false;
+        const ca=getCA(r); if(!ca||ca>=mRange.start)return false;
+        const vig=r['Vigencia del servicio']||'';
+        if(vig==='Cancelado'){const cd=cancelDate(r);return cd&&cd>=mRange.start;}
+        return true;
+      });
+      const mrrM  = Math.round(vigIni.reduce((s,r)=>s+getMRR(r),0));
+      const churnRate = vigIni.length>0?Math.round(canM.length/vigIni.length*1000)/10:0;
+
+      // Encuesta cancelaciones
+      const survM = RAW.cancelaciones.filter(r=>{
+        const f=parseISO(r['created_at']); return f&&inRange(f,mRange);
+      });
+
+      // Onboarding
+      const onbM    = RAW.onboarding.filter(r=>inRange(getOnbDate(r),mRange));
+      const onbAsistM = onbM.filter(r=>r['Estado del onboarding']==='Asistió').length;
+      const onbAgenM  = onbM.filter(r=>['Agendó','Asistió','No show','No asistió'].includes(r['Estado del onboarding'])).length;
+      const onbNSM    = onbM.filter(r=>['No show','No asistió'].includes(r['Estado del onboarding'])).length;
+      const cobM      = newP.length>0?Math.round(onbAsistM/newP.length*100):0;
+      const asistTasaM= onbAgenM>0?Math.round(onbAsistM/onbAgenM*100):0;
+
+      // AHA — tiempo al hito por mes, con ONB vs sin ONB
+      const conOnbM = newP.filter(r => r['Onboarding']==='Con onboarding');
+      const sinOnbM = newP.filter(r => r['Onboarding']==='Sin onboarding');
+      const ahaM = {
+        wa:     { con: ahaStats(conOnbM,'AHA WA'),     sin: ahaStats(sinOnbM,'AHA WA')     },
+        flows:  { con: ahaStats(conOnbM,'AHA flows'),  sin: ahaStats(sinOnbM,'AHA flows')  },
+        grupos: { con: ahaStats(conOnbM,'AHA grupos'), sin: ahaStats(sinOnbM,'AHA grupos') },
+      };
+
+      // Sesiones
+      const sesM = (() => {
+        const sesRows = RAW.sesiones.filter(r=>{
+          const d=parseISO(r['FECHA ATENCIÓN'])||parseSpanishDate(r['FECHA ATENCIÓN']);
+          return d&&inRange(d,mRange);
+        });
+        const asist = sesRows.filter(r=>r['Asistio?']==='1'||r['Asistio?']===1).length;
+        const sesU  = new Set(sesRows.map(r=>r['FECHA ATENCIÓN'])).size;
+        return {asist, sesiones:sesU};
+      })();
+
+      // Riesgo — nuevas del mes con señal
+      const newVigP = newP.filter(r=>r['Vigencia del servicio']==='Vigente');
+      const rSinWA  = newVigP.filter(r=>(r['Usa API?']||'')!=='Sí'&&(r['Usa Business?']||'')!=='Sí').length;
+      const rSinFlw = newVigP.filter(r=>(v=>v===''||v==='0')((r['Usa flows']||'').toString().trim())).length;
+      const rSinOnb = newVigP.filter(r=>r['Onboarding']==='Sin onboarding').length;
+
+      // Retención ONB — asistentes del mes que siguen Vigentes hoy
+      const acctMapH={};
+      C.forEach(r=>{const id=(r['id']||'').toString().trim();if(id)acctMapH[id]=r;});
+      const onbAsistIds = onbM
+        .filter(r=>r['Estado del onboarding']==='Asistió')
+        .map(r=>(r['user_id']||'').toString().trim()).filter(Boolean);
+      const onbRetN = onbAsistIds.filter(uid=>acctMapH[uid]&&acctMapH[uid]['Vigencia del servicio']==='Vigente').length;
+      const onbRetPct = onbAsistIds.length>0?Math.round(onbRetN/onbAsistIds.length*100):null;
+      const onbRetVig = onbRetN;
+
+      // Retención Sesiones — clientes con sesión en vivo creados ese mes que siguen Vigentes
+      const conSesM = C.filter(r=>inRange(getCA(r),mRange)&&isPaga(r)&&r['Sesiones en vivo']==='Asistió');
+      const sinSesM = C.filter(r=>inRange(getCA(r),mRange)&&isPaga(r)&&r['Sesiones en vivo']==='No asistió');
+      const sesRetPct = conSesM.length>0?Math.round(conSesM.filter(r=>r['Vigencia del servicio']==='Vigente').length/conSesM.length*100):null;
+
+      // Retención Embudos por flujo
+      const embRetM={};
+      ['Pago Atrasado','TRIAL SIN WA','TRIAL SIN FLOW','Cancelación'].forEach(f=>{
+        const rows=RAW.embudos.filter(r=>(r['Flujo']||'').trim()===f);
+        const mesRows=rows.filter(r=>inRange(parseEmbDate(r['fecha_asignacion_etiqueta']),mRange));
+        const uids=new Set(mesRows.map(r=>(r['user_id']||'').toString().trim()).filter(Boolean));
+        const vigN=[...uids].filter(uid=>acctMapH[uid]&&acctMapH[uid]['Vigencia del servicio']==='Vigente').length;
+        embRetM[f]={
+          total:uids.size,
+          vigentes:vigN,
+          retPct:uids.size>0?Math.round(vigN/uids.size*100):null
+        };
+      });
+
+      months.push({
+        lbl,
+        // Sección 1
+        newP:newP.length, newT:newT.length,
+        canM:canM.length, atrM:atrM.length,
+        vigIni:vigIni.length, mrrM, churnRate,
+        retNeta:newP.length-canM.length,
+        // Sección 2 — encuesta + perfil cancelados
+        survN:survM.length,
+        survPct:canM.length>0?Math.round(survM.length/canM.length*100):0,
+        // Perfil cancelados pagas del mes
+        pSinOnb:   canM.length>0?Math.round(canM.filter(r=>r['Onboarding']==='Sin onboarding').length/canM.length*100):0,
+        pSinFlow:  canM.length>0?Math.round(canM.filter(r=>(v=>v===''||v==='0')((r['Usa flows']||'').toString().trim())).length/canM.length*100):0,
+        pSinWA:    canM.length>0?Math.round(canM.filter(r=>(r['Usa API?']||'')!=='Sí'&&(r['Usa Business?']||'')!=='Sí').length/canM.length*100):0,
+        pSinSes:   canM.length>0?Math.round(canM.filter(r=>r['Sesiones en vivo']==='No asistió').length/canM.length*100):0,
+        pSinGrupos:canM.length>0?Math.round(canM.filter(r=>(v=>v===''||v==='0')((r['Usa grupos?']||'').toString().trim())).length/canM.length*100):0,
+        pSinTrial: canM.length>0?Math.round(canM.filter(r=>(r['flow trial']||'').includes('No pasó')).length/canM.length*100):0,
+        // Sección 3 — onboarding
+        onbProp:onbM.length, onbAgen:onbAgenM,
+        onbAsist:onbAsistM, onbNS:onbNSM,
+        onbCob:cobM, onbAsistTasa:asistTasaM,
+        onbRetPct, onbRetVig,
+        ahaM,
+        // Sesiones
+        sesAsist:sesM.asist, sesSes:sesM.sesiones,
+        sesRetPct,
+        // Embudos
+        embRetM,
+        // Riesgo nuevas
+        rNewP:newVigP.length, rSinWA, rSinFlw, rSinOnb
+      });
+    }
+    return months;
+  })()
   };
 }
 
@@ -973,7 +1165,7 @@ function render(m){
   // Impact comparison table for onboarding
   const onbImpEl=document.getElementById('onbImpactTable');
   if(onbImpEl){
-    onbImpEl.innerHTML=impactTable('Onboarding','Con ONB','Sin ONB',m.onbImpact,'var(--green2)');
+    onbImpEl.innerHTML=impactTable('Onboarding','Con ONB','Sin ONB',m.onbImpact,'var(--green2)')+ahaTable(m.ahaStatsMes,m.ahaStats);
   }
 
   const cobDlt=(now,prev)=>{
@@ -1005,22 +1197,7 @@ function render(m){
     const flujoNames=[...new Set(E.map(r=>(r['Flujo']||'').trim()))];
     console.log('[Embudos] flujos encontrados:', flujoNames);
 
-    const parseEmbDate=s=>{
-      if(!s)return null;
-      const str=s.toString().trim();
-      // Try ISO first (2026-04-01)
-      if(/^[0-9]{4}-/.test(str)){const d=new Date(str);return isNaN(d)?null:d;}
-      // Spanish: "abril 1, 2026, 4:22 a. m."
-      const mo={enero:0,febrero:1,marzo:2,abril:3,mayo:4,junio:5,julio:6,agosto:7,septiembre:8,octubre:9,noviembre:10,diciembre:11};
-      const lw=str.toLowerCase();
-      // Match word month + day + year
-      const parts=lw.match(/([a-záéíóú]+)\s+(\d{1,2}),\s+(\d{4})/);
-      if(parts){const mv=mo[parts[1]];if(mv!==undefined)return new Date(parseInt(parts[3]),mv,parseInt(parts[2]));}
-      // DD/MM/YYYY
-      const slashMatch=str.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
-      if(slashMatch)return new Date(parseInt(slashMatch[3]),parseInt(slashMatch[2])-1,parseInt(slashMatch[1]));
-      try{const d=new Date(str);return isNaN(d)?null:d;}catch{return null;}
-    };
+    // parseEmbDate is global
     const flujos=['Pago Atrasado','TRIAL SIN WA','TRIAL SIN FLOW','Cancelación'];
     const labels={'Pago Atrasado':'Atrasados','TRIAL SIN WA':'Trial sin WA','TRIAL SIN FLOW':'Trial sin Flow','Cancelación':'Cancelación'};
     const colors={'Pago Atrasado':'var(--orange)','TRIAL SIN WA':'var(--green2)','TRIAL SIN FLOW':'var(--blue)','Cancelación':'var(--red)'};
@@ -1199,9 +1376,98 @@ function render(m){
       </tr>`;
     }).join('');
   }
+
+  // Histórico 6 meses — tablas comparativas
+  renderHist6(m);
 }
 
 // Global toggle function for 4 dimensions
+function switchPerfilView(view) {
+  const barsBtn  = document.getElementById('perfilViewBars');
+  const tableBtn = document.getElementById('perfilViewTable');
+  const barsDiv  = document.getElementById('perfilBarsView');
+  const tableDiv = document.getElementById('perfilTableView');
+  if (!barsDiv || !tableDiv) return;
+
+  if (view === 'bars') {
+    barsDiv.style.display = 'block';
+    tableDiv.style.display = 'none';
+    if (barsBtn) barsBtn.className = 'mn-btn active';
+    if (tableBtn) tableBtn.className = 'mn-btn';
+  } else {
+    barsDiv.style.display = 'none';
+    tableDiv.style.display = 'block';
+    if (barsBtn) barsBtn.className = 'mn-btn';
+    if (tableBtn) tableBtn.className = 'mn-btn active';
+    renderPerfilTable();
+  }
+}
+
+function renderPerfilTable() {
+  const m = window._mesMet;
+  const el = document.getElementById('perfilTableView');
+  if (!el || !m || !m.hist6) return;
+  const H = m.hist6;
+  const last = H.length - 1;
+
+  function col(curr, prev, inv=false) {
+    if (prev===null||prev===undefined||curr===prev) return 'var(--muted)';
+    return (inv?curr<prev:curr>prev)?'var(--green2)':'var(--red)';
+  }
+  function bg(curr, prev, inv=false) {
+    if (prev===null||prev===undefined||curr===prev) return 'transparent';
+    return (inv?curr<prev:curr>prev)?'rgba(34,197,94,.08)':'rgba(248,113,113,.08)';
+  }
+  function ar(curr, prev, inv=false) {
+    if (prev===null||prev===undefined||curr===prev) return '';
+    const d=Math.round(Math.abs(curr-prev)*10)/10;
+    const ds=Number.isInteger(d)?d:d.toFixed(1);
+    const better=inv?curr<prev:curr>prev;
+    const c=better?'var(--green2)':'var(--red)';
+    return ` <span style="font-size:9px;color:${c}">${curr>prev?'▲':'▼'}${ds}pp</span>`;
+  }
+
+  const rows = [
+    {label:'Cancelaciones pagas',      values:H.map(h=>h.canM||0),            inv:true,  fmt:'n'},
+    {label:'% Sin onboarding',         values:H.map(h=>h.pSinOnb),  inv:true,  fmt:'%'},
+    {label:'% Sin flow activo',        values:H.map(h=>h.pSinFlow), inv:true,  fmt:'%'},
+    {label:'% Sin WA conectado',       values:H.map(h=>h.pSinWA),   inv:true,  fmt:'%'},
+    {label:'% Sin sesión en vivo',     values:H.map(h=>h.pSinSes),  inv:true,  fmt:'%'},
+    {label:'% Sin grupos activos',     values:H.map(h=>h.pSinGrupos),inv:true, fmt:'%'},
+    {label:'% Sin flow en trial',      values:H.map(h=>h.pSinTrial),inv:true,  fmt:'%'},
+  ];
+
+  const hdrs = H.map((h,i)=>
+    `<th style="padding:6px 10px;font-size:10px;font-weight:600;white-space:nowrap;
+      color:${i===last?'var(--red)':'var(--muted)'};
+      background:${i===last?'rgba(255,255,255,.04)':'transparent'}">${h.lbl}${i===last?' ← actual':''}</th>`
+  ).join('');
+
+  const body = rows.map(({label,values,inv,fmt})=>{
+    const cells = values.map((v,i)=>{
+      const prev = i>0?values[i-1]:null;
+      if(v===null||v===undefined) return '<td style="padding:6px 10px;text-align:center;color:var(--muted);border-bottom:1px solid var(--border)">—</td>';
+      const display = fmt==='%'?v+'%':v;
+      const arw = fmt==='%'?ar(v,prev,inv):'';
+      return `<td style="padding:6px 10px;font-size:11px;font-weight:${i===last?700:400};
+        color:${col(v,prev,inv)};background:${bg(v,prev,inv)};
+        text-align:center;border-bottom:1px solid var(--border)">${display}${arw}</td>`;
+    }).join('');
+    return `<tr><td style="padding:6px 12px;font-size:11px;color:var(--muted);border-bottom:1px solid var(--border);white-space:nowrap">${label}</td>${cells}</tr>`;
+  }).join('');
+
+  el.innerHTML = `<div style="overflow-x:auto;margin-top:4px">
+    <table style="width:100%;border-collapse:collapse">
+      <thead><tr>
+        <th style="padding:6px 12px;font-size:10px;font-weight:600;color:var(--muted);text-align:left;border-bottom:1px solid var(--border)">Indicador</th>
+        ${hdrs}
+      </tr></thead>
+      <tbody>${body}</tbody>
+    </table>
+  </div>
+  <div style="font-size:10px;color:var(--muted);margin-top:8px">% calculado sobre el total de cancelados pagas del mes · verde = mejora (baja) · rojo = empeora (sube)</div>`;
+}
+
 function renderQuienesMes(mode) {
   const m = window._mesMet;
   if (!m) return;
@@ -1343,6 +1609,68 @@ function downloadCSV(key, label) {
   URL.revokeObjectURL(url);
 }
 
+function ahaTable(statsMes, stats6m) {
+  if (!statsMes && !stats6m) return '';
+  const hitos = [
+    { key:'wa',     label:'Conectar WhatsApp',   color:'var(--green2)' },
+    { key:'flows',  label:'Activar primer flow',  color:'var(--blue)'   },
+    { key:'grupos', label:'Crear primer grupo',   color:'var(--purple)' },
+  ];
+
+  function cell(s, color, dim=false) {
+    if (!s || s.avg === null) return '<span style="color:var(--muted);font-size:10px">—</span>';
+    const c = dim ? 'rgba(148,163,184,.6)' : color;
+    const pct = s.total > 0 ? Math.round(s.n / s.total * 100) : 0;
+    return `<span style="font-family:'Syne',sans-serif;font-weight:700;font-size:${dim?'12':'14'}px;color:${c}">${s.avg}d</span>`
+         + `<br><span style="font-size:9px;color:var(--muted)">${s.n} de ${s.total} · ${pct}%</span>`;
+  }
+  function diffCell(a, b) {
+    if (!a || !b || a.avg===null || b.avg===null) return '<span style="color:var(--muted);font-size:10px">—</span>';
+    const d = b.avg - a.avg;
+    const faster = d > 0;
+    return `<span style="font-size:11px;font-weight:700;color:${faster?'var(--green2)':'var(--red)'}">${faster?'▲':'▼'}&nbsp;${Math.abs(d)}d</span>`;
+  }
+
+  const rows = hitos.map(h => {
+    const mc = statsMes?.[h.key]?.con;
+    const ms = statsMes?.[h.key]?.sin;
+    const sc = stats6m?.[h.key]?.con;
+    const ss = stats6m?.[h.key]?.sin;
+    return `<tr>
+      <td style="padding:6px 12px;font-size:11px;color:var(--muted);border-bottom:1px solid var(--border);white-space:nowrap">${h.label}</td>
+      <td style="padding:6px 8px;text-align:center;border-bottom:1px solid var(--border)">${cell(mc,h.color)}</td>
+      <td style="padding:6px 8px;text-align:center;border-bottom:1px solid var(--border)">${cell(ms,'var(--muted)')}</td>
+      <td style="padding:6px 8px;text-align:center;border-bottom:1px solid var(--border);border-right:1px solid rgba(255,255,255,.08)">${diffCell(mc,ms)}</td>
+      <td style="padding:6px 8px;text-align:center;border-bottom:1px solid var(--border)">${cell(sc,h.color,true)}</td>
+      <td style="padding:6px 8px;text-align:center;border-bottom:1px solid var(--border)">${cell(ss,'var(--muted)',true)}</td>
+    </tr>`;
+  }).join('');
+
+  return `<div style="background:rgba(255,255,255,.02);border:1px solid var(--border);border-radius:10px;overflow:hidden;margin-top:10px">
+    <div style="background:rgba(74,222,128,.06);border-bottom:1px solid var(--border);padding:8px 12px">
+      <span style="font-size:10px;font-weight:700;color:var(--muted);letter-spacing:.06em;text-transform:uppercase">Tiempo hasta el hito (AHA) · con ONB vs sin ONB</span>
+    </div>
+    <table style="width:100%;border-collapse:collapse">
+      <thead>
+        <tr>
+          <th rowspan="2" style="padding:6px 12px;font-size:10px;font-weight:600;color:var(--muted);text-align:left;border-bottom:1px solid rgba(255,255,255,.08)">Hito</th>
+          <th colspan="3" style="padding:5px 8px;font-size:9px;font-weight:700;color:var(--green2);text-align:center;border-bottom:1px solid rgba(255,255,255,.06);border-right:1px solid rgba(255,255,255,.08)">Este mes</th>
+          <th colspan="2" style="padding:5px 8px;font-size:9px;font-weight:600;color:var(--muted);text-align:center;border-bottom:1px solid rgba(255,255,255,.06)">Referencia 6 meses</th>
+        </tr>
+        <tr>
+          <th style="padding:5px 8px;font-size:9px;color:var(--green2);text-align:center;border-bottom:1px solid var(--border)">Con ONB</th>
+          <th style="padding:5px 8px;font-size:9px;color:var(--muted);text-align:center;border-bottom:1px solid var(--border)">Sin ONB</th>
+          <th style="padding:5px 8px;font-size:9px;color:var(--muted);text-align:center;border-bottom:1px solid var(--border);border-right:1px solid rgba(255,255,255,.08)">Dif.</th>
+          <th style="padding:5px 8px;font-size:9px;color:rgba(74,222,128,.5);text-align:center;border-bottom:1px solid var(--border)">Con ONB</th>
+          <th style="padding:5px 8px;font-size:9px;color:var(--muted);text-align:center;border-bottom:1px solid var(--border)">Sin ONB</th>
+        </tr>
+      </thead>
+      <tbody>${rows}</tbody>
+    </table>
+    <div style="padding:6px 12px;font-size:9px;color:var(--muted)">Días = media desde creación hasta el hito · Cuentas = las que lo lograron · Ref. 6m = promedio de los últimos 6 meses</div>
+  </div>`;
+}
+
 function impactTable(title, labelA, labelB, data, color) {
   if (!data || (!data.conN && !data.sinN)) return '';
   const metrics = [
@@ -1378,6 +1706,145 @@ function impactTable(title, labelA, labelB, data, color) {
       ${data.histConN?` · (histórico total — con: ${data.histConN}, sin: ${data.histSinN})`:''}
     </div>
   </div>`;
+}
+
+// ══════════════════════════════════════════════════════
+// HISTÓRICO 6 MESES
+// ══════════════════════════════════════════════════════
+function renderHist6(m) {
+  if (!m.hist6 || !m.hist6.length) return;
+  const H = m.hist6;
+  const last = H.length - 1;
+
+  function col(curr, prev, inv=false) {
+    if (prev===null||prev===undefined||curr===prev) return 'var(--muted)';
+    return (inv ? curr<prev : curr>prev) ? 'var(--green2)' : 'var(--red)';
+  }
+  function bg(curr, prev, inv=false) {
+    if (prev===null||prev===undefined||curr===prev) return 'transparent';
+    return (inv ? curr<prev : curr>prev) ? 'rgba(34,197,94,.08)' : 'rgba(248,113,113,.08)';
+  }
+  function ar(curr, prev, inv=false, fmt='n') {
+    if (prev===null||prev===undefined||curr===prev) return '';
+    const d = Math.round(Math.abs(curr-prev)*10)/10;
+    const ds = Number.isInteger(d)?d:d.toFixed(1);
+    const better = inv?curr<prev:curr>prev;
+    const c = better?'var(--green2)':'var(--red)';
+    return ` <span style="font-size:9px;color:${c}">${curr>prev?'▲':'▼'}${ds}${fmt==='%'?'pp':''}</span>`;
+  }
+
+  function buildH(title, color, rows) {
+    const hdrs = H.map((h,i)=>
+      `<th style="padding:6px 10px;font-size:10px;font-weight:600;white-space:nowrap;
+        color:${i===last?color:'var(--muted)'};
+        background:${i===last?'rgba(255,255,255,.04)':'transparent'}">${h.lbl}${i===last?' ← actual':''}</th>`
+    ).join('');
+    const body = rows.map(({label,values,inv,fmt})=>{
+      const cells = values.map((v,i)=>{
+        const prev = i>0?values[i-1]:null;
+        if (v===null||v===undefined) return `<td style="padding:6px 10px;text-align:center;color:var(--muted);border-bottom:1px solid var(--border)">—</td>`;
+        const display = fmt==='%'?v+'%':fmt==='$'?('$'+Number(v).toLocaleString('es-CO')):v;
+        return `<td style="padding:6px 10px;font-size:11px;font-weight:${i===last?700:400};
+          color:${col(v,prev,inv)};background:${bg(v,prev,inv)};
+          text-align:center;border-bottom:1px solid var(--border)">${display}${ar(v,prev,inv,fmt)}</td>`;
+      }).join('');
+      return `<tr>
+        <td style="padding:6px 12px;font-size:11px;color:var(--muted);
+          border-bottom:1px solid var(--border);white-space:nowrap">${label}</td>
+        ${cells}
+      </tr>`;
+    }).join('');
+    return `<div style="background:var(--card);border:1px solid var(--border);border-radius:12px;overflow:hidden;margin-bottom:10px">
+      <div style="background:${color}18;border-bottom:1px solid var(--border);padding:8px 14px;display:flex;align-items:center;gap:8px">
+        <div style="width:7px;height:7px;border-radius:50%;background:${color}"></div>
+        <span style="font-family:'Syne',sans-serif;font-size:11px;font-weight:700;color:#fff">${title}</span>
+      </div>
+      <div style="overflow-x:auto">
+        <table style="width:100%;border-collapse:collapse">
+          <thead><tr>
+            <th style="padding:6px 12px;font-size:10px;font-weight:600;color:var(--muted);text-align:left;border-bottom:1px solid var(--border)">Métrica</th>
+            ${hdrs}
+          </tr></thead>
+          <tbody>${body}</tbody>
+        </table>
+      </div>
+    </div>`;
+  }
+
+  // SECCIÓN 1 — Datos duros
+  const el1 = document.getElementById('hist6_s1');
+  if (el1) el1.innerHTML = buildH('Histórico 6 meses — Datos duros', 'var(--teal)', [
+    {label:'Activas inicio mes',  values:H.map(h=>h.vigIni),    inv:false, fmt:'n'},
+    {label:'Nuevas pagas',        values:H.map(h=>h.newP),      inv:false, fmt:'n'},
+    {label:'Nuevas trial',        values:H.map(h=>h.newT),      inv:false, fmt:'n'},
+    {label:'Cancelaciones',       values:H.map(h=>h.canM),      inv:true,  fmt:'n'},
+    {label:'Atrasadas del mes',   values:H.map(h=>h.atrM),      inv:true,  fmt:'n'},
+    {label:'Retención neta',      values:H.map(h=>h.retNeta),   inv:false, fmt:'n'},
+    {label:'Tasa churn (%)',      values:H.map(h=>h.churnRate), inv:true,  fmt:'%'},
+    {label:'MRR inicio mes ($)',  values:H.map(h=>h.mrrM),      inv:false, fmt:'$'},
+  ]);
+
+  // SECCIÓN 2 — Razones / encuesta
+  const el2 = document.getElementById('hist6_s2');
+  if (el2) el2.innerHTML = buildH('Histórico 6 meses — Cancelaciones y encuesta', 'var(--orange)', [
+    {label:'Cancelaciones pagas', values:H.map(h=>h.canM),     inv:true,  fmt:'n'},
+    {label:'Resp. encuesta',      values:H.map(h=>h.survN),    inv:false, fmt:'n'},
+    {label:'Tasa respuesta (%)',  values:H.map(h=>h.survPct),  inv:false, fmt:'%'},
+  ]);
+
+  // SECCIÓN 3 — Onboarding + Sesiones + Embudos
+  const el3 = document.getElementById('hist6_s3');
+  if (el3) {
+    // Embudos tables
+    const flujosH = ['Pago Atrasado','TRIAL SIN WA','TRIAL SIN FLOW','Cancelación'];
+    const embLabsH = {'Pago Atrasado':'Atrasados','TRIAL SIN WA':'Trial sin WA','TRIAL SIN FLOW':'Trial sin Flow','Cancelación':'Cancelación'};
+    const embColorsH = {'Pago Atrasado':'var(--orange)','TRIAL SIN WA':'var(--blue)','TRIAL SIN FLOW':'var(--blue)','Cancelación':'var(--red)'};
+    const embTablesHtml = flujosH.map(f =>
+      buildH(`Histórico 6 meses — Embudo ${embLabsH[f]}`, embColorsH[f]||'var(--blue)', [
+        {label:'Impactados (únicos)', values:H.map(h=>h.embRetM?.[f]?.total??null), inv:false, fmt:'n'},
+        {label:'Siguen vigentes',     values:H.map(h=>h.embRetM?.[f]?.vigentes??null), inv:false, fmt:'n'},
+        {label:'% Retención',         values:H.map(h=>h.embRetM?.[f]?.retPct??null), inv:false, fmt:'%'},
+      ])
+    ).join('');
+
+    el3.innerHTML =
+      buildH('Histórico 6 meses — Onboarding', 'var(--green2)', [
+        {label:'Nuevas pagas del mes',         values:H.map(h=>h.newP),          inv:false, fmt:'n'},
+        {label:'ONB propuesto',                values:H.map(h=>h.onbProp),       inv:false, fmt:'n'},
+        {label:'Agendados',                    values:H.map(h=>h.onbAgen),       inv:false, fmt:'n'},
+        {label:'Asistentes',                   values:H.map(h=>h.onbAsist),      inv:false, fmt:'n'},
+        {label:'No show',                      values:H.map(h=>h.onbNS),         inv:true,  fmt:'n'},
+        {label:'% No show',                    values:H.map(h=>h.onbAgen>0?Math.round(h.onbNS/h.onbAgen*100):0), inv:true, fmt:'%'},
+        {label:'% Cobertura pagas',            values:H.map(h=>h.onbCob),        inv:false, fmt:'%'},
+        {label:'% Tasa asistencia',            values:H.map(h=>h.onbAsistTasa),  inv:false, fmt:'%'},
+        {label:'Asistentes vigentes',          values:H.map(h=>h.onbRetVig),     inv:false, fmt:'n'},
+        {label:'% Retención asistentes',       values:H.map(h=>h.onbRetPct),     inv:false, fmt:'%'},
+      ]) +
+      buildH('Histórico 6 meses — Tiempo al hito AHA', 'var(--yellow)', [
+        {label:'WA · con ONB (días)',     values:H.map(h=>h.ahaM?.wa?.con?.avg??null),    inv:true, fmt:'n'},
+        {label:'WA · sin ONB (días)',     values:H.map(h=>h.ahaM?.wa?.sin?.avg??null),    inv:true, fmt:'n'},
+        {label:'Flow · con ONB (días)',   values:H.map(h=>h.ahaM?.flows?.con?.avg??null), inv:true, fmt:'n'},
+        {label:'Flow · sin ONB (días)',   values:H.map(h=>h.ahaM?.flows?.sin?.avg??null), inv:true, fmt:'n'},
+        {label:'Grupos · con ONB (días)', values:H.map(h=>h.ahaM?.grupos?.con?.avg??null),inv:true, fmt:'n'},
+        {label:'Grupos · sin ONB (días)', values:H.map(h=>h.ahaM?.grupos?.sin?.avg??null),inv:true, fmt:'n'},
+      ]) +
+      buildH('Histórico 6 meses — Sesiones en vivo', 'var(--pink)', [
+        {label:'Asistentes',             values:H.map(h=>h.sesAsist),  inv:false, fmt:'n'},
+        {label:'Sesiones realizadas',    values:H.map(h=>h.sesSes),    inv:false, fmt:'n'},
+        {label:'Media asist./sesión',    values:H.map(h=>h.sesSes>0?Math.round(h.sesAsist/h.sesSes*10)/10:0), inv:false, fmt:'n'},
+        {label:'% Retención asistentes', values:H.map(h=>h.sesRetPct), inv:false, fmt:'%'},
+      ]) +
+      embTablesHtml;
+  }
+
+  // SECCIÓN 4 — Riesgo
+  const el4 = document.getElementById('hist6_s4');
+  if (el4) el4.innerHTML = buildH('Histórico 6 meses — Nuevas pagas con señal de riesgo', 'var(--red)', [
+    {label:'Nuevas pagas totales', values:H.map(h=>h.rNewP),   inv:false, fmt:'n'},
+    {label:'Sin WA conectado',     values:H.map(h=>h.rSinWA),  inv:true,  fmt:'n'},
+    {label:'Sin flow activo',      values:H.map(h=>h.rSinFlw), inv:true,  fmt:'n'},
+    {label:'Sin onboarding',       values:H.map(h=>h.rSinOnb), inv:true,  fmt:'n'},
+  ]);
 }
 
 function destroyChart(id){const c=Chart.getChart(id);if(c)c.destroy();}
