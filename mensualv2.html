@@ -374,6 +374,20 @@ function parseEmbDate(s){
   if(sl)return new Date(parseInt(sl[3]),parseInt(sl[2])-1,parseInt(sl[1]));
   try{const d=new Date(str);return isNaN(d)?null:d;}catch{return null;}
 }
+// ── AHA / TTV helpers ────────────────────────────────
+function getTTV(r, ahaCol) {
+  const ca  = parseISO(r['created_at']) || parseISO(r['Fecha creación']);
+  const aha = parseISO(r[ahaCol]);
+  if (!ca || !aha || aha < ca) return null;
+  return Math.round((aha - ca) / 86400000);
+}
+function ahaStats(arr, ahaCol) {
+  const vals = arr.map(r => getTTV(r, ahaCol)).filter(v => v !== null && v >= 0);
+  if (!vals.length) return { avg: null, n: 0, pct: 0, total: arr.length };
+  const avg = Math.round(vals.reduce((a,b) => a+b, 0) / vals.length);
+  return { avg, n: vals.length, pct: Math.round(vals.length/arr.length*100), total: arr.length };
+}
+
 function getMRR(r){
   const amt=parseFloat((r['payment_amount']||'0').toString().replace(/[^0-9.]/g,''))||0;
   const t=parseInt((r['payment_type']||'0').toString())||0;
@@ -754,8 +768,19 @@ function calcMonth(off){
   const sinLoginMes=nuevosMesP.filter(r=>{const ll=parseISO(r['last_login_at']);return!ll||(new Date()-ll)/86400000>14;});
   const sinOnbMes=nuevosMesP.filter(r=>r['Onboarding']==='Sin onboarding');
 
+  // ── AHA stats ────────────────────────────────────
+  const ahaStatsData = (() => {
+    const conOnb12 = C12.filter(r => r['Onboarding']==='Con onboarding' && isPaga(r));
+    const sinOnb12 = C12.filter(r => r['Onboarding']==='Sin onboarding' && isPaga(r));
+    return {
+      wa:     { con: ahaStats(conOnb12,'AHA WA'),     sin: ahaStats(sinOnb12,'AHA WA')     },
+      flows:  { con: ahaStats(conOnb12,'AHA flows'),  sin: ahaStats(sinOnb12,'AHA flows')  },
+      grupos: { con: ahaStats(conOnb12,'AHA grupos'), sin: ahaStats(sinOnb12,'AHA grupos') },
+    };
+  })();
+
   return{
-    range,
+    range, ahaStats:ahaStatsData,
     vigP:vigP.length,vigT:vigT.length,activasInicioMes,
     nuevosMesP:nuevosMesP.length,nuevosMesT:nuevosMesT.length,
     cancelMes:cancelMes.length,convMes:convMes.length,atrP:atrP.length,
@@ -1120,7 +1145,7 @@ function render(m){
   // Impact comparison table for onboarding
   const onbImpEl=document.getElementById('onbImpactTable');
   if(onbImpEl){
-    onbImpEl.innerHTML=impactTable('Onboarding','Con ONB','Sin ONB',m.onbImpact,'var(--green2)');
+    onbImpEl.innerHTML=impactTable('Onboarding','Con ONB','Sin ONB',m.onbImpact,'var(--green2)')+ahaTable(m.ahaStats);
   }
 
   const cobDlt=(now,prev)=>{
@@ -1562,6 +1587,50 @@ function downloadCSV(key, label) {
   a.download = `funnelchat_riesgo_${key}_${new Date().toISOString().slice(0,10)}.csv`;
   a.click();
   URL.revokeObjectURL(url);
+}
+
+function ahaTable(stats) {
+  if (!stats) return '';
+  const hitos = [
+    { key:'wa',     label:'Conectar WhatsApp',   color:'var(--green2)' },
+    { key:'flows',  label:'Activar primer flow',  color:'var(--blue)'   },
+    { key:'grupos', label:'Crear primer grupo',   color:'var(--purple)' },
+  ];
+  const rows = hitos.map(h => {
+    const con = stats[h.key]?.con;
+    const sin = stats[h.key]?.sin;
+    const conAvg = con?.avg ?? null;
+    const sinAvg = sin?.avg ?? null;
+    const diff   = (conAvg !== null && sinAvg !== null) ? sinAvg - conAvg : null;
+    const faster = diff !== null && diff > 0;
+    return `<tr>
+      <td style="padding:6px 12px;font-size:11px;color:var(--muted);border-bottom:1px solid var(--border);white-space:nowrap">${h.label}</td>
+      <td style="padding:6px 10px;text-align:center;border-bottom:1px solid var(--border)">
+        ${conAvg!==null?`<span style="font-family:'Syne',sans-serif;font-weight:700;font-size:13px;color:${h.color}">${conAvg}d</span><br><span style="font-size:9px;color:var(--muted)">${con.n} cuentas · ${con.pct}%</span>`:'<span style="color:var(--muted);font-size:11px">—</span>'}
+      </td>
+      <td style="padding:6px 10px;text-align:center;border-bottom:1px solid var(--border)">
+        ${sinAvg!==null?`<span style="font-family:'Syne',sans-serif;font-weight:700;font-size:13px;color:var(--muted)">${sinAvg}d</span><br><span style="font-size:9px;color:var(--muted)">${sin.n} cuentas · ${sin.pct}%</span>`:'<span style="color:var(--muted);font-size:11px">—</span>'}
+      </td>
+      <td style="padding:6px 10px;text-align:center;border-bottom:1px solid var(--border)">
+        ${diff!==null?`<span style="font-size:12px;font-weight:700;color:${faster?'var(--green2)':'var(--red)'}">${faster?'▲':'▼'} ${Math.abs(diff)}d ${faster?'más rápido':'más lento'}</span>`:'<span style="color:var(--muted);font-size:11px">—</span>'}
+      </td>
+    </tr>`;
+  }).join('');
+  return `<div style="background:rgba(255,255,255,.02);border:1px solid var(--border);border-radius:10px;overflow:hidden;margin-top:10px">
+    <div style="background:rgba(74,222,128,.06);border-bottom:1px solid var(--border);padding:8px 12px">
+      <span style="font-size:10px;font-weight:700;color:var(--muted);letter-spacing:.06em;text-transform:uppercase">Tiempo hasta el hito (AHA) · con ONB vs sin ONB · últimos 12 meses</span>
+    </div>
+    <table style="width:100%;border-collapse:collapse">
+      <thead><tr>
+        <th style="padding:6px 12px;font-size:10px;font-weight:600;color:var(--muted);text-align:left;border-bottom:1px solid var(--border)">Hito</th>
+        <th style="padding:6px 10px;font-size:10px;font-weight:600;color:var(--green2);text-align:center;border-bottom:1px solid var(--border)">Con ONB</th>
+        <th style="padding:6px 10px;font-size:10px;font-weight:600;color:var(--muted);text-align:center;border-bottom:1px solid var(--border)">Sin ONB</th>
+        <th style="padding:6px 10px;font-size:10px;font-weight:600;color:var(--muted);text-align:center;border-bottom:1px solid var(--border)">Diferencia</th>
+      </tr></thead>
+      <tbody>${rows}</tbody>
+    </table>
+    <div style="padding:6px 12px;font-size:9px;color:var(--muted)">% = cuentas que alcanzaron el hito / total del grupo · días desde creación hasta hito</div>
+  </div>`;
 }
 
 function impactTable(title, labelA, labelB, data, color) {
