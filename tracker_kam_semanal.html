@@ -202,6 +202,19 @@ function setManualVal(data, kam, wk, col, val){ if(!data[kam]) data[kam]={}; if(
 
 // ── CALC ──────────────────────────────────────────────
 function calcWeeks() {
+  // Build payments history once — used for all weeks
+  const paysByUser = {};
+  RAW.payments.forEach(p => {
+    const uid = (p['User ID']||'').toString().trim();
+    if (!uid) return;
+    const d = parseSpanishLong(p['Date']) || parseISO(p['Date']);
+    const val = parseFloat((p['Plan Value']||'0').toString()) || 0;
+    if (!d) return;
+    if (!paysByUser[uid]) paysByUser[uid] = [];
+    paysByUser[uid].push({ d, val });
+  });
+  Object.values(paysByUser).forEach(arr => arr.sort((a,b)=>a.d-b.d));
+
   const weeks = [];
   const today = new Date();
   const curMon = getMondayOf(today);
@@ -213,28 +226,29 @@ function calcWeeks() {
     const r = getWeekRange(mon);
     const kamData = {};
     KAMS.forEach(k => {
-      const accounts = RAW.cuentas.filter(rr => getKam(rr)===k && isPaga(rr));
-      const vigentes = accounts.filter(rr => rr['Vigencia del servicio']==='Vigente');
-      const segA = vigentes.filter(rr => getSegmento(rr)==='A').length;
-      const segB = vigentes.filter(rr => getSegmento(rr)==='B').length;
-      const segC = vigentes.filter(rr => getSegmento(rr)==='C').length;
-      const canceladas = accounts.filter(rr => rr['Vigencia del servicio']==='Cancelado' && inRange(cancelDate(rr),r)).length;
-
-      // Upgrades / Downgrades from payments table
-      // Build payment history per user (sorted by date)
-      const paysByUser = {};
-      RAW.payments.forEach(p => {
-        const uid = (p['User ID']||'').toString().trim();
-        if (!uid) return;
-        const d = parseSpanishLong(p['Date']) || parseISO(p['Date']);
-        const val = parseFloat((p['Plan Value']||'0').toString()) || 0;
-        const plan = (p['Plan Name']||'').trim();
-        if (!d) return;
-        if (!paysByUser[uid]) paysByUser[uid] = [];
-        paysByUser[uid].push({ d, val, plan });
+      // Accounts existing during this week:
+      // created before or during week end AND not cancelled before week start
+      const accounts = RAW.cuentas.filter(rr => {
+        if (getKam(rr)!==k || !isPaga(rr)) return false;
+        const ca = getCA(rr);
+        if (!ca || ca > r.end) return false; // created after this week
+        // If cancelled, must have cancelled after week start
+        if (rr['Vigencia del servicio']==='Cancelado') {
+          const cd = cancelDate(rr);
+          return cd && cd >= r.start;
+        }
+        return true; // Vigente or Atrasado — existed this week
       });
-      // Sort each user's payments by date
-      Object.values(paysByUser).forEach(arr => arr.sort((a,b)=>a.d-b.d));
+      const segA = accounts.filter(rr => getSegmento(rr)==='A').length;
+      const segB = accounts.filter(rr => getSegmento(rr)==='B').length;
+      const segC = accounts.filter(rr => getSegmento(rr)==='C').length;
+      const canceladas = RAW.cuentas.filter(rr =>
+        getKam(rr)===k && isPaga(rr) &&
+        rr['Vigencia del servicio']==='Cancelado' &&
+        inRange(cancelDate(rr),r)
+      ).length;
+
+      // paysByUser built once outside loop — see below
 
       // For each account assigned to this KAM, check payments this week
       let upgrades = 0, downgrades = 0;
