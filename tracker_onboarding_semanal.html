@@ -294,20 +294,26 @@ function cell(v, cls) {
 function buildCols(view) {
   if (view === 'all') {
     return [
-      { label:'Semana', group:'SEMANA', cls:'g-semana', span:1, key:'semana' },
-      { label:'Prop. P', group:'PROPUESTO', cls:'g-propuesto', span:2, key:'propP' },
-      { label:'Prop. T', group:'', cls:'g-propuesto', span:0, key:'propT' },
-      { label:'Agen. P', group:'AGENDADO', cls:'g-agendado', span:2, key:'agenP' },
-      { label:'Agen. T', group:'', cls:'g-agendado', span:0, key:'agenT' },
-      { label:'Asist. P', group:'ASISTENCIA', cls:'g-asistencia', span:2, key:'asistP' },
-      { label:'Asist. T', group:'', cls:'g-asistencia', span:0, key:'asistT' },
-      { label:'No Show', group:'NO SHOW', cls:'g-noshow', span:1, key:'noshow' },
-      { label:'WA ≤7d', group:'ACTIVARON ≤7 DÍAS', cls:'g-7d', span:3, key:'wa7' },
-      { label:'Flow ≤7d', group:'', cls:'g-7d', span:0, key:'fl7' },
-      { label:'Grupos ≤7d', group:'', cls:'g-7d', span:0, key:'gr7' },
-      { label:'WA >7d', group:'ACTIVARON >7 DÍAS', cls:'g-post7', span:3, key:'waPost' },
-      { label:'Flow >7d', group:'', cls:'g-post7', span:0, key:'flPost' },
-      { label:'Grupos >7d', group:'', cls:'g-post7', span:0, key:'grPost' },
+      { label:'Semana',    group:'SEMANA',      cls:'g-semana',    span:1,  key:'semana' },
+      { label:'Prop. P',   group:'PROPUESTO',   cls:'g-propuesto', span:2,  key:'propP' },
+      { label:'Prop. T',   group:'',            cls:'g-propuesto', span:0,  key:'propT' },
+      { label:'Agen. P',   group:'AGENDADO',    cls:'g-agendado',  span:2,  key:'agenP' },
+      { label:'Agen. T',   group:'',            cls:'g-agendado',  span:0,  key:'agenT' },
+      { label:'Asist. P',  group:'ASISTENCIA',  cls:'g-asistencia',span:2,  key:'asistP' },
+      { label:'Asist. T',  group:'',            cls:'g-asistencia',span:0,  key:'asistT' },
+      { label:'No Show',   group:'NO SHOW',     cls:'g-noshow',    span:1,  key:'noshow' },
+      { label:'WA P ≤7d',  group:'ACTIV. ≤7d',  cls:'g-7d',        span:6,  key:'wa7P' },
+      { label:'Flow P ≤7d',group:'',            cls:'g-7d',        span:0,  key:'fl7P' },
+      { label:'Grp P ≤7d', group:'',            cls:'g-7d',        span:0,  key:'gr7P' },
+      { label:'WA T ≤7d',  group:'',            cls:'g-7d',        span:0,  key:'wa7T' },
+      { label:'Flow T ≤7d',group:'',            cls:'g-7d',        span:0,  key:'fl7T' },
+      { label:'Grp T ≤7d', group:'',            cls:'g-7d',        span:0,  key:'gr7T' },
+      { label:'WA P >7d',  group:'ACTIV. >7d',  cls:'g-post7',     span:6,  key:'waPostP' },
+      { label:'Flow P >7d',group:'',            cls:'g-post7',     span:0,  key:'flPostP' },
+      { label:'Grp P >7d', group:'',            cls:'g-post7',     span:0,  key:'grPostP' },
+      { label:'WA T >7d',  group:'',            cls:'g-post7',     span:0,  key:'waPostT' },
+      { label:'Flow T >7d',group:'',            cls:'g-post7',     span:0,  key:'flPostT' },
+      { label:'Grp T >7d', group:'',            cls:'g-post7',     span:0,  key:'grPostT' },
     ];
   } else {
     return [
@@ -336,8 +342,10 @@ function getRowValues(row, view) {
       agenP: p.agen, agenT: t.agen,
       asistP: p.asist, asistT: t.asist,
       noshow: p.noshow + t.noshow,
-      wa7: p.wa7+t.wa7, fl7: p.fl7+t.fl7, gr7: p.gr7+t.gr7,
-      waPost: p.waPost+t.waPost, flPost: p.flPost+t.flPost, grPost: p.grPost+t.grPost,
+      wa7P: p.wa7, fl7P: p.fl7, gr7P: p.gr7,
+      wa7T: t.wa7, fl7T: t.fl7, gr7T: t.gr7,
+      waPostP: p.waPost, flPostP: p.flPost, grPostP: p.grPost,
+      waPostT: t.waPost, flPostT: t.flPost, grPostT: t.grPost,
     };
   }
   return { semana:row.label, prop:d.prop, agen:d.agen, asist:d.asist, noshow:d.noshow,
@@ -407,7 +415,11 @@ function render(view) {
     asistP:'c-teal',asistT:'c-teal',asist:'c-teal',
     noshow:'c-red',
     wa7:'c-green',fl7:'c-green',gr7:'c-green',
+    wa7P:'c-green',fl7P:'c-green',gr7P:'c-green',
+    wa7T:'c-green',fl7T:'c-green',gr7T:'c-green',
     waPost:'c-orange',flPost:'c-orange',grPost:'c-orange',
+    waPostP:'c-orange',flPostP:'c-orange',grPostP:'c-orange',
+    waPostT:'c-orange',flPostT:'c-orange',grPostT:'c-orange',
   };
 
   document.getElementById('tableBody').innerHTML = tableData.map((row, ri) => {
