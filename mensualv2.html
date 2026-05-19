@@ -889,9 +889,16 @@ function calcMonth(off){
         canM:canM.length, atrM:atrM.length,
         vigIni:vigIni.length, mrrM, churnRate,
         retNeta:newP.length-canM.length,
-        // Sección 2 — encuesta
+        // Sección 2 — encuesta + perfil cancelados
         survN:survM.length,
         survPct:canM.length>0?Math.round(survM.length/canM.length*100):0,
+        // Perfil cancelados pagas del mes
+        pSinOnb:   canM.length>0?Math.round(canM.filter(r=>r['Onboarding']==='Sin onboarding').length/canM.length*100):0,
+        pSinFlow:  canM.length>0?Math.round(canM.filter(r=>r['Usa flows']==='0'||r['Usa flows']===0).length/canM.length*100):0,
+        pSinWA:    canM.length>0?Math.round(canM.filter(r=>(r['Usa API?']||'')!=='Sí'&&(r['Usa Business?']||'')!=='Sí').length/canM.length*100):0,
+        pSinSes:   canM.length>0?Math.round(canM.filter(r=>r['Sesiones en vivo']==='No asistió').length/canM.length*100):0,
+        pSinGrupos:canM.length>0?Math.round(canM.filter(r=>r['Usa grupos?']==='0'||r['Usa grupos?']===0).length/canM.length*100):0,
+        pSinTrial: canM.length>0?Math.round(canM.filter(r=>(r['flow trial']||'').includes('No pasó')).length/canM.length*100):0,
         // Sección 3 — onboarding
         onbProp:onbM.length, onbAgen:onbAgenM,
         onbAsist:onbAsistM, onbNS:onbNSM,
@@ -1322,6 +1329,92 @@ function render(m){
 }
 
 // Global toggle function for 4 dimensions
+function switchPerfilView(view) {
+  const barsBtn  = document.getElementById('perfilViewBars');
+  const tableBtn = document.getElementById('perfilViewTable');
+  const barsDiv  = document.getElementById('perfilBarsView');
+  const tableDiv = document.getElementById('perfilTableView');
+  if (!barsDiv || !tableDiv) return;
+
+  if (view === 'bars') {
+    barsDiv.style.display = 'block';
+    tableDiv.style.display = 'none';
+    if (barsBtn) barsBtn.className = 'mn-btn active';
+    if (tableBtn) tableBtn.className = 'mn-btn';
+  } else {
+    barsDiv.style.display = 'none';
+    tableDiv.style.display = 'block';
+    if (barsBtn) barsBtn.className = 'mn-btn';
+    if (tableBtn) tableBtn.className = 'mn-btn active';
+    renderPerfilTable();
+  }
+}
+
+function renderPerfilTable() {
+  const m = window._mesMet;
+  const el = document.getElementById('perfilTableView');
+  if (!el || !m || !m.hist6) return;
+  const H = m.hist6;
+  const last = H.length - 1;
+
+  function col(curr, prev, inv=false) {
+    if (prev===null||prev===undefined||curr===prev) return 'var(--muted)';
+    return (inv?curr<prev:curr>prev)?'var(--green2)':'var(--red)';
+  }
+  function bg(curr, prev, inv=false) {
+    if (prev===null||prev===undefined||curr===prev) return 'transparent';
+    return (inv?curr<prev:curr>prev)?'rgba(34,197,94,.08)':'rgba(248,113,113,.08)';
+  }
+  function ar(curr, prev, inv=false) {
+    if (prev===null||prev===undefined||curr===prev) return '';
+    const d=Math.round(Math.abs(curr-prev)*10)/10;
+    const ds=Number.isInteger(d)?d:d.toFixed(1);
+    const better=inv?curr<prev:curr>prev;
+    const c=better?'var(--green2)':'var(--red)';
+    return ` <span style="font-size:9px;color:${c}">${curr>prev?'▲':'▼'}${ds}pp</span>`;
+  }
+
+  const rows = [
+    {label:'Cancelaciones pagas',      values:H.map(h=>h.canM||0),            inv:true,  fmt:'n'},
+    {label:'% Sin onboarding',         values:H.map(h=>h.pSinOnb),  inv:true,  fmt:'%'},
+    {label:'% Sin flow activo',        values:H.map(h=>h.pSinFlow), inv:true,  fmt:'%'},
+    {label:'% Sin WA conectado',       values:H.map(h=>h.pSinWA),   inv:true,  fmt:'%'},
+    {label:'% Sin sesión en vivo',     values:H.map(h=>h.pSinSes),  inv:true,  fmt:'%'},
+    {label:'% Sin grupos activos',     values:H.map(h=>h.pSinGrupos),inv:true, fmt:'%'},
+    {label:'% Sin flow en trial',      values:H.map(h=>h.pSinTrial),inv:true,  fmt:'%'},
+  ];
+
+  const hdrs = H.map((h,i)=>
+    `<th style="padding:6px 10px;font-size:10px;font-weight:600;white-space:nowrap;
+      color:${i===last?'var(--red)':'var(--muted)'};
+      background:${i===last?'rgba(255,255,255,.04)':'transparent'}">${h.lbl}${i===last?' ← actual':''}</th>`
+  ).join('');
+
+  const body = rows.map(({label,values,inv,fmt})=>{
+    const cells = values.map((v,i)=>{
+      const prev = i>0?values[i-1]:null;
+      if(v===null||v===undefined) return '<td style="padding:6px 10px;text-align:center;color:var(--muted);border-bottom:1px solid var(--border)">—</td>';
+      const display = fmt==='%'?v+'%':v;
+      const arw = fmt==='%'?ar(v,prev,inv):'';
+      return `<td style="padding:6px 10px;font-size:11px;font-weight:${i===last?700:400};
+        color:${col(v,prev,inv)};background:${bg(v,prev,inv)};
+        text-align:center;border-bottom:1px solid var(--border)">${display}${arw}</td>`;
+    }).join('');
+    return `<tr><td style="padding:6px 12px;font-size:11px;color:var(--muted);border-bottom:1px solid var(--border);white-space:nowrap">${label}</td>${cells}</tr>`;
+  }).join('');
+
+  el.innerHTML = `<div style="overflow-x:auto;margin-top:4px">
+    <table style="width:100%;border-collapse:collapse">
+      <thead><tr>
+        <th style="padding:6px 12px;font-size:10px;font-weight:600;color:var(--muted);text-align:left;border-bottom:1px solid var(--border)">Indicador</th>
+        ${hdrs}
+      </tr></thead>
+      <tbody>${body}</tbody>
+    </table>
+  </div>
+  <div style="font-size:10px;color:var(--muted);margin-top:8px">% calculado sobre el total de cancelados pagas del mes · verde = mejora (baja) · rojo = empeora (sube)</div>`;
+}
+
 function renderQuienesMes(mode) {
   const m = window._mesMet;
   if (!m) return;
