@@ -142,8 +142,7 @@ let tableData = [];
 
 // ── DATE HELPERS ──────────────────────────────────────
 function parseSpanishLong(s) {
-  // "octubre 1, 2024, 3:16 p. m." → Date
-  if (!s||!s.trim()) return null;
+  if (!s||!s.toString().trim()) return null;
   const mo={enero:0,febrero:1,marzo:2,abril:3,mayo:4,junio:5,julio:6,agosto:7,septiembre:8,octubre:9,noviembre:10,diciembre:11};
   const m = s.toString().toLowerCase().match(/([a-záéíóú]+)\s+(\d{1,2}),\s+(\d{4})/);
   if (m) { const mv=mo[m[1]]; if(mv!==undefined) return new Date(parseInt(m[3]),mv,parseInt(m[2])); }
@@ -151,12 +150,12 @@ function parseSpanishLong(s) {
 }
 
 function parseISO(s) {
-  if (!s||!s.trim()) return null;
+  if (!s||!s.toString().trim()) return null;
   const d=new Date(s.toString().trim()); return isNaN(d)?null:d;
 }
 function parseSpanishDate(s) {
-  if (!s||!s.trim()) return null;
-  const m=s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+  if (!s||!s.toString().trim()) return null;
+  const m=s.toString().match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
   if(m) return new Date(+m[3],+m[2]-1,+m[1]);
   return parseISO(s);
 }
@@ -202,13 +201,25 @@ function setManualVal(data, kam, wk, col, val){ if(!data[kam]) data[kam]={}; if(
 
 // ── CALC ──────────────────────────────────────────────
 function calcWeeks() {
-  // Build payments history once — used for all weeks
+  // Pre-compute caches
+  const cancelDateCache = {};
+  const createdAtCache = {};
+  RAW.cuentas.forEach(r => {
+    const id = (r['id']||'').toString().trim();
+    if (id) {
+      cancelDateCache[id] = cancelDate(r);
+      createdAtCache[id] = getCA(r);
+    }
+  });
+  const kamAccounts = {};
+  KAMS.forEach(k => { kamAccounts[k] = RAW.cuentas.filter(rr => getKam(rr)===k && isPaga(rr)); });
+
   const paysByUser = {};
   RAW.payments.forEach(p => {
     const uid = (p['User ID']||'').toString().trim();
     if (!uid) return;
     const d = parseSpanishLong(p['Date']) || parseISO(p['Date']);
-    const val = parseFloat((p['Plan Value']||'0').toString()) || 0;
+    const val = parseFloat((p['Plan Value']||'0').toString().replace(/[^\d.-]/g,'')) || 0;
     if (!d) return;
     if (!paysByUser[uid]) paysByUser[uid] = [];
     paysByUser[uid].push({ d, val });
@@ -226,38 +237,34 @@ function calcWeeks() {
     const r = getWeekRange(mon);
     const kamData = {};
     KAMS.forEach(k => {
-      // Accounts existing during this week:
-      // created before or during week end AND not cancelled before week start
-      const accounts = RAW.cuentas.filter(rr => {
-        if (getKam(rr)!==k || !isPaga(rr)) return false;
-        const ca = getCA(rr);
-        if (!ca || ca > r.end) return false; // created after this week
-        // If cancelled, must have cancelled after week start
+      // Accounts existing during this week
+      const accounts = kamAccounts[k].filter(rr => {
+        const id = (rr['id']||'').toString().trim();
+        const ca = createdAtCache[id];
+        if (!ca || ca > r.end) return false;
         if (rr['Vigencia del servicio']==='Cancelado') {
-          const cd = cancelDate(rr);
+          const cd = cancelDateCache[id];
           return cd && cd >= r.start;
         }
-        return true; // Vigente or Atrasado — existed this week
+        return true;
       });
       const segA = accounts.filter(rr => getSegmento(rr)==='A').length;
       const segB = accounts.filter(rr => getSegmento(rr)==='B').length;
       const segC = accounts.filter(rr => getSegmento(rr)==='C').length;
-      const canceladas = RAW.cuentas.filter(rr =>
-        getKam(rr)===k && isPaga(rr) &&
-        rr['Vigencia del servicio']==='Cancelado' &&
-        inRange(cancelDate(rr),r)
-      ).length;
+      const canceladas = kamAccounts[k].filter(rr => {
+        if (rr['Vigencia del servicio']!=='Cancelado') return false;
+        const id = (rr['id']||'').toString().trim();
+        return inRange(cancelDateCache[id], r);
+      }).length;
 
-      // paysByUser built once outside loop — see below
-
-      // For each account assigned to this KAM, check payments this week
+      // Upgrades / downgrades from payments in this week
       let upgrades = 0, downgrades = 0;
       accounts.forEach(acct => {
         const uid = (acct['id']||'').toString().trim();
         const userPays = paysByUser[uid];
         if (!userPays || userPays.length < 2) return;
         userPays.forEach((pay, i) => {
-          if (!inRange(pay.d, r)) return; // only count payments in this week
+          if (!inRange(pay.d, r)) return;
           const prev = userPays[i-1];
           if (!prev) return;
           if (pay.val > prev.val) upgrades++;
@@ -265,7 +272,14 @@ function calcWeeks() {
         });
       });
 
-      kamData[k] = { total:vigentes.length, segA, segB, segC, canceladas, upgrades, downgrades };
+      // FIX: usar accounts.length (antes decía vigentes.length, variable inexistente)
+      kamData[k] = {
+        total: accounts.length,
+        segA, segB, segC,
+        canceladas,
+        upgrades,
+        downgrades
+      };
     });
     return { mon, label:fmtWeek(mon), key:weekKey(mon), kamData };
   });
@@ -294,11 +308,10 @@ const COLS = [
   {label:'Sin cont. >30d',    key:'sinContacto',cls:'c-yellow', auto:false},
   {label:'Riesgo interv.',    key:'riesgoInterv',cls:'c-yellow',auto:false},
   {label:'Cancelaciones',     key:'canceladas', cls:'c-red',    auto:true },
-  {label:'Downgrades',        key:'downgrades', cls:'c-red',    auto:false},
-  {label:'Upsells/Expans.',   key:'upsells',    cls:'c-green',  auto:false},
+  {label:'Downgrades',        key:'downgrades', cls:'c-red',    auto:true },
+  {label:'Upsells/Expans.',   key:'upgrades',   cls:'c-green',  auto:true },
 ];
 
-// Build group row
 document.getElementById('groupRow').innerHTML = GROUPS.map(g=>
   `<th colspan="${g.span}" class="${g.cls}">${g.label}</th>`
 ).join('');
@@ -306,21 +319,18 @@ document.getElementById('colRow').innerHTML = COLS.map((c,i)=>
   `<th class="${i<2?'left':''}">${c.label}</th>`
 ).join('');
 
+function setKam(k){ render(k); }
+
 function render(kamFilter) {
   currentKam = kamFilter;
-  ['todos','Nicolás','Natalia'].forEach(k => {
-    const id = 'btn'+k.replace('á','a').replace('ó','o').charAt(0).toUpperCase()+k.slice(1).replace('á','a').replace('ó','o').replace('é','e').replace('í','i');
-    const btn = document.getElementById('btn'+k.replace(/[^a-zA-Z]/g,''));
-    if(btn) btn.className = 'btn'+(k===kamFilter?' active':'');
-  });
-  document.getElementById('btnTodos').className = 'btn'+('todos'===kamFilter?' active':'');
+  document.getElementById('btnTodos').className   = 'btn'+('todos'===kamFilter?' active':'');
   document.getElementById('btnNicolas').className = 'btn'+('Nicolás'===kamFilter?' active':'');
   document.getElementById('btnNatalia').className = 'btn'+('Natalia'===kamFilter?' active':'');
 
   const manualData = loadManual();
   const kamsToShow = kamFilter==='todos' ? KAMS : [kamFilter];
 
-  // Stats — totals per active KAM
+  // Stats — totals para el KAM activo
   const statKam = kamFilter==='todos' ? KAMS[0] : kamFilter;
   const first = tableData[0];
   if(first) {
@@ -328,12 +338,12 @@ function render(kamFilter) {
     const totalUpsells = tableData.reduce((s,w)=>s+(w.kamData[statKam]?.upgrades||0),0);
     const totalCancels = tableData.reduce((s,w)=>s+(w.kamData[statKam]?.canceladas||0),0);
     document.getElementById('statsRow').innerHTML = [
-      {label:'Cuentas asignadas hoy', val:d.total, color:'var(--teal)', sub:`Seg A:${d.segA} · B:${d.segB} · C:${d.segC}`},
+      {label:`Cuentas asignadas (${statKam})`, val:d.total, color:'var(--teal)', sub:`Seg A:${d.segA} · B:${d.segB} · C:${d.segC}`},
       {label:'Cuentas Seg A',  val:d.segA,  color:'var(--blue)',   sub:'Prioridad máxima'},
       {label:'Cuentas Seg B',  val:d.segB,  color:'var(--purple)', sub:'Prioridad media'},
       {label:'Cuentas Seg C',  val:d.segC,  color:'var(--muted)',  sub:'Prioridad estándar'},
       {label:'Cancelaciones (desde Abr)', val:totalCancels, color:'var(--red)', sub:'Base KAM'},
-      {label:'Upsells (desde Abr)', val:totalUpsells, color:'var(--green)', sub:'Ingresados manualmente'},
+      {label:'Upsells (desde Abr)', val:totalUpsells, color:'var(--green)', sub:'Detectado en payments'},
     ].map(s=>`<div class="stat-card">
       <div class="stat-label">${s.label}</div>
       <div class="stat-val" style="color:${s.color}">${s.val}</div>
@@ -341,16 +351,16 @@ function render(kamFilter) {
     </div>`).join('');
   }
 
-  // Table rows
+  // Filas
   const rows = [];
   tableData.forEach((wk, wi) => {
-    kamsToShow.forEach((kam, ki) => {
-      const auto = wk.kamData[kam]||{total:0,segA:0,segB:0,segC:0,canceladas:0};
+    kamsToShow.forEach((kam) => {
+      const auto = wk.kamData[kam]||{total:0,segA:0,segB:0,segC:0,canceladas:0,upgrades:0,downgrades:0};
       const isRecent = wi===0;
       const bg = isRecent ? 'background:rgba(251,146,60,.04);' : (wi%2===0?'background:rgba(255,255,255,.01);':'');
       const kamColor = kam==='Nicolás'?'var(--blue)':'var(--pink)';
 
-      const cells = COLS.map((col,ci) => {
+      const cells = COLS.map((col) => {
         if(col.key==='week') {
           return `<td class="td-week">${wk.label}${isRecent?' <span style="font-size:9px;color:var(--orange)">← actual</span>':''}</td>`;
         }
@@ -360,7 +370,6 @@ function render(kamFilter) {
           const v = auto[col.key]||0;
           return `<td class="${v===0?'zero':col.cls}">${v===0?'—':v}</td>`;
         }
-        // Manual input
         const stored = getManualVal(manualData,kam,wk.key,col.key);
         return `<td class="editable"><input type="number" min="0" value="${stored}"
           data-kam="${kam}" data-wk="${wk.key}" data-col="${col.key}"
@@ -373,11 +382,10 @@ function render(kamFilter) {
 
   document.getElementById('tableBody').innerHTML = rows.join('');
   document.getElementById('footer').textContent =
-    `${tableData.length} semanas · ${RAW.cuentas.length} cuentas · Datos auto = tiempo real · Datos manuales = guardados localmente`;
+    `${tableData.length} semanas · ${RAW.cuentas.length} cuentas · ${RAW.payments.length} pagos · Datos manuales guardados localmente`;
 }
 
 function onManualInput(el) {
-  // Auto-save debounced
   clearTimeout(window._saveTimer);
   window._saveTimer = setTimeout(() => saveAll(true), 1500);
 }
@@ -404,7 +412,7 @@ function downloadCSV() {
   const csvRows = [['Semana',...headers].join(',')];
   tableData.forEach(wk => {
     kamsToShow.forEach(kam => {
-      const auto = wk.kamData[kam]||{total:0,segA:0,segB:0,segC:0,canceladas:0};
+      const auto = wk.kamData[kam]||{total:0,segA:0,segB:0,segC:0,canceladas:0,upgrades:0,downgrades:0};
       const row = [
         `"${wk.label}"`,
         kam,
@@ -412,7 +420,7 @@ function downloadCSV() {
         ...MANUAL_COLS.map(c => getManualVal(manualData,kam,wk.key,c)||0),
         auto.canceladas,
         auto.downgrades||0,
-        auto.upsells||0,
+        auto.upgrades||0,
       ];
       csvRows.push(row.join(','));
     });
