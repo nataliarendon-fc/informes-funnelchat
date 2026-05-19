@@ -1,0 +1,476 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tracker Onboarding Semanal · Funnelchat</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --navy:#0d1528;--navy2:#131e35;--navy3:#1a2744;--navy4:#1f2f52;
+  --teal:#2dd4bf;--green:#22c55e;--red:#f87171;--orange:#fb923c;
+  --blue:#60a5fa;--purple:#a78bfa;--yellow:#fbbf24;--pink:#f472b6;
+  --text:#e2e8f0;--muted:#64748b;--border:rgba(255,255,255,.07);
+  --card:rgba(255,255,255,.03);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--navy);color:var(--text);font-family:'DM Sans',sans-serif;font-size:13px;min-height:100vh}
+
+/* HEADER */
+.hdr{background:linear-gradient(135deg,#0d1528,#1a2744);border-bottom:1px solid var(--border);padding:18px 36px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100}
+.logo-text{font-family:'Syne',sans-serif;font-weight:800;font-size:16px;color:#fff}
+.logo-text span{color:var(--teal)}
+.hdr-badge{font-size:10px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--teal);background:rgba(45,212,191,.1);border:1px solid rgba(45,212,191,.2);padding:4px 12px;border-radius:20px}
+
+/* LOADING */
+.loading{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:70vh;gap:14px}
+.spinner{width:36px;height:36px;border:3px solid var(--navy3);border-top-color:var(--teal);border-radius:50%;animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* MAIN */
+.main{padding:28px 36px 80px;max-width:1600px;margin:0 auto}
+
+/* CONTROLS */
+.controls{display:flex;align-items:center;gap:12px;margin-bottom:24px;flex-wrap:wrap}
+.ctrl-label{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em}
+.btn{padding:7px 16px;border-radius:8px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer;font-family:'DM Sans',sans-serif;font-size:11px;font-weight:600;transition:all .15s}
+.btn:hover{border-color:var(--teal);color:var(--teal)}
+.btn.primary{background:rgba(45,212,191,.12);border-color:rgba(45,212,191,.35);color:var(--teal)}
+.btn.primary:hover{background:rgba(45,212,191,.2)}
+.btn-download{background:rgba(34,197,94,.1);border-color:rgba(34,197,94,.3);color:var(--green)}
+.btn-download:hover{background:rgba(34,197,94,.2)}
+
+/* STATS ROW */
+.stats-row{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:24px}
+.stat-card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:14px 16px}
+.stat-label{font-size:9px;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);margin-bottom:6px}
+.stat-val{font-family:'Syne',sans-serif;font-size:24px;font-weight:800;line-height:1}
+.stat-sub{font-size:10px;color:var(--muted);margin-top:4px}
+
+/* TABLE WRAPPER */
+.tbl-wrap{overflow-x:auto;border-radius:14px;border:1px solid var(--border)}
+table{width:100%;border-collapse:collapse;min-width:1200px}
+
+/* COLUMN GROUPS */
+thead tr.group-row th{padding:8px 10px;font-size:9px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;text-align:center;border-bottom:1px solid rgba(255,255,255,.05)}
+.g-semana{background:#0d1528;color:var(--muted)}
+.g-propuesto{background:rgba(96,165,250,.08);color:var(--blue)}
+.g-agendado{background:rgba(167,139,250,.08);color:var(--purple)}
+.g-asistencia{background:rgba(45,212,191,.08);color:var(--teal)}
+.g-noshow{background:rgba(248,113,113,.08);color:var(--red)}
+.g-7d{background:rgba(34,197,94,.08);color:var(--green)}
+.g-post7{background:rgba(251,146,60,.08);color:var(--orange)}
+
+/* COL HEADERS */
+thead tr.col-row th{padding:6px 8px;font-size:10px;font-weight:600;color:var(--muted);text-align:center;border-bottom:2px solid rgba(255,255,255,.06);white-space:nowrap;background:var(--navy2)}
+thead tr.col-row th.col-semana{text-align:left;padding-left:16px;min-width:120px}
+
+/* BODY */
+tbody tr{border-bottom:1px solid rgba(255,255,255,.04);transition:background .1s}
+tbody tr:hover{background:rgba(255,255,255,.025)}
+tbody tr:last-child{border-bottom:none}
+td{padding:10px 8px;text-align:center;font-family:'DM Mono',monospace;font-size:12px}
+td.td-semana{text-align:left;padding-left:16px;font-family:'Syne',sans-serif;font-size:11px;font-weight:700;color:#fff;white-space:nowrap;min-width:120px}
+td.td-sub{font-family:'DM Sans',sans-serif;font-size:10px;color:var(--muted);display:block;font-weight:400}
+
+/* CELL COLORS */
+.c-blue{color:var(--blue)}
+.c-purple{color:var(--purple)}
+.c-teal{color:var(--teal)}
+.c-red{color:var(--red)}
+.c-green{color:var(--green)}
+.c-orange{color:var(--orange)}
+.c-muted{color:var(--muted)}
+.zero{color:rgba(100,116,139,.4)}
+
+/* FOOTER */
+.footer{margin-top:24px;font-size:10px;color:var(--muted);text-align:center;padding-top:16px;border-top:1px solid var(--border)}
+
+/* ERROR */
+.error-box{background:rgba(248,113,113,.08);border:1px solid rgba(248,113,113,.2);border-radius:12px;padding:20px 24px;max-width:520px;margin:40px auto}
+.error-box h3{color:var(--red);font-family:'Syne',sans-serif;margin-bottom:8px}
+.error-box p{font-size:12px;color:var(--muted);line-height:1.7}
+</style>
+</head>
+<body>
+
+<header class="hdr">
+  <div>
+    <div class="logo-text">Funnel<span>chat</span></div>
+    <div style="font-size:10px;color:var(--muted);margin-top:1px">Tracker Onboarding Semanal</div>
+  </div>
+  <div class="hdr-badge">Desde abril 2026</div>
+</header>
+
+<div id="loadingState" class="loading">
+  <div class="spinner"></div>
+  <div style="font-family:'Syne',sans-serif;font-size:12px;color:var(--muted)" id="loadingText">Conectando con Google Sheets...</div>
+</div>
+
+<main id="mainContent" class="main" style="display:none">
+
+  <div class="controls">
+    <span class="ctrl-label">Vista</span>
+    <button class="btn primary" id="btnPagas" onclick="setView('pagas')">Solo Pagas</button>
+    <button class="btn" id="btnTrial" onclick="setView('trial')">Solo Trial</button>
+    <button class="btn" id="btnAll" onclick="setView('all')">Pagas + Trial</button>
+    <div style="flex:1"></div>
+    <button class="btn btn-download" onclick="downloadCSV()">↓ Descargar CSV</button>
+    <button class="btn" onclick="location.reload()">↻ Actualizar</button>
+  </div>
+
+  <div class="stats-row" id="statsRow"></div>
+
+  <div class="tbl-wrap">
+    <table id="mainTable">
+      <thead>
+        <tr class="group-row" id="groupRow"></tr>
+        <tr class="col-row" id="colRow"></tr>
+      </thead>
+      <tbody id="tableBody"></tbody>
+    </table>
+  </div>
+
+  <div class="footer" id="footer"></div>
+</main>
+
+<script>
+const API_URL = 'https://script.google.com/macros/s/AKfycbwNp-Hnmi1imEggg6Qz7xRP_fR57ZvcQb9hFR2WUPn1c-BdsN23x2vrnlU5zY6Rydrlng/exec';
+const ABRIL_2026 = new Date(2026, 3, 1); // April 1 2026
+let RAW = { cuentas:[], onboarding:[] };
+let currentView = 'pagas';
+let tableData = [];
+
+// ── DATE HELPERS ──────────────────────────────────────
+function parseISO(s) {
+  if (!s || !s.trim()) return null;
+  const d = new Date(s.toString().trim());
+  return isNaN(d) ? null : d;
+}
+function parseSpanishDate(s) {
+  if (!s || !s.trim()) return null;
+  const m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+  if (m) return new Date(+m[3], +m[2]-1, +m[1]);
+  return parseISO(s);
+}
+function getCA(r) { return parseISO(r['created_at']) || parseISO(r['Fecha creación']); }
+function getOnbDate(r) { return parseISO(r['Fecha registro']) || parseISO(r['Fecha estado onboarding']); }
+
+function getMondayOf(d) {
+  const dt = new Date(d); dt.setHours(0,0,0,0);
+  const dow = dt.getDay() || 7;
+  dt.setDate(dt.getDate() - dow + 1);
+  return dt;
+}
+function getWeekRange(mon) {
+  const sun = new Date(mon); sun.setDate(mon.getDate()+6); sun.setHours(23,59,59,999);
+  return { start: mon, end: sun };
+}
+function inRange(d, r) { return d && d >= r.start && d <= r.end; }
+function fmt(d) {
+  return d.toLocaleDateString('es-CO', { day:'2-digit', month:'short' });
+}
+function fmtWeek(mon) {
+  const sun = new Date(mon); sun.setDate(mon.getDate()+6);
+  return fmt(mon) + ' – ' + fmt(sun);
+}
+
+// ── DATA LOADING ──────────────────────────────────────
+async function loadAll() {
+  const timeout = new Promise((_,r) => setTimeout(() => r(new Error('Tiempo agotado (30s)')), 30000));
+  const res = await Promise.race([fetch(API_URL), timeout]);
+  if (!res.ok) throw new Error('HTTP ' + res.status);
+  const json = await res.json();
+  RAW.cuentas    = (json.cuentas    || []).filter(r => Object.keys(r).length > 1);
+  RAW.onboarding = (json.onboarding || []).filter(r => Object.keys(r).length > 0);
+  if (!RAW.cuentas.length) throw new Error('Hoja de cuentas vacía');
+}
+
+// ── HELPERS ───────────────────────────────────────────
+function isPaga(r) {
+  const t = (r['trial']||'').toString().trim().toUpperCase();
+  return t !== 'TRUE' && t !== '1' && t !== 'SI' && t !== 'SÍ';
+}
+
+function acctMap() {
+  const m = {};
+  RAW.cuentas.forEach(r => { const id=(r['id']||'').toString().trim(); if(id) m[id]=r; });
+  return m;
+}
+
+function getAhaDate(r, col) { return parseISO(r[col]); }
+
+function hitIn7d(acct, sessionDate, col) {
+  if (!acct || !sessionDate) return false;
+  const aha = getAhaDate(acct, col);
+  if (!aha) return false;
+  const diff = (aha - sessionDate) / 86400000;
+  return diff >= 0 && diff <= 7;
+}
+function hitAfter7d(acct, sessionDate, col) {
+  if (!acct || !sessionDate) return false;
+  const aha = getAhaDate(acct, col);
+  if (!aha) return false;
+  const diff = (aha - sessionDate) / 86400000;
+  return diff > 7;
+}
+
+// ── CALC ──────────────────────────────────────────────
+function calcWeeks() {
+  const am = acctMap();
+
+  // Generate all Monday dates from April 2026 to current week
+  const weeks = [];
+  const today = new Date();
+  const curMon = getMondayOf(today);
+  let mon = new Date(ABRIL_2026);
+  // Snap to Monday
+  const dow = mon.getDay() || 7;
+  if (dow !== 1) mon.setDate(mon.getDate() - dow + 1);
+  mon.setHours(0,0,0,0);
+
+  while (mon <= curMon) {
+    weeks.push(new Date(mon));
+    mon.setDate(mon.getDate() + 7);
+  }
+
+  return weeks.map(mon => {
+    const r = getWeekRange(mon);
+    const onbW = RAW.onboarding.filter(rr => inRange(getOnbDate(rr), r));
+
+    function enrich(onbRows, typeFilter) {
+      return onbRows.filter(rr => {
+        const uid = (rr['user_id']||'').toString().trim();
+        const acct = am[uid];
+        if (!acct) return typeFilter === 'all';
+        if (typeFilter === 'pagas') return isPaga(acct);
+        if (typeFilter === 'trial') return !isPaga(acct);
+        return true;
+      });
+    }
+
+    function stats(rows) {
+      const prop = rows.length;
+      const agen = rows.filter(rr => ['Agendó','Asistió','No show','No asistió'].includes(rr['Estado del onboarding'])).length;
+      const asist = rows.filter(rr => rr['Estado del onboarding']==='Asistió');
+      const noshow = rows.filter(rr => ['No show','No asistió'].includes(rr['Estado del onboarding'])).length;
+
+      // For AHA — use session date = onboarding date
+      let wa7=0, fl7=0, gr7=0, waPost=0, flPost=0, grPost=0;
+      asist.forEach(rr => {
+        const uid = (rr['user_id']||'').toString().trim();
+        const acct = am[uid];
+        const sd = getOnbDate(rr);
+        if (!acct || !sd) return;
+        if (hitIn7d(acct, sd, 'AHA WA'))    wa7++;
+        else if (hitAfter7d(acct, sd, 'AHA WA'))  waPost++;
+        if (hitIn7d(acct, sd, 'AHA flows')) fl7++;
+        else if (hitAfter7d(acct, sd, 'AHA flows')) flPost++;
+        if (hitIn7d(acct, sd, 'AHA grupos')) gr7++;
+        else if (hitAfter7d(acct, sd, 'AHA grupos')) grPost++;
+      });
+
+      return { prop, agen, asist:asist.length, noshow, wa7, fl7, gr7, waPost, flPost, grPost };
+    }
+
+    const allRows   = enrich(onbW, 'all');
+    const pagaRows  = enrich(onbW, 'pagas');
+    const trialRows = enrich(onbW, 'trial');
+
+    return {
+      mon, label: fmtWeek(mon),
+      all:   stats(allRows),
+      pagas: stats(pagaRows),
+      trial: stats(trialRows),
+    };
+  }).reverse(); // most recent first
+}
+
+// ── RENDER ────────────────────────────────────────────
+function cell(v, cls) {
+  return `<td class="${v===0?'zero':cls}">${v===0?'—':v}</td>`;
+}
+
+function buildCols(view) {
+  if (view === 'all') {
+    return [
+      { label:'Semana', group:'SEMANA', cls:'g-semana', span:1, key:'semana' },
+      { label:'Prop. P', group:'PROPUESTO', cls:'g-propuesto', span:2, key:'propP' },
+      { label:'Prop. T', group:'', cls:'g-propuesto', span:0, key:'propT' },
+      { label:'Agen. P', group:'AGENDADO', cls:'g-agendado', span:2, key:'agenP' },
+      { label:'Agen. T', group:'', cls:'g-agendado', span:0, key:'agenT' },
+      { label:'Asist. P', group:'ASISTENCIA', cls:'g-asistencia', span:2, key:'asistP' },
+      { label:'Asist. T', group:'', cls:'g-asistencia', span:0, key:'asistT' },
+      { label:'No Show', group:'NO SHOW', cls:'g-noshow', span:1, key:'noshow' },
+      { label:'WA ≤7d', group:'ACTIVARON ≤7 DÍAS', cls:'g-7d', span:3, key:'wa7' },
+      { label:'Flow ≤7d', group:'', cls:'g-7d', span:0, key:'fl7' },
+      { label:'Grupos ≤7d', group:'', cls:'g-7d', span:0, key:'gr7' },
+      { label:'WA >7d', group:'ACTIVARON >7 DÍAS', cls:'g-post7', span:3, key:'waPost' },
+      { label:'Flow >7d', group:'', cls:'g-post7', span:0, key:'flPost' },
+      { label:'Grupos >7d', group:'', cls:'g-post7', span:0, key:'grPost' },
+    ];
+  } else {
+    return [
+      { label:'Semana', group:'SEMANA', cls:'g-semana', span:1, key:'semana' },
+      { label:'Propuesto', group:'PROPUESTO', cls:'g-propuesto', span:1, key:'prop' },
+      { label:'Agendados', group:'AGENDADO', cls:'g-agendado', span:1, key:'agen' },
+      { label:'Asistentes', group:'ASISTENCIA', cls:'g-asistencia', span:1, key:'asist' },
+      { label:'No Show', group:'NO SHOW', cls:'g-noshow', span:1, key:'noshow' },
+      { label:'WA ≤7d', group:'ACTIVARON ≤7 DÍAS', cls:'g-7d', span:3, key:'wa7' },
+      { label:'Flow ≤7d', group:'', cls:'g-7d', span:0, key:'fl7' },
+      { label:'Grupos ≤7d', group:'', cls:'g-7d', span:0, key:'gr7' },
+      { label:'WA >7d', group:'ACTIVARON >7 DÍAS', cls:'g-post7', span:3, key:'waPost' },
+      { label:'Flow >7d', group:'', cls:'g-post7', span:0, key:'flPost' },
+      { label:'Grupos >7d', group:'', cls:'g-post7', span:0, key:'grPost' },
+    ];
+  }
+}
+
+function getRowValues(row, view) {
+  const d = view === 'trial' ? row.trial : view === 'pagas' ? row.pagas : null;
+  if (view === 'all') {
+    const p = row.pagas, t = row.trial;
+    return {
+      semana: row.label,
+      propP: p.prop, propT: t.prop,
+      agenP: p.agen, agenT: t.agen,
+      asistP: p.asist, asistT: t.asist,
+      noshow: p.noshow + t.noshow,
+      wa7: p.wa7+t.wa7, fl7: p.fl7+t.fl7, gr7: p.gr7+t.gr7,
+      waPost: p.waPost+t.waPost, flPost: p.flPost+t.flPost, grPost: p.grPost+t.grPost,
+    };
+  }
+  return { semana:row.label, prop:d.prop, agen:d.agen, asist:d.asist, noshow:d.noshow,
+           wa7:d.wa7, fl7:d.fl7, gr7:d.gr7, waPost:d.waPost, flPost:d.flPost, grPost:d.grPost };
+}
+
+function render(view) {
+  currentView = view;
+  const cols = buildCols(view);
+
+  // Toggle buttons
+  ['pagas','trial','all'].forEach(v => {
+    document.getElementById('btn'+v.charAt(0).toUpperCase()+v.slice(1)).className =
+      'btn' + (v === view ? ' primary' : '');
+  });
+
+  // Group row
+  const groupRow = document.getElementById('groupRow');
+  groupRow.innerHTML = '';
+  const groups = [];
+  cols.forEach(c => {
+    if (c.span > 0) groups.push({label:c.group, span:c.span, cls:c.cls});
+  });
+  // Add semana manually
+  groupRow.innerHTML = cols.filter(c=>c.span>0).map(c =>
+    `<th colspan="${c.span}" class="${c.cls}">${c.group}</th>`
+  ).join('');
+
+  // Col headers
+  document.getElementById('colRow').innerHTML = cols.map((c,i) =>
+    `<th class="col-row${i===0?' col-semana':''}">${c.label}</th>`
+  ).join('');
+
+  // Stats
+  const totals = { prop:0, agen:0, asist:0, noshow:0, wa7:0, fl7:0, gr7:0, waPost:0, flPost:0, grPost:0 };
+  tableData.forEach(row => {
+    const d = view==='all' ? {
+      prop: row.pagas.prop+row.trial.prop, agen: row.pagas.agen+row.trial.agen,
+      asist: row.pagas.asist+row.trial.asist, noshow: row.pagas.noshow+row.trial.noshow,
+      wa7: row.pagas.wa7+row.trial.wa7, fl7: row.pagas.fl7+row.trial.fl7,
+      gr7: row.pagas.gr7+row.trial.gr7, waPost: row.pagas.waPost+row.trial.waPost,
+      flPost: row.pagas.flPost+row.trial.flPost, grPost: row.pagas.grPost+row.trial.grPost
+    } : (view==='pagas' ? row.pagas : row.trial);
+    Object.keys(totals).forEach(k => { totals[k] += d[k]||0; });
+  });
+
+  const convRate = totals.asist > 0 ? Math.round((totals.wa7+totals.fl7+totals.gr7)/(totals.asist*3)*100) : 0;
+  const statsConf = [
+    { label:'Total propuestos', val: totals.prop, color:'var(--blue)' },
+    { label:'Total asistentes', val: totals.asist, color:'var(--teal)' },
+    { label:'Cobertura agendados', val: totals.prop>0 ? Math.round(totals.agen/totals.prop*100)+'%':'—', color:'var(--purple)' },
+    { label:'No show total', val: totals.noshow, color:'var(--red)' },
+    { label:'Activaron WA ≤7d', val: totals.wa7, color:'var(--green)' },
+  ];
+  document.getElementById('statsRow').innerHTML = statsConf.map(s =>
+    `<div class="stat-card">
+      <div class="stat-label">${s.label}</div>
+      <div class="stat-val" style="color:${s.color}">${s.val}</div>
+      <div class="stat-sub">desde Abr 2026</div>
+    </div>`
+  ).join('');
+
+  // Table body
+  const clsMap = {
+    propP:'c-blue',propT:'c-blue',prop:'c-blue',
+    agenP:'c-purple',agenT:'c-purple',agen:'c-purple',
+    asistP:'c-teal',asistT:'c-teal',asist:'c-teal',
+    noshow:'c-red',
+    wa7:'c-green',fl7:'c-green',gr7:'c-green',
+    waPost:'c-orange',flPost:'c-orange',grPost:'c-orange',
+  };
+
+  document.getElementById('tableBody').innerHTML = tableData.map((row, ri) => {
+    const v = getRowValues(row, view);
+    const isRecent = ri === 0;
+    const cells = cols.map((c,i) => {
+      if (c.key === 'semana') {
+        return `<td class="td-semana">${row.label}${isRecent?' <span style="font-size:9px;color:var(--teal);font-family:DM Sans">← actual</span>':''}</td>`;
+      }
+      const val = v[c.key] ?? 0;
+      return `<td class="${val===0?'zero':clsMap[c.key]||''}">${val===0?'—':val}</td>`;
+    }).join('');
+    return `<tr style="${isRecent?'background:rgba(45,212,191,.04);':''}${ri%2===0&&!isRecent?'background:rgba(255,255,255,.015);':''}">${cells}</tr>`;
+  }).join('');
+
+  // Footer
+  document.getElementById('footer').textContent =
+    `${tableData.length} semanas · ${RAW.onboarding.length} registros de onboarding · ${RAW.cuentas.length} cuentas · Datos en tiempo real desde Google Sheets`;
+}
+
+// ── DOWNLOAD CSV ──────────────────────────────────────
+function downloadCSV() {
+  const view = currentView;
+  const cols = buildCols(view);
+  const headers = cols.map(c => c.key === 'semana' ? 'Semana' : c.label);
+  const rows = tableData.map(row => {
+    const v = getRowValues(row, view);
+    return cols.map(c => {
+      if (c.key === 'semana') return `"${row.label}"`;
+      return v[c.key] ?? 0;
+    }).join(',');
+  });
+  const csv = '\uFEFF' + [headers.join(','), ...rows].join('\n');
+  const blob = new Blob([csv], {type:'text/csv;charset=utf-8;'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `funnelchat_onboarding_semanal_${new Date().toISOString().slice(0,10)}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+// ── VIEW SWITCH ───────────────────────────────────────
+function setView(v) { render(v); }
+
+// ── INIT ──────────────────────────────────────────────
+(async () => {
+  try {
+    document.getElementById('loadingText').textContent = 'Cargando datos desde Google Sheets...';
+    await loadAll();
+    document.getElementById('loadingState').style.display = 'none';
+    document.getElementById('mainContent').style.display = 'block';
+    tableData = calcWeeks();
+    render('pagas');
+  } catch(err) {
+    document.getElementById('loadingState').innerHTML = `
+      <div class="error-box">
+        <h3>Error al cargar</h3>
+        <p>${err.message}</p>
+        <button class="btn primary" onclick="location.reload()" style="margin-top:12px">↻ Reintentar</button>
+      </div>`;
+  }
+})();
+</script>
+</body>
+</html>
