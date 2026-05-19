@@ -354,6 +354,18 @@ function isPaga(r){const t=(r['trial']||'').toString().trim().toUpperCase();retu
 function isTrial(r){return!isPaga(r);}
 function getCA(r){return parseISO(r['created_at'])||parseISO(r['Fecha creación']);}
 function getOnbDate(r){return parseISO(r['Fecha registro'])||parseISO(r['Fecha estado onboarding'])||null;}
+function parseEmbDate(s){
+  if(!s)return null;
+  const str=s.toString().trim();
+  if(/^[0-9]{4}-/.test(str)){const d=new Date(str);return isNaN(d)?null:d;}
+  const mo={enero:0,febrero:1,marzo:2,abril:3,mayo:4,junio:5,julio:6,agosto:7,septiembre:8,octubre:9,noviembre:10,diciembre:11};
+  const lw=str.toLowerCase();
+  const m2=lw.match(/([a-záéíóú]+)\s+(\d{1,2}),\s+(\d{4})/);
+  if(m2){const mv=mo[m2[1]];if(mv!==undefined)return new Date(parseInt(m2[3]),mv,parseInt(m2[2]));}
+  const sl=str.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+  if(sl)return new Date(parseInt(sl[3]),parseInt(sl[2])-1,parseInt(sl[1]));
+  try{const d=new Date(str);return isNaN(d)?null:d;}catch{return null;}
+}
 function getMRR(r){
   const amt=parseFloat((r['payment_amount']||'0').toString().replace(/[^0-9.]/g,''))||0;
   const t=parseInt((r['payment_type']||'0').toString())||0;
@@ -859,19 +871,8 @@ function calcMonth(off){
       // Retención Embudos por flujo
       const embRetM={};
       ['Pago Atrasado','TRIAL SIN WA','TRIAL SIN FLOW','Cancelación'].forEach(f=>{
-        const embDateCol='fecha_asignacion_etiqueta';
-        const parseED=s=>{
-          if(!s)return null;
-          const str=s.toString().trim();
-          if(/^[0-9]{4}-/.test(str)){const d=new Date(str);return isNaN(d)?null:d;}
-          const mo={enero:0,febrero:1,marzo:2,abril:3,mayo:4,junio:5,julio:6,agosto:7,septiembre:8,octubre:9,noviembre:10,diciembre:11};
-          const lw=str.toLowerCase();
-          const parts=lw.match(/([a-záéíóú]+)\s+(\d{1,2}),\s+(\d{4})/);
-          if(parts){const mv=mo[parts[1]];if(mv!==undefined)return new Date(parseInt(parts[3]),mv,parseInt(parts[2]));}
-          try{const d=new Date(str);return isNaN(d)?null:d;}catch{return null;}
-        };
         const rows=RAW.embudos.filter(r=>(r['Flujo']||'').trim()===f);
-        const mesRows=rows.filter(r=>inRange(parseED(r[embDateCol]),mRange));
+        const mesRows=rows.filter(r=>inRange(parseEmbDate(r['fecha_asignacion_etiqueta']),mRange));
         const uids=new Set(mesRows.map(r=>(r['user_id']||'').toString().trim()).filter(Boolean));
         const vigN=[...uids].filter(uid=>acctMapH[uid]&&acctMapH[uid]['Vigencia del servicio']==='Vigente').length;
         embRetM[f]={
@@ -1136,22 +1137,7 @@ function render(m){
     const flujoNames=[...new Set(E.map(r=>(r['Flujo']||'').trim()))];
     console.log('[Embudos] flujos encontrados:', flujoNames);
 
-    const parseEmbDate=s=>{
-      if(!s)return null;
-      const str=s.toString().trim();
-      // Try ISO first (2026-04-01)
-      if(/^[0-9]{4}-/.test(str)){const d=new Date(str);return isNaN(d)?null:d;}
-      // Spanish: "abril 1, 2026, 4:22 a. m."
-      const mo={enero:0,febrero:1,marzo:2,abril:3,mayo:4,junio:5,julio:6,agosto:7,septiembre:8,octubre:9,noviembre:10,diciembre:11};
-      const lw=str.toLowerCase();
-      // Match word month + day + year
-      const parts=lw.match(/([a-záéíóú]+)\s+(\d{1,2}),\s+(\d{4})/);
-      if(parts){const mv=mo[parts[1]];if(mv!==undefined)return new Date(parseInt(parts[3]),mv,parseInt(parts[2]));}
-      // DD/MM/YYYY
-      const slashMatch=str.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
-      if(slashMatch)return new Date(parseInt(slashMatch[3]),parseInt(slashMatch[2])-1,parseInt(slashMatch[1]));
-      try{const d=new Date(str);return isNaN(d)?null:d;}catch{return null;}
-    };
+    // parseEmbDate is global
     const flujos=['Pago Atrasado','TRIAL SIN WA','TRIAL SIN FLOW','Cancelación'];
     const labels={'Pago Atrasado':'Atrasados','TRIAL SIN WA':'Trial sin WA','TRIAL SIN FLOW':'Trial sin Flow','Cancelación':'Cancelación'};
     const colors={'Pago Atrasado':'var(--orange)','TRIAL SIN WA':'var(--green2)','TRIAL SIN FLOW':'var(--blue)','Cancelación':'var(--red)'};
@@ -1615,19 +1601,21 @@ function renderHist6(m) {
 
     el3.innerHTML =
       buildH('Histórico 6 meses — Onboarding', 'var(--green2)', [
-        {label:'Nuevas pagas del mes', values:H.map(h=>h.newP),         inv:false, fmt:'n'},
-        {label:'ONB propuesto',        values:H.map(h=>h.onbProp),      inv:false, fmt:'n'},
-        {label:'Agendados',            values:H.map(h=>h.onbAgen),      inv:false, fmt:'n'},
-        {label:'Asistentes',           values:H.map(h=>h.onbAsist),     inv:false, fmt:'n'},
-        {label:'No show',              values:H.map(h=>h.onbNS),        inv:true,  fmt:'n'},
-        {label:'% Cobertura pagas',    values:H.map(h=>h.onbCob),       inv:false, fmt:'%'},
-        {label:'% Tasa asistencia',    values:H.map(h=>h.onbAsistTasa), inv:false, fmt:'%'},
-        {label:'Asistentes vigentes',  values:H.map(h=>h.onbRetVig),    inv:false, fmt:'n'},
-        {label:'% Retención asistentes', values:H.map(h=>h.onbRetPct),  inv:false, fmt:'%'},
+        {label:'Nuevas pagas del mes',   values:H.map(h=>h.newP),          inv:false, fmt:'n'},
+        {label:'ONB propuesto',          values:H.map(h=>h.onbProp),       inv:false, fmt:'n'},
+        {label:'Agendados',              values:H.map(h=>h.onbAgen),       inv:false, fmt:'n'},
+        {label:'Asistentes',             values:H.map(h=>h.onbAsist),      inv:false, fmt:'n'},
+        {label:'No show',                values:H.map(h=>h.onbNS),         inv:true,  fmt:'n'},
+        {label:'% No show',              values:H.map(h=>h.onbAgen>0?Math.round(h.onbNS/h.onbAgen*100):0), inv:true, fmt:'%'},
+        {label:'% Cobertura pagas',      values:H.map(h=>h.onbCob),        inv:false, fmt:'%'},
+        {label:'% Tasa asistencia',      values:H.map(h=>h.onbAsistTasa),  inv:false, fmt:'%'},
+        {label:'Asistentes vigentes',    values:H.map(h=>h.onbRetVig),     inv:false, fmt:'n'},
+        {label:'% Retención asistentes', values:H.map(h=>h.onbRetPct),     inv:false, fmt:'%'},
       ]) +
       buildH('Histórico 6 meses — Sesiones en vivo', 'var(--pink)', [
         {label:'Asistentes',             values:H.map(h=>h.sesAsist),  inv:false, fmt:'n'},
         {label:'Sesiones realizadas',    values:H.map(h=>h.sesSes),    inv:false, fmt:'n'},
+        {label:'Media asist./sesión',    values:H.map(h=>h.sesSes>0?Math.round(h.sesAsist/h.sesSes*10)/10:0), inv:false, fmt:'n'},
         {label:'% Retención asistentes', values:H.map(h=>h.sesRetPct), inv:false, fmt:'%'},
       ]) +
       embTablesHtml;
