@@ -114,8 +114,8 @@ td.editable input:focus{background:rgba(251,146,60,.1);border-radius:4px}
 
   <div class="note">
     <strong>ℹ</strong>
-    <span>Columnas <strong style="color:var(--teal)">teal</strong> = calculadas automáticamente desde el Sheet.
-    Columnas <strong style="color:var(--orange)">naranja</strong> = ingreso manual del KAM — se guardan en este navegador.
+    <span>Columnas <strong style="color:var(--teal)">teal</strong> = calculadas automáticamente (cuentas, cancelaciones, upgrades, downgrades desde payments).
+    Columnas <strong style="color:var(--orange)">naranja</strong> = ingreso manual del KAM (contactos, riesgo).
     Presiona <strong>Guardar</strong> después de completar.</span>
   </div>
 
@@ -136,11 +136,20 @@ td.editable input:focus{background:rgba(251,146,60,.1);border-radius:4px}
 const API_URL = 'https://script.google.com/macros/s/AKfycbwNp-Hnmi1imEggg6Qz7xRP_fR57ZvcQb9hFR2WUPn1c-BdsN23x2vrnlU5zY6Rydrlng/exec';
 const INICIO = new Date(2026, 3, 1);
 const KAMS = ['Nicolás','Natalia'];
-let RAW = { cuentas:[] };
+let RAW = { cuentas:[], payments:[] };
 let currentKam = 'todos';
 let tableData = [];
 
 // ── DATE HELPERS ──────────────────────────────────────
+function parseSpanishLong(s) {
+  // "octubre 1, 2024, 3:16 p. m." → Date
+  if (!s||!s.trim()) return null;
+  const mo={enero:0,febrero:1,marzo:2,abril:3,mayo:4,junio:5,julio:6,agosto:7,septiembre:8,octubre:9,noviembre:10,diciembre:11};
+  const m = s.toString().toLowerCase().match(/([a-záéíóú]+)\s+(\d{1,2}),\s+(\d{4})/);
+  if (m) { const mv=mo[m[1]]; if(mv!==undefined) return new Date(parseInt(m[3]),mv,parseInt(m[2])); }
+  return parseISO(s);
+}
+
 function parseISO(s) {
   if (!s||!s.trim()) return null;
   const d=new Date(s.toString().trim()); return isNaN(d)?null:d;
@@ -172,7 +181,8 @@ async function loadAll() {
   ]);
   if(!res.ok) throw new Error('HTTP '+res.status);
   const json = await res.json();
-  RAW.cuentas = (json.cuentas||[]).filter(r=>Object.keys(r).length>1);
+  RAW.cuentas  = (json.cuentas  ||[]).filter(r=>Object.keys(r).length>1);
+  RAW.payments = (json.payments ||[]).filter(r=>Object.keys(r).length>1);
   if(!RAW.cuentas.length) throw new Error('Hoja vacía');
 }
 
@@ -185,7 +195,7 @@ const LS_KEY = 'fch_kam_tracker_v1';
 function loadManual(){ try{ return JSON.parse(localStorage.getItem(LS_KEY)||'{}'); }catch{return {};} }
 function saveManual(data){ localStorage.setItem(LS_KEY,JSON.stringify(data)); }
 
-const MANUAL_COLS = ['contactos','contA','contB','contC','sinContacto','riesgoInterv','downgrades','upsells'];
+const MANUAL_COLS = ['contactos','contA','contB','contC','sinContacto','riesgoInterv'];
 
 function getManualVal(data, kam, wk, col){ return (data[kam]?.[wk]?.[col])||''; }
 function setManualVal(data, kam, wk, col, val){ if(!data[kam]) data[kam]={}; if(!data[kam][wk]) data[kam][wk]={}; data[kam][wk][col]=val; }
@@ -209,7 +219,39 @@ function calcWeeks() {
       const segB = vigentes.filter(rr => getSegmento(rr)==='B').length;
       const segC = vigentes.filter(rr => getSegmento(rr)==='C').length;
       const canceladas = accounts.filter(rr => rr['Vigencia del servicio']==='Cancelado' && inRange(cancelDate(rr),r)).length;
-      kamData[k] = { total:vigentes.length, segA, segB, segC, canceladas };
+
+      // Upgrades / Downgrades from payments table
+      // Build payment history per user (sorted by date)
+      const paysByUser = {};
+      RAW.payments.forEach(p => {
+        const uid = (p['User ID']||'').toString().trim();
+        if (!uid) return;
+        const d = parseSpanishLong(p['Date']) || parseISO(p['Date']);
+        const val = parseFloat((p['Plan Value']||'0').toString()) || 0;
+        const plan = (p['Plan Name']||'').trim();
+        if (!d) return;
+        if (!paysByUser[uid]) paysByUser[uid] = [];
+        paysByUser[uid].push({ d, val, plan });
+      });
+      // Sort each user's payments by date
+      Object.values(paysByUser).forEach(arr => arr.sort((a,b)=>a.d-b.d));
+
+      // For each account assigned to this KAM, check payments this week
+      let upgrades = 0, downgrades = 0;
+      accounts.forEach(acct => {
+        const uid = (acct['id']||'').toString().trim();
+        const userPays = paysByUser[uid];
+        if (!userPays || userPays.length < 2) return;
+        userPays.forEach((pay, i) => {
+          if (!inRange(pay.d, r)) return; // only count payments in this week
+          const prev = userPays[i-1];
+          if (!prev) return;
+          if (pay.val > prev.val) upgrades++;
+          else if (pay.val < prev.val && pay.val > 0) downgrades++;
+        });
+      });
+
+      kamData[k] = { total:vigentes.length, segA, segB, segC, canceladas, upgrades, downgrades };
     });
     return { mon, label:fmtWeek(mon), key:weekKey(mon), kamData };
   });
@@ -222,8 +264,7 @@ const GROUPS = [
   { label:'BASE ASIGNADA',  cls:'g-auto',   span:4 },
   { label:'CONTACTOS (manual)', cls:'g-manual', span:4 },
   { label:'RIESGO',         cls:'g-manual', span:2 },
-  { label:'RESULTADO',      cls:'g-result', span:2 },
-  { label:'CRECIMIENTO',    cls:'g-growth', span:1 },
+  { label:'RESULTADO',      cls:'g-result', span:3 },
 ];
 const COLS = [
   {label:'Semana',            key:'week',       cls:'',         auto:true },
@@ -270,10 +311,7 @@ function render(kamFilter) {
   const first = tableData[0];
   if(first) {
     const d = first.kamData[statKam]||{total:0,segA:0,segB:0,segC:0};
-    const totalUpsells = tableData.reduce((s,w)=>{
-      const v=getManualVal(manualData,statKam,w.key,'upsells');
-      return s+(parseInt(v)||0);
-    },0);
+    const totalUpsells = tableData.reduce((s,w)=>s+(w.kamData[statKam]?.upgrades||0),0);
     const totalCancels = tableData.reduce((s,w)=>s+(w.kamData[statKam]?.canceladas||0),0);
     document.getElementById('statsRow').innerHTML = [
       {label:'Cuentas asignadas hoy', val:d.total, color:'var(--teal)', sub:`Seg A:${d.segA} · B:${d.segB} · C:${d.segC}`},
@@ -359,8 +397,8 @@ function downloadCSV() {
         auto.total, auto.segA, auto.segB, auto.segC,
         ...MANUAL_COLS.map(c => getManualVal(manualData,kam,wk.key,c)||0),
         auto.canceladas,
-        getManualVal(manualData,kam,wk.key,'downgrades')||0,
-        getManualVal(manualData,kam,wk.key,'upsells')||0,
+        auto.downgrades||0,
+        auto.upsells||0,
       ];
       csvRows.push(row.join(','));
     });
