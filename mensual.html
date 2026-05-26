@@ -512,8 +512,8 @@ function calcMonth(off){
     data:Array.from({length:6},(_,i)=>{
       const r=getMonthRange(off-5+i);
       const base=C.filter(rr=>rr['Planes Funnelchat']===plan&&isPaga(rr));
-      const act=base.filter(rr=>r(r['Vigencia del servicio']||'').trim()!=='Cancelado').length;
-      const can=base.filter(rr=>r(r['Vigencia del servicio']||'').trim()==='Cancelado'&&inRange(cancelDate(rr),r)).length;
+      const act=base.filter(rr=>(rr['Vigencia del servicio']||'').trim()!=='Cancelado').length;
+      const can=base.filter(rr=>(rr['Vigencia del servicio']||'').trim()==='Cancelado'&&inRange(cancelDate(rr),r)).length;
       return act>0?Math.round(can/act*1000)/10:0;
     })
   }));
@@ -604,7 +604,7 @@ function calcMonth(off){
     for (let i = -2; i <= 0; i++) {
       const r = getMonthRange(off + i);
       const base = isTrialMode
-        ? C.filter(rr => r(r['Vigencia del servicio']||'').trim()==='Cancelado' && isTrial(rr) && inRange(cancelDate(rr),r))
+        ? C.filter(rr => (rr['Vigencia del servicio']||'').trim()==='Cancelado' && isTrial(rr) && inRange(cancelDate(rr),r))
         : canP.filter(rr => inRange(cancelDate(rr),r));
       const ranked = topN(base, key, 10);
       const posMap = {};
