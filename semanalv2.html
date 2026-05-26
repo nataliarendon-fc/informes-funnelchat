@@ -37,7 +37,7 @@ body{background:var(--navy);color:var(--text);font-family:'DM Sans',sans-serif;f
 
 /* LAYOUT */
 .main{padding:32px 44px 80px;max-width:1400px;margin:0 auto}
-.block{margin-bottom:44px;margin-top: 10px}
+.block{margin-bottom:44px}
 
 /* WEEK NAV */
 .week-nav{display:flex;align-items:center;gap:8px;margin-bottom:28px;flex-wrap:wrap}
@@ -365,8 +365,8 @@ let charts = {};
 function parseSpanishDate(str) {
   if (!str || str.trim() === '') return null;
   const m = str.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
-  if (!m) return null;
-  return new Date(parseInt(m[3]), parseInt(m[2])-1, parseInt(m[1]));
+  if (m) return new Date(parseInt(m[3]), parseInt(m[2])-1, parseInt(m[1]));
+  const d = new Date(str.trim()); return isNaN(d) ? null : d;
 }
 function parseISO(str) {
   // Handles multiple formats that come from Apps Script getDisplayValues()
@@ -531,13 +531,13 @@ function calc(weekOffset) {
   const S = RAW.sesiones;
 
   // Base segmentation
-  const vigentes        = C.filter(r => r['Vigencia del servicio'] === 'Vigente');
+  const vigentes        = C.filter(r => (r['Vigencia del servicio']||'').trim() === 'Vigente');
   const vigentes_pagas  = vigentes.filter(isPaga);
   const vigentes_trial  = vigentes.filter(isTrial);
-  const cancelados      = C.filter(r => r['Vigencia del servicio'] === 'Cancelado');
+  const cancelados      = C.filter(r => (r['Vigencia del servicio']||'').trim() === 'Cancelado');
   const cancel_pagas    = cancelados.filter(isPaga);
   const cancel_trial    = cancelados.filter(isTrial);
-  const atrasados       = C.filter(r => r['Vigencia del servicio'] === 'Atrasado');
+  const atrasados       = C.filter(r => (r['Vigencia del servicio']||'').trim() === 'Atrasado');
   const atrasados_pagas = atrasados.filter(isPaga);
   // Atrasadas de la semana: payment_till cae dentro del rango
   const atr_sem = atrasados_pagas.filter(r => {
@@ -1167,8 +1167,8 @@ function calc(weekOffset) {
 function calcChurnPlan(plan, range) {
   // Solo cuentas pagas
   const base = RAW.cuentas.filter(r => r['Planes Funnelchat'] === plan && isPaga(r));
-  const activos_inicio = base.filter(r => r['Vigencia del servicio'] !== 'Cancelado').length;
-  const cancels = base.filter(r => r['Vigencia del servicio'] === 'Cancelado' && inRange(cancelDate(r), range)).length;
+  const activos_inicio = base.filter(r => (r['Vigencia del servicio']||'').trim() !== 'Cancelado').length;
+  const cancels = base.filter(r => (r['Vigencia del servicio']||'').trim() === 'Cancelado' && inRange(cancelDate(r), range)).length;
   if (!activos_inicio) return 0;
   return Math.round((cancels / activos_inicio) * 100 * 10) / 10;
 }
@@ -1195,10 +1195,7 @@ function render(m) {
   const dTrial   = delta(m.nuevos_sem_trial, m.prev_trial);
   const dCancel  = delta(m.cancel_sem, m.prev_cancel, true);
   const dConv    = delta(m.convertidos_sem, m.prev_convertidos);
-  
-  // Helper: MRR label using real MRR / total vigentes ratio as proxy
-  const fmt$ = n => '$' + (n||0).toLocaleString('es-CO');
-  
+
   document.getElementById('pulsoGrid').innerHTML = `
     <div class="p-card c-green">
       <div class="p-label">Cuentas activas (pagas)</div>
@@ -1276,6 +1273,8 @@ function render(m) {
   });
 
   // ── Bloque 3: Riesgo ─────────────────────────────
+  // Helper: MRR label using real MRR / total vigentes ratio as proxy
+  const fmt$ = n => '$' + (n||0).toLocaleString('es-CO');
   const riskCards = [
     {icon:'📵', key:'sinWa',     sem:m.sin_wa_sem,     tot:m.sin_wa,      mrrS:m.mrr_sin_wa_sem,     mrrT:m.mrr_sin_wa_tot,     label:'Sin WA conectado',   sub:'sin API ni Business',   cls:''},
     {icon:'⚡', key:'sinFlow',   sem:m.sin_flow_sem,   tot:m.sin_flow,    mrrS:m.mrr_sin_flow_sem,   mrrT:m.mrr_sin_flow_tot,   label:'Sin flow activo',    sub:'sin automatización',    cls:''},
