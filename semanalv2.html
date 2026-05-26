@@ -1176,6 +1176,7 @@ function calcChurnPlan(plan, range) {
 // ══════════════════════════════════════════════════════
 // RENDER
 // ══════════════════════════════════════════════════════
+  const fmt$ = n => '$' + (n||0).toLocaleString('es-CO');
 function render(m) {
   // Header period
   document.getElementById('hdrPeriod').textContent =
@@ -1274,7 +1275,6 @@ function render(m) {
 
   // ── Bloque 3: Riesgo ─────────────────────────────
   // Helper: MRR label using real MRR / total vigentes ratio as proxy
-  const fmt$ = n => '$' + (n||0).toLocaleString('es-CO');
   const riskCards = [
     {icon:'📵', key:'sinWa',     sem:m.sin_wa_sem,     tot:m.sin_wa,      mrrS:m.mrr_sin_wa_sem,     mrrT:m.mrr_sin_wa_tot,     label:'Sin WA conectado',   sub:'sin API ni Business',   cls:''},
     {icon:'⚡', key:'sinFlow',   sem:m.sin_flow_sem,   tot:m.sin_flow,    mrrS:m.mrr_sin_flow_sem,   mrrT:m.mrr_sin_flow_tot,   label:'Sin flow activo',    sub:'sin automatización',    cls:''},
