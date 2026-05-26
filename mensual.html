@@ -221,7 +221,10 @@ body{background:var(--navy);color:var(--text);font-family:'DM Sans',sans-serif;f
         <div id="nichoMes"></div>
       </div>
       <div class="card">
-        <div class="chart-title" style="margin-bottom:4px;font-size:12px">Objetivo declarado</div>
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
+          <div class="chart-title" style="font-size:12px;margin-bottom:0">Objetivo declarado</div>
+          <button onclick="openGruposModal()" style="font-size:9px;font-weight:700;padding:3px 10px;border-radius:6px;border:1px solid rgba(45,212,191,.3);background:rgba(45,212,191,.07);color:var(--teal);cursor:pointer;font-family:'DM Sans',sans-serif">🔍 Uso real grupos</button>
+        </div>
         <div style="font-size:10px;color:var(--muted);margin-bottom:8px">% este mes vs % acumulado histórico</div>
         <div id="objetivoMes"></div>
       </div>
@@ -419,21 +422,8 @@ async function loadAll(){
   });
   const json=await Promise.race([fetchData,timeout]);
   RAW.cuentas=(json.cuentas||[]).filter(r=>Object.keys(r).length>1);
-  // Debug: log unique Vigencia values to console
-  const vigValues = [...new Set(RAW.cuentas.map(r=>JSON.stringify(r['Vigencia del servicio']||'')))];
-  console.log('[CX] Vigencia values:', vigValues);
-  console.log('[CX] Total cuentas:', RAW.cuentas.length);
-  const _canP=RAW.cuentas.filter(r=>(r['Vigencia del servicio']||'').trim()==='Cancelado');
-  console.log('[CX] Canceladas:', _canP.length);
-  console.log('[CX] Atrasadas:', RAW.cuentas.filter(r=>(r['Vigencia del servicio']||'').trim()==='Atrasado').length);
-  // Debug payment_till format
-  const _sample=_canP.slice(0,5).map(r=>r['payment_till']);
-  console.log('[CX] payment_till samples:', _sample);
-  console.log('[CX] cancelDate samples:', _sample.map(pt=>{
-    const r={payment_till:pt};
-    const d=parseSpDate(pt)||parseISO(pt);
-    return {raw:pt, parsed:d?d.toISOString().slice(0,10):'NULL'};
-  }));
+
+
   RAW.onboarding=(json.onboarding||[]).filter(r=>Object.keys(r).length>0);
   RAW.sesiones=(json.sesiones||[]).filter(r=>Object.keys(r).length>0);
   RAW.embudos=(json.embudos||[]).filter(r=>Object.keys(r).length>0);
@@ -485,6 +475,7 @@ function calcMonth(off){
   const mrrConv=Math.round(convMes.reduce((s,r)=>s+getMRR(r),0));
 
   const prevR=getMonthRange(off-1);
+  const prevCancelMesArr=canP.filter(r=>inRange(cancelDate(r),prevR));
   const prevNuevos=C.filter(r=>inRange(getCA(r),prevR)&&isPaga(r)).length;
   const prevCancel=canP.filter(r=>inRange(cancelDate(r),prevR)).length;
   const prevConv=C.filter(r=>{
@@ -808,7 +799,9 @@ function calcMonth(off){
     range, ahaStats:ahaStatsData, ahaStatsMes,
     vigP:vigP.length,vigT:vigT.length,activasInicioMes,
     nuevosMesP:nuevosMesP.length,nuevosMesT:nuevosMesT.length,
-    cancelMes:cancelMes.length,convMes:convMes.length,atrP:atrP.length,
+    cancelMes:cancelMes.length,convMes:convMes.length,
+    cancelMesArr:cancelMes,cancelMesTrial:cancelMesTrial,
+    prevCancelMesArr:prevCancelMesArr,atrP:atrP.length,
     mrrActivo,mrrRiesgo,mrrNuevo,mrrPerdido,mrrConv,
     retNeta:nuevosMesP.length-cancelMes.length,
     prevNuevos,prevCancel,prevConv,
@@ -1483,6 +1476,123 @@ function renderPerfilTable() {
   <div style="font-size:10px;color:var(--muted);margin-top:8px">% calculado sobre el total de cancelados pagas del mes · verde = mejora (baja) · rojo = empeora (sube)</div>`;
 }
 
+function openGruposModal() {
+  const m = window._mesMet;
+  if (!m) return;
+  document.getElementById('gruposModal').style.display = 'block';
+
+  const TARGET = 'Optimizar la gestión de grupos / comunidades';
+  const isP = window._quienesMesMode !== 'trial';
+  const pool = isP ? (m.cancelMesArr||[]) : (m.cancelMesTrial||[]);
+
+  // Filter to target objective
+  const targetCanc = pool.filter(r =>
+    (r['Objetivo con Funnelchat']||'').trim() === TARGET
+  );
+
+  if (!targetCanc.length) {
+    document.getElementById('gruposModalContent').innerHTML =
+      `<div style="color:var(--muted);font-size:12px;padding:20px 0">No hay cancelados con ese objetivo en el mes seleccionado (${m.label}).</div>`;
+    return;
+  }
+
+  const sinFlow  = v => (v===''||v==='0');
+  const usaGrupos = r => {
+    const v = (r['Usa grupos?']||r['Usa Grupos?']||r['Usa grupos']||'').toString().trim();
+    return !sinFlow(v);
+  };
+
+  const conGrupos = targetCanc.filter(usaGrupos);
+  const sinGrupos = targetCanc.filter(r => !usaGrupos(r));
+  const pctCon    = Math.round(conGrupos.length / targetCanc.length * 100);
+  const pctSin    = 100 - pctCon;
+
+  // Breakdown by plan
+  const planes = ['Plan Starter','Plan Growth','Plan Advanced','Advanced Personalizado'];
+  const planRows = planes.map(p => {
+    const enP = targetCanc.filter(r => (r['Planes Funnelchat']||'').trim() === p);
+    if (!enP.length) return null;
+    const usaron = enP.filter(usaGrupos).length;
+    return { plan:p, total:enP.length, usaron, pct:Math.round(usaron/enP.length*100) };
+  }).filter(Boolean);
+
+  // Prev month comparison
+  const prevPool = isP ? (m.prevCancelMesArr||[]) : [];
+  const prevTarget = prevPool.filter(r => (r['Objetivo con Funnelchat']||'').trim() === TARGET);
+  const prevCon = prevTarget.filter(usaGrupos).length;
+  const prevPct = prevTarget.length > 0 ? Math.round(prevCon/prevTarget.length*100) : null;
+
+  const bar = (pct, color) =>
+    `<div style="height:8px;border-radius:4px;background:rgba(255,255,255,.06);overflow:hidden;margin-top:4px">
+      <div style="width:${pct}%;height:100%;background:${color};border-radius:4px"></div>
+    </div>`;
+
+  const planTable = planRows.map(r =>
+    `<tr style="border-bottom:1px solid rgba(255,255,255,.05)">
+      <td style="padding:7px 10px;font-size:11px;color:var(--muted)">${r.plan}</td>
+      <td style="padding:7px 10px;text-align:center;font-size:11px">${r.total}</td>
+      <td style="padding:7px 10px;text-align:center;font-size:11px;color:var(--teal)">${r.usaron}</td>
+      <td style="padding:7px 10px;text-align:center;font-size:11px">
+        <span style="font-weight:700;color:${r.pct>=50?'var(--teal)':'var(--red)'}">${r.pct}%</span>
+      </td>
+    </tr>`
+  ).join('');
+
+  document.getElementById('gruposModalContent').innerHTML = `
+    <!-- KPIs -->
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:22px">
+      <div style="background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.07);border-radius:10px;padding:14px">
+        <div style="font-size:9px;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);margin-bottom:6px">Cancelados con ese objetivo</div>
+        <div style="font-family:'Syne',sans-serif;font-size:26px;font-weight:800;color:#fff">${targetCanc.length}</div>
+        ${prevTarget.length ? `<div style="font-size:10px;color:var(--muted);margin-top:4px">Mes anterior: ${prevTarget.length}</div>` : ''}
+      </div>
+      <div style="background:rgba(45,212,191,.06);border:1px solid rgba(45,212,191,.15);border-radius:10px;padding:14px">
+        <div style="font-size:9px;text-transform:uppercase;letter-spacing:.1em;color:var(--teal);margin-bottom:6px">Sí usaron grupos</div>
+        <div style="font-family:'Syne',sans-serif;font-size:26px;font-weight:800;color:var(--teal)">${conGrupos.length}</div>
+        <div style="font-size:10px;color:var(--muted);margin-top:4px">${pctCon}% del segmento${prevPct!==null?` · prev: ${prevPct}%`:''}</div>
+        ${bar(pctCon,'var(--teal)')}
+      </div>
+      <div style="background:rgba(248,113,113,.06);border:1px solid rgba(248,113,113,.15);border-radius:10px;padding:14px">
+        <div style="font-size:9px;text-transform:uppercase;letter-spacing:.1em;color:var(--red);margin-bottom:6px">No usaron grupos</div>
+        <div style="font-family:'Syne',sans-serif;font-size:26px;font-weight:800;color:var(--red)">${sinGrupos.length}</div>
+        <div style="font-size:10px;color:var(--muted);margin-top:4px">${pctSin}% del segmento</div>
+        ${bar(pctSin,'var(--red)')}
+      </div>
+    </div>
+
+    <!-- Insight -->
+    <div style="background:rgba(251,146,60,.06);border:1px solid rgba(251,146,60,.15);border-radius:8px;padding:12px 16px;margin-bottom:20px;font-size:11px;color:#cbd5e1;line-height:1.7">
+      ${pctSin >= 60
+        ? `⚠️ <strong style="color:var(--orange)">${pctSin}%</strong> canceló queriendo usar grupos pero <strong>nunca los activó</strong> — señal de fricción en adopción o desconocimiento de la funcionalidad.`
+        : pctCon >= 60
+        ? `💡 <strong style="color:var(--teal)">${pctCon}%</strong> sí usó grupos antes de cancelar — la funcionalidad llegó pero no retuvo. Revisar si el problema es de valor percibido o expectativas no cumplidas.`
+        : `📊 Distribución pareja: ${pctCon}% usó grupos, ${pctSin}% no. Analizar ambos subgrupos por separado.`}
+    </div>
+
+    <!-- Plan breakdown -->
+    ${planRows.length ? `
+    <div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:8px">Desglose por plan</div>
+    <div style="border:1px solid rgba(255,255,255,.07);border-radius:10px;overflow:hidden">
+      <table style="width:100%;border-collapse:collapse">
+        <thead><tr style="background:rgba(255,255,255,.03)">
+          <th style="padding:7px 10px;font-size:10px;font-weight:600;color:var(--muted);text-align:left">Plan</th>
+          <th style="padding:7px 10px;font-size:10px;font-weight:600;color:var(--muted);text-align:center">Total</th>
+          <th style="padding:7px 10px;font-size:10px;font-weight:600;color:var(--teal);text-align:center">Usaron grupos</th>
+          <th style="padding:7px 10px;font-size:10px;font-weight:600;color:var(--muted);text-align:center">%</th>
+        </tr></thead>
+        <tbody>${planTable}</tbody>
+      </table>
+    </div>` : ''}
+
+    <div style="font-size:9px;color:var(--muted);margin-top:14px">
+      Vista: ${isP?'Pagas':'Trial'} · Mes: ${m.label} · Columna evaluada: Usa grupos / Usa grupos?
+    </div>`;
+}
+
+function closeGruposModal() {
+  document.getElementById('gruposModal').style.display = 'none';
+}
+
 function renderQuienesMes(mode) {
   const m = window._mesMet;
   if (!m) return;
@@ -1895,5 +2005,19 @@ function buildMonthNav(){
   }
 })();
 </script>
+<!-- MODAL: Uso real de grupos en cancelados por objetivo -->
+<div id="gruposModal" style="display:none;position:fixed;inset:0;z-index:1000;background:rgba(0,0,0,.65);backdrop-filter:blur(4px)" onclick="if(event.target===this)closeGruposModal()">
+  <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:min(680px,95vw);max-height:85vh;overflow-y:auto;background:#131e35;border:1px solid rgba(255,255,255,.1);border-radius:16px;padding:28px 32px">
+    <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:20px">
+      <div>
+        <div style="font-family:'Syne',sans-serif;font-size:16px;font-weight:800;color:#fff">🔍 Uso real de Grupos en cancelados</div>
+        <div style="font-size:11px;color:var(--muted);margin-top:4px">Objetivo declarado: "Optimizar la gestión de grupos / comunidades"</div>
+      </div>
+      <button onclick="closeGruposModal()" style="background:rgba(255,255,255,.06);border:none;color:var(--muted);font-size:18px;cursor:pointer;border-radius:6px;padding:4px 10px;line-height:1">✕</button>
+    </div>
+    <div id="gruposModalContent">cargando...</div>
+  </div>
+</div>
+
 </body>
 </html>
