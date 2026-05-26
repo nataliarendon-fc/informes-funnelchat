@@ -853,7 +853,7 @@ function calcMonth(off){
       const canM  = canP.filter(r=>inRange(cancelDate(r),mRange));
       const atrM  = C.filter(r=>{
         if(r['Vigencia del servicio']!=='Atrasado'||!isPaga(r))return false;
-        const pt=parseISO(r['payment_till'])||parseSpanishDate(r['payment_till']);
+        const pt=parseISO(r['payment_till'])||parseSpDate(r['payment_till']);
         return pt&&inRange(pt,mRange);
       });
       const vigIni = C.filter(r=>{
@@ -891,7 +891,7 @@ function calcMonth(off){
       // Sesiones
       const sesM = (() => {
         const sesRows = RAW.sesiones.filter(r=>{
-          const d=parseISO(r['FECHA ATENCIÓN'])||parseSpanishDate(r['FECHA ATENCIÓN']);
+          const d=parseISO(r['FECHA ATENCIÓN'])||parseSpDate(r['FECHA ATENCIÓN']);
           return d&&inRange(d,mRange);
         });
         const asist = sesRows.filter(r=>r['Asistio?']==='1'||r['Asistio?']===1).length;
