@@ -484,6 +484,20 @@ function isPaga(r) {
   return t !== 'TRUE' && t !== '1' && t !== 'SI' && t !== 'SÍ';
 }
 function isTrial(r) { return !isPaga(r); }
+// ── AHA / TTV helpers ────────────────────────────────
+function getTTV(r, ahaCol) {
+  const ca  = parseISO(r['created_at']) || parseISO(r['Fecha creación']);
+  const aha = parseISO(r[ahaCol]);
+  if (!ca || !aha || aha < ca) return null;
+  return Math.round((aha - ca) / 86400000);
+}
+function ahaStats(arr, ahaCol) {
+  const vals = arr.map(r => getTTV(r, ahaCol)).filter(v => v !== null && v >= 0);
+  if (!vals.length) return { avg: null, n: 0, pct: 0, total: arr.length };
+  const avg = Math.round(vals.reduce((a,b) => a+b, 0) / vals.length);
+  return { avg, n: vals.length, pct: Math.round(vals.length/arr.length*100), total: arr.length };
+}
+
 function getMonthlyMRR(r) {
   const rawAmt = (r['payment_amount'] !== undefined && r['payment_amount'] !== null)
     ? r['payment_amount'].toString().trim() : '0';
@@ -577,8 +591,8 @@ function calc(weekOffset) {
   const mrr_riesgo = atrasados_pagas.reduce((s,r) => s + getMonthlyMRR(r), 0);
 
   // Risk signals (vigentes pagas only) — total acumulado
-  const sin_flow    = vigentes_pagas.filter(r => r['Usa flows']==='0' || r['Usa flows']===0);
-  const sin_grupos  = vigentes_pagas.filter(r => r['Usa grupos?']==='0' || r['Usa grupos?']===0);
+  const sin_flow    = vigentes_pagas.filter(r => (v=>v===''||v==='0')((r['Usa flows']||'').toString().trim()));
+  const sin_grupos  = vigentes_pagas.filter(r => (v=>v===''||v==='0')((r['Usa grupos?']||'').toString().trim()));
   const sin_wa      = vigentes_pagas.filter(r => (r['Usa API?']||'')!=='Sí'&&(r['Usa Business?']||'')!=='Sí');
   const sin_login   = vigentes_pagas.filter(r => { const ll=parseISO(r['last_login_at']); return !ll || (new Date()-ll)/86400000>14; });
   const sin_onb_vig = vigentes_pagas.filter(r => r['Onboarding']==='Sin onboarding');
@@ -604,8 +618,8 @@ function calc(weekOffset) {
   // Risk signals — SEMANA (cuentas creadas esta semana con señal de riesgo)
   const nuevos_vig_sem = vigentes_pagas.filter(r => inRange(getCreatedAt(r), range));
   const sin_wa_sem     = nuevos_vig_sem.filter(r => (r['Usa API?']||'')!=='Sí'&&(r['Usa Business?']||'')!=='Sí');
-  const sin_flow_sem   = nuevos_vig_sem.filter(r => r['Usa flows']==='0' || r['Usa flows']===0);
-  const sin_grupos_sem = nuevos_vig_sem.filter(r => r['Usa grupos?']==='0' || r['Usa grupos?']===0);
+  const sin_flow_sem   = nuevos_vig_sem.filter(r => (v=>v===''||v==='0')((r['Usa flows']||'').toString().trim()));
+  const sin_grupos_sem = nuevos_vig_sem.filter(r => (v=>v===''||v==='0')((r['Usa grupos?']||'').toString().trim()));
   // sin_login semanal: cuentas cuyo last_login cayó en la ventana de 14-21 días (se volvieron inactivas esta semana)
   const sin_login_sem  = vigentes_pagas.filter(r => {
     const ll = parseISO(r['last_login_at']);
@@ -621,18 +635,18 @@ function calc(weekOffset) {
   // Hallazgos pagas
   const canP = cancel_pagas.length || 1;
   const cp_sin_onb    = cancel_pagas.filter(r => r['Onboarding']==='Sin onboarding').length;
-  const cp_sin_flow   = cancel_pagas.filter(r => r['Usa flows']==='0'||r['Usa flows']===0).length;
+  const cp_sin_flow   = cancel_pagas.filter(r => (v=>v===''||v==='0')((r['Usa flows']||'').toString().trim())).length;
   const cp_sin_wa     = cancel_pagas.filter(r => (r['Usa API?']||'')!=='Sí'&&(r['Usa Business?']||'')!=='Sí').length;
   const cp_sin_ses    = cancel_pagas.filter(r => r['Sesiones en vivo']==='No asistió').length;
   const cp_sin_trial  = cancel_pagas.filter(r => (r['flow trial']||'').includes('No pasó')).length;
-  const cp_sin_grupos = cancel_pagas.filter(r => r['Usa grupos?']==='0'||r['Usa grupos?']===0).length;
+  const cp_sin_grupos = cancel_pagas.filter(r => (v=>v===''||v==='0')((r['Usa grupos?']||'').toString().trim())).length;
 
   // Hallazgos trial
   const canT = cancel_trial.length || 1;
   const ct_sin_onb    = cancel_trial.filter(r => r['Onboarding']==='Sin onboarding').length;
-  const ct_sin_flow   = cancel_trial.filter(r => r['Usa flows']==='0'||r['Usa flows']===0).length;
+  const ct_sin_flow   = cancel_trial.filter(r => (v=>v===''||v==='0')((r['Usa flows']||'').toString().trim())).length;
   const ct_sin_wa     = cancel_trial.filter(r => (r['Usa API?']||'')!=='Sí'&&(r['Usa Business?']||'')!=='Sí').length;
-  const ct_sin_grupos = cancel_trial.filter(r => r['Usa grupos?']==='0'||r['Usa grupos?']===0).length;
+  const ct_sin_grupos = cancel_trial.filter(r => (v=>v===''||v==='0')((r['Usa grupos?']||'').toString().trim())).length;
 
   // LT (días) — pagas only
   const parseLT = r => { const v = parseFloat((r['LT']||'0').toString()); return isNaN(v) ? 0 : v; };
@@ -796,18 +810,18 @@ function calc(weekOffset) {
   // Week hallazgos (pagas)
   const canSP = cancel_sem_pagas.length || 1;
   const wcp_sin_onb    = cancel_sem_pagas.filter(r => r['Onboarding']==='Sin onboarding').length;
-  const wcp_sin_flow   = cancel_sem_pagas.filter(r => r['Usa flows']==='0'||r['Usa flows']===0).length;
+  const wcp_sin_flow   = cancel_sem_pagas.filter(r => (v=>v===''||v==='0')((r['Usa flows']||'').toString().trim())).length;
   const wcp_sin_wa     = cancel_sem_pagas.filter(r => (r['Usa API?']||'')!=='Sí'&&(r['Usa Business?']||'')!=='Sí').length;
   const wcp_sin_ses    = cancel_sem_pagas.filter(r => r['Sesiones en vivo']==='No asistió').length;
   const wcp_sin_trial  = cancel_sem_pagas.filter(r => (r['flow trial']||'').includes('No pasó')).length;
-  const wcp_sin_grupos = cancel_sem_pagas.filter(r => r['Usa grupos?']==='0'||r['Usa grupos?']===0).length;
+  const wcp_sin_grupos = cancel_sem_pagas.filter(r => (v=>v===''||v==='0')((r['Usa grupos?']||'').toString().trim())).length;
 
   // Week hallazgos (trial)
   const canST = cancel_sem_trial.length || 1;
   const wct_sin_onb    = cancel_sem_trial.filter(r => r['Onboarding']==='Sin onboarding').length;
-  const wct_sin_flow   = cancel_sem_trial.filter(r => r['Usa flows']==='0'||r['Usa flows']===0).length;
+  const wct_sin_flow   = cancel_sem_trial.filter(r => (v=>v===''||v==='0')((r['Usa flows']||'').toString().trim())).length;
   const wct_sin_wa     = cancel_sem_trial.filter(r => (r['Usa API?']||'')!=='Sí'&&(r['Usa Business?']||'')!=='Sí').length;
-  const wct_sin_grupos = cancel_sem_trial.filter(r => r['Usa grupos?']==='0'||r['Usa grupos?']===0).length;
+  const wct_sin_grupos = cancel_sem_trial.filter(r => (v=>v===''||v==='0')((r['Usa grupos?']||'').toString().trim())).length;
 
   // Nicho / objetivo / experiencia — semana vs promedio 6 meses
   const nicho_cancel_pagas    = topN(cancel_sem_pagas, 'Tipo de negocio');
@@ -995,6 +1009,15 @@ function calc(weekOffset) {
     trend, mrr_activo: Math.round(mrr_activo), mrr_riesgo: Math.round(mrr_riesgo),
     mrr_protegido_sem, pct_ret_con_onb, pct_ret_sin_onb, ret_diff: Math.round(ret_diff*100),
     onbImpact12, onbImpact_ses12, embImpact12,
+    ahaStats: (() => {
+      const conOnb12 = C12.filter(r => r['Onboarding']==='Con onboarding' && isPaga(r));
+      const sinOnb12 = C12.filter(r => r['Onboarding']==='Sin onboarding' && isPaga(r));
+      return {
+        wa:     { con: ahaStats(conOnb12,'AHA WA'),     sin: ahaStats(sinOnb12,'AHA WA')     },
+        flows:  { con: ahaStats(conOnb12,'AHA flows'),  sin: ahaStats(sinOnb12,'AHA flows')  },
+        grupos: { con: ahaStats(conOnb12,'AHA grupos'), sin: ahaStats(sinOnb12,'AHA grupos') },
+      };
+    })(),
     onb_propuestas, onb_agendados, onb_asistio, onb_noshow, onb_noshow_real,
     // 4-week trend for acciones table
     trend4: (() => {
@@ -1084,15 +1107,15 @@ function calc(weekOffset) {
         const canW = cancel_pagas.filter(rr => inRange(cancelDate(rr),r));
         const canWN = canW.length || 1;
         const pSinOnb   = Math.round(canW.filter(rr=>rr['Onboarding']==='Sin onboarding').length/canWN*100);
-        const pSinFlow  = Math.round(canW.filter(rr=>rr['Usa flows']==='0'||rr['Usa flows']===0).length/canWN*100);
+        const pSinFlow  = Math.round(canW.filter(rr=>(v=>v===''||v==='0')((rr['Usa flows']||'').toString().trim())).length/canWN*100);
         const pSinWA    = Math.round(canW.filter(rr=>(rr['Usa API?']||'')!=='Sí'&&(rr['Usa Business?']||'')!=='Sí').length/canWN*100);
-        const pSinGrupo = Math.round(canW.filter(rr=>rr['Usa grupos?']==='0'||rr['Usa grupos?']===0).length/canWN*100);
+        const pSinGrupo = Math.round(canW.filter(rr=>(v=>v===''||v==='0')((rr['Usa grupos?']||'').toString().trim())).length/canWN*100);
 
         // Section 3 — Riesgo: nuevas cuentas de la semana con señal de riesgo
         const newVP = C.filter(rr => inRange(getCreatedAt(rr),r) && isPaga(rr) && rr['Vigencia del servicio']==='Vigente');
         const rSinWA    = newVP.filter(rr=>(rr['Usa API?']||'')!=='Sí'&&(rr['Usa Business?']||'')!=='Sí').length;
-        const rSinFlow  = newVP.filter(rr=>rr['Usa flows']==='0'||rr['Usa flows']===0).length;
-        const rSinGrp   = newVP.filter(rr=>rr['Usa grupos?']==='0'||rr['Usa grupos?']===0).length;
+        const rSinFlow  = newVP.filter(rr=>(v=>v===''||v==='0')((rr['Usa flows']||'').toString().trim())).length;
+        const rSinGrp   = newVP.filter(rr=>(v=>v===''||v==='0')((rr['Usa grupos?']||'').toString().trim())).length;
         const rSinLogin = newVP.filter(rr=>{const ll=parseISO(rr['last_login_at']);return!ll||(new Date()-ll)/86400000>14;}).length;
         const rSinOnb   = newVP.filter(rr=>rr['Onboarding']==='Sin onboarding').length;
         const rNewTotal = newVP.length;
@@ -1372,7 +1395,7 @@ function render(m) {
           <div style="font-size:9px;color:var(--muted);margin-top:2px">Propuestas mes: ${m.onb_propuestas_mes}</div>
         </div>
       </td>
-      <td style="color:var(--muted);font-size:11px">${ltv_note}<br>Conversión agenda→asistencia: ${onb_conv_rate}%${onbImpHtml}</td>
+      <td style="color:var(--muted);font-size:11px">${ltv_note}<br>Conversión agenda→asistencia: ${onb_conv_rate}%${onbImpHtml}${ahaTable(m.ahaStats)}</td>
     </tr>
     <tr>
       <td><span class="tag t-ses">Sesión vivo</span></td>
@@ -1485,6 +1508,49 @@ function render(m) {
 // ══════════════════════════════════════════════════════
 // IMPACT TABLE HELPER
 // ══════════════════════════════════════════════════════
+function ahaTable(stats) {
+  if (!stats) return '';
+  const hitos = [
+    { key:'wa',     label:'Conectar WhatsApp',   color:'var(--green2)' },
+    { key:'flows',  label:'Activar primer flow',  color:'var(--blue)'   },
+    { key:'grupos', label:'Crear primer grupo',   color:'var(--purple)' },
+  ];
+  const rows = hitos.map(h => {
+    const con = stats[h.key]?.con;
+    const sin = stats[h.key]?.sin;
+    const conAvg = con?.avg ?? null;
+    const sinAvg = sin?.avg ?? null;
+    const diff = (conAvg !== null && sinAvg !== null) ? sinAvg - conAvg : null;
+    const faster = diff !== null && diff > 0;
+    return `<tr>
+      <td style="padding:5px 10px;font-size:11px;color:var(--muted);border-bottom:1px solid var(--border);white-space:nowrap">${h.label}</td>
+      <td style="padding:5px 8px;text-align:center;border-bottom:1px solid var(--border)">
+        ${conAvg!==null?`<span style="font-weight:700;font-size:12px;color:${h.color}">${conAvg}d</span> <span style="font-size:9px;color:var(--muted)">${con.pct}%</span>`:'<span style="color:var(--muted);font-size:10px">—</span>'}
+      </td>
+      <td style="padding:5px 8px;text-align:center;border-bottom:1px solid var(--border)">
+        ${sinAvg!==null?`<span style="font-weight:700;font-size:12px;color:var(--muted)">${sinAvg}d</span> <span style="font-size:9px;color:var(--muted)">${sin.pct}%</span>`:'<span style="color:var(--muted);font-size:10px">—</span>'}
+      </td>
+      <td style="padding:5px 8px;text-align:center;border-bottom:1px solid var(--border)">
+        ${diff!==null?`<span style="font-size:11px;font-weight:700;color:${faster?'var(--green2)':'var(--red)'}">${faster?'▲':'▼'}${Math.abs(diff)}d</span>`:'—'}
+      </td>
+    </tr>`;
+  }).join('');
+  return `<div style="background:rgba(255,255,255,.02);border:1px solid var(--border);border-radius:8px;overflow:hidden;margin-top:8px">
+    <div style="background:rgba(74,222,128,.06);border-bottom:1px solid var(--border);padding:6px 10px">
+      <span style="font-size:9px;font-weight:700;color:var(--muted);letter-spacing:.06em;text-transform:uppercase">Tiempo al hito (AHA) · con ONB vs sin ONB · últimos 12m</span>
+    </div>
+    <table style="width:100%;border-collapse:collapse">
+      <thead><tr>
+        <th style="padding:5px 10px;font-size:9px;color:var(--muted);text-align:left;border-bottom:1px solid var(--border)">Hito</th>
+        <th style="padding:5px 8px;font-size:9px;color:var(--green2);text-align:center;border-bottom:1px solid var(--border)">Con ONB</th>
+        <th style="padding:5px 8px;font-size:9px;color:var(--muted);text-align:center;border-bottom:1px solid var(--border)">Sin ONB</th>
+        <th style="padding:5px 8px;font-size:9px;color:var(--muted);text-align:center;border-bottom:1px solid var(--border)">Dif.</th>
+      </tr></thead>
+      <tbody>${rows}</tbody>
+    </table>
+  </div>`;
+}
+
 function impactTable(title, labelA, labelB, data, color) {
   if (!data || (!data.conN && !data.sinN)) return '';
   const metrics = [
