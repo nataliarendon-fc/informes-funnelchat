@@ -423,8 +423,17 @@ async function loadAll(){
   const vigValues = [...new Set(RAW.cuentas.map(r=>JSON.stringify(r['Vigencia del servicio']||'')))];
   console.log('[CX] Vigencia values:', vigValues);
   console.log('[CX] Total cuentas:', RAW.cuentas.length);
-  console.log('[CX] Canceladas:', RAW.cuentas.filter(r=>(r['Vigencia del servicio']||'').trim()==='Cancelado').length);
+  const _canP=RAW.cuentas.filter(r=>(r['Vigencia del servicio']||'').trim()==='Cancelado');
+  console.log('[CX] Canceladas:', _canP.length);
   console.log('[CX] Atrasadas:', RAW.cuentas.filter(r=>(r['Vigencia del servicio']||'').trim()==='Atrasado').length);
+  // Debug payment_till format
+  const _sample=_canP.slice(0,5).map(r=>r['payment_till']);
+  console.log('[CX] payment_till samples:', _sample);
+  console.log('[CX] cancelDate samples:', _sample.map(pt=>{
+    const r={payment_till:pt};
+    const d=parseSpDate(pt)||parseISO(pt);
+    return {raw:pt, parsed:d?d.toISOString().slice(0,10):'NULL'};
+  }));
   RAW.onboarding=(json.onboarding||[]).filter(r=>Object.keys(r).length>0);
   RAW.sesiones=(json.sesiones||[]).filter(r=>Object.keys(r).length>0);
   RAW.embudos=(json.embudos||[]).filter(r=>Object.keys(r).length>0);
