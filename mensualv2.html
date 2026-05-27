@@ -340,6 +340,14 @@ function parseISO(s){
   if(m){const d=new Date(parseInt(m[3]),parseInt(m[2])-1,parseInt(m[1]));return isNaN(d)?null:d;}
   try{const d=new Date(s);return isNaN(d)?null:d;}catch{return null;}
 }
+function parseSpanishLong(s) {
+  if (!s||!s.trim()) return null;
+  const mo={enero:0,febrero:1,marzo:2,abril:3,mayo:4,junio:5,julio:6,agosto:7,septiembre:8,octubre:9,noviembre:10,diciembre:11};
+  const m = s.toString().toLowerCase().match(/([a-záéíóúü]+)\s+(\d{1,2}),\s+(\d{4})/);
+  if (m) { const mv=mo[m[1]]; if(mv!==undefined) return new Date(parseInt(m[3]),mv,parseInt(m[2])); }
+  return null;
+}
+
 function parseSpDate(s){
   if(!s)return null;
   const m=s.toString().match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
@@ -810,7 +818,7 @@ function calcMonth(off){
   RAW.payments.forEach(p => {
     const uid = (p['User ID']||'').toString().trim();
     if (!uid) return;
-    const d = parseSpDate(p['Date']) || parseISO(p['Date']);
+    const d = parseSpanishLong(p['Date']) || parseSpDate(p['Date']) || parseISO(p['Date']);
     const val = parseFloat((p['Plan Value']||'0').toString()) || 0;
     const plan = (p['Plan Name']||'').trim();
     if (!d) return;
@@ -906,7 +914,11 @@ function calcMonth(off){
 
       // Datos duros
       const newP  = C.filter(r=>inRange(getCA(r),mRange)&&isPaga(r));
-      const reposoM = C.filter(r=>(r['Plan (Nombre original)']||'').toLowerCase().includes('reposo')&&(r['Vigencia del servicio']||'').trim()==='Vigente').length;
+      // Reposo: count payments with reposo plan in this month
+      const reposoM = RAW.payments.filter(p => {
+        const d = parseSpanishLong(p['Date']) || parseSpDate(p['Date']) || parseISO(p['Date']);
+        return d && inRange(d, mRange) && (p['Plan Name']||'').toLowerCase().includes('reposo');
+      }).length;
       const newT  = C.filter(r=>inRange(getCA(r),mRange)&&isTrial(r));
       const canM  = canP.filter(r=>inRange(cancelDate(r),mRange));
       const atrM  = C.filter(r=>{
