@@ -1519,18 +1519,15 @@ function renderGruposModal() {
 
   // ── Helpers ────────────────────────────────────────
   const usaGrupos = r => {
-    const v = (r['Usa grupos?']||r['Usa Grupos?']||r['Usa grupos']||'').toString().trim();
+    const v = (r['Usa grupos?']||r['Usa grupos 5']||r['Usa grupos']||'').toString().trim();
     return v !== '' && v !== '0';
   };
   const usaFlow = r => {
-    const v = (r['Usa flows']||r['Usa Flow']||'').toString().trim();
+    const v = (r['Usa flows']||r['Usa Flow 6']||r['Usa Flow']||'').toString().trim();
     return v !== '' && v !== '0';
   };
-  const usaWA = r => {
-    const api = (r['Usa API']||r['Usa API?']||'').toString().trim();
-    const bus = (r['Usa Business']||r['Usa Business?']||'').toString().trim();
-    return api !== '' || bus !== '';
-  };
+  const usaWA = r =>
+    (r['Usa API?']||'').trim() === 'Sí' || (r['Usa Business?']||'').trim() === 'Sí';
   const getLT = r => parseInt(r['LT'])||0;
   const getPlan = r => (r['Planes Funnelchat']||'').trim();
   const getNiche = r => (r['Tipo de negocio']||'(sin tipo)').trim();
