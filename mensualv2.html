@@ -223,7 +223,7 @@ body{background:var(--navy);color:var(--text);font-family:'DM Sans',sans-serif;f
       <div class="card">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
           <div class="chart-title" style="font-size:12px;margin-bottom:0">Objetivo declarado</div>
-          <button onclick="openGruposModal()" style="font-size:9px;font-weight:700;padding:3px 10px;border-radius:6px;border:1px solid rgba(45,212,191,.3);background:rgba(45,212,191,.07);color:var(--teal);cursor:pointer;font-family:'DM Sans',sans-serif">🔍 Uso real grupos</button>
+          <button onclick="openGruposModal()" style="font-size:9px;font-weight:700;padding:3px 10px;border-radius:6px;border:1px solid rgba(45,212,191,.3);background:rgba(45,212,191,.07);color:var(--teal);cursor:pointer;font-family:'DM Sans',sans-serif">🔍 Análisis por objetivo</button>
         </div>
         <div style="font-size:10px;color:var(--muted);margin-bottom:8px">% este mes vs % acumulado histórico</div>
         <div id="objetivoMes"></div>
@@ -796,11 +796,12 @@ function calcMonth(off){
   };
 
   return{
-    range, ahaStats:ahaStatsData, ahaStatsMes,
+    range, off, ahaStats:ahaStatsData, ahaStatsMes,
     vigP:vigP.length,vigT:vigT.length,activasInicioMes,
     nuevosMesP:nuevosMesP.length,nuevosMesT:nuevosMesT.length,
     cancelMes:cancelMes.length,convMes:convMes.length,
     cancelMesArr:cancelMes,cancelMesTrial:cancelMesTrial,
+    allCancelP:allCancelP,
     prevCancelMesArr:prevCancelMesArr,atrP:atrP.length,
     mrrActivo,mrrRiesgo,mrrNuevo,mrrPerdido,mrrConv,
     retNeta:nuevosMesP.length-cancelMes.length,
@@ -1476,22 +1477,43 @@ function renderPerfilTable() {
   <div style="font-size:10px;color:var(--muted);margin-top:8px">% calculado sobre el total de cancelados pagas del mes · verde = mejora (baja) · rojo = empeora (sube)</div>`;
 }
 
-function openGruposModal() {
+function openGruposModal(preselect) {
   const m = window._mesMet;
   if (!m) return;
   document.getElementById('gruposModal').style.display = 'block';
 
-  const TARGET   = 'Optimizar la gestión de grupos / comunidades';
-  const isP      = window._quienesMesMode !== 'trial';
-  const allCanc  = [...(m.cancelMesArr||[]), ...(isP?[]:(m.cancelMesTrial||[]))];
-  // Use pagas only (most relevant for churn analysis)
+  // Populate selector with all unique objectives from cancelled accounts
+  const pool = (m.cancelMesArr||[]);
+  const objectives = [...new Set(
+    pool.map(r => (r['Objetivo con Funnelchat']||'').trim()).filter(Boolean)
+  )].sort();
+
+  const sel = document.getElementById('gruposObjSelect');
+  const defaultTarget = preselect || 'Optimizar la gestión de grupos / comunidades';
+  sel.innerHTML = objectives.map(o =>
+    `<option value="${o}" ${o===defaultTarget?'selected':''}>${o}</option>`
+  ).join('');
+  if (!objectives.length) {
+    document.getElementById('gruposModalContent').innerHTML =
+      '<div style="color:var(--muted);font-size:12px;padding:20px 0">Sin datos de objetivos en el mes seleccionado.</div>';
+    return;
+  }
+
+  renderGruposModal();
+}
+
+function renderGruposModal() {
+  const m = window._mesMet;
+  if (!m) return;
+  const sel = document.getElementById('gruposObjSelect');
+  const TARGET = sel ? sel.value : 'Optimizar la gestión de grupos / comunidades';
   const pool     = (m.cancelMesArr||[]);
   const seg      = pool.filter(r => (r['Objetivo con Funnelchat']||'').trim() === TARGET);
   const total    = seg.length;
 
   if (!total) {
     document.getElementById('gruposModalContent').innerHTML =
-      `<div style="color:var(--muted);font-size:12px;padding:20px 0">Sin cancelados con ese objetivo en ${m.label}.</div>`;
+      `<div style="color:var(--muted);font-size:12px;padding:20px 0">Sin cancelados con el objetivo "<strong>${TARGET}</strong>" en ${m.label}.</div>`;
     return;
   }
 
@@ -1517,21 +1539,18 @@ function openGruposModal() {
 
   const pct = (n,d) => d>0 ? Math.round(n/d*100) : 0;
 
-  // ── 1. Tendencia 6 meses ────────────────────────────
+  // ── 1. Tendencia 6 meses — usa allCancelP (histórico completo) ──
   const hist6 = m.hist6 || [];
-  const trend = hist6.map(h => {
-    // We need to re-filter each month's cancelled accounts for this objective
-    // hist6 doesn't carry the raw rows, so we'll approximate from allCancelP
-    return { lbl: h.lbl, n: h.canM || 0 }; // placeholder
-  });
-  // Better: compute from full canceladas filtered by month using cancelDate
-  const RAW_C = window._rawCuentas || [];
-  const trendReal = hist6.map((h, idx) => {
-    const mStart = new Date(new Date().getFullYear(), new Date().getMonth() - (5-idx), 1);
-    const mEnd   = new Date(mStart.getFullYear(), mStart.getMonth()+1, 0, 23, 59, 59);
-    const inMon  = (m.cancelMesArr||[]).filter(r => {
-      const cd = window._cancelDateFn ? window._cancelDateFn(r) : null;
-      return cd && cd >= mStart && cd <= mEnd && (r['Objetivo con Funnelchat']||'').trim()===TARGET;
+  const allC  = m.allCancelP || [];
+  const trendReal = hist6.map((h, i) => {
+    // Reconstruct month range from hist6 label using off
+    const off6 = -(5-i);
+    const mR   = getMonthRange ? getMonthRange(m.off !== undefined ? m.off + off6 : off6) : null;
+    if (!mR) return { lbl: h.lbl, n: 0 };
+    const inMon = allC.filter(r => {
+      const cd = cancelDate(r);
+      return cd && cd >= mR.start && cd <= mR.end &&
+             (r['Objetivo con Funnelchat']||'').trim() === TARGET;
     });
     return { lbl: h.lbl, n: inMon.length };
   });
@@ -1583,13 +1602,19 @@ function openGruposModal() {
   // ── Diagnosis ────────────────────────────────────
   const diag = [];
   if (lt181p / total > 0.4)
-    diag.push({ color:'var(--orange)', txt:`<strong>${pct(lt181p,total)}%</strong> son clientes maduros (+180d) — cancelan después de conocer bien la plataforma, posible insatisfacción con el nuevo producto.` });
-  if (pct(nGrupos,total) < 40)
-    diag.push({ color:'var(--red)', txt:`Solo <strong>${pct(nGrupos,total)}%</strong> activó grupos — la mayoría canceló sin llegar a usarlos. Señal de fricción en adopción, no de experiencia con el producto.` });
-  else
-    diag.push({ color:'var(--yellow)', txt:`<strong>${pct(nGrupos,total)}%</strong> sí usó grupos — canceló después de usarlos. El problema es de valor percibido o expectativas no cumplidas.` });
+    diag.push({ color:'var(--orange)', txt:`<strong>${pct(lt181p,total)}%</strong> son clientes maduros (+180d) — llevan más de 6 meses en la plataforma antes de cancelar.` });
+  else if (lt0_30 / total > 0.4)
+    diag.push({ color:'var(--red)', txt:`<strong>${pct(lt0_30,total)}%</strong> canceló en los primeros 30 días — señal de problema en adopción inicial o fit del producto.` });
+  if (pct(nGrupos,total) < 30)
+    diag.push({ color:'var(--red)', txt:`Solo <strong>${pct(nGrupos,total)}%</strong> tenía grupos activos al cancelar — la función no llegó a usarse realmente en este segmento.` });
+  if (pct(nFlow,total) < 30)
+    diag.push({ color:'var(--yellow)', txt:`Solo <strong>${pct(nFlow,total)}%</strong> tenía flows activos — posible perfil de baja activación general de la plataforma.` });
+  if (pct(nWA,total) < 50)
+    diag.push({ color:'var(--red)', txt:`Solo <strong>${pct(nWA,total)}%</strong> tenía WhatsApp conectado — cancelaron sin completar el setup básico.` });
   if (pct(nOnb,total) < 50)
-    diag.push({ color:'var(--muted)', txt:`Solo <strong>${pct(nOnb,total)}%</strong> tuvo onboarding — parte del problema puede ser falta de acompañamiento en adopción.` });
+    diag.push({ color:'var(--muted)', txt:`Solo <strong>${pct(nOnb,total)}%</strong> tuvo onboarding — parte del problema puede ser falta de acompañamiento en la adopción.` });
+  if (!diag.length)
+    diag.push({ color:'var(--teal)', txt:`Perfil activo: mayoría con WA, flows y onboarding. El problema en este segmento parece ser de valor percibido, no de adopción técnica.` });
 
   const pill = (color, txt) =>
     `<div style="background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.07);border-radius:8px;padding:9px 14px;font-size:11px;color:#cbd5e1;line-height:1.65">
@@ -2135,10 +2160,16 @@ function buildMonthNav(){
   <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:min(920px,96vw);max-height:85vh;overflow-y:auto;background:#131e35;border:1px solid rgba(255,255,255,.1);border-radius:16px;padding:28px 32px">
     <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:20px">
       <div>
-        <div style="font-family:'Syne',sans-serif;font-size:16px;font-weight:800;color:#fff">🔍 Análisis: Cancelados por objetivo de grupos</div>
+        <div style="font-family:'Syne',sans-serif;font-size:16px;font-weight:800;color:#fff">🔍 Análisis por objetivo declarado</div>
         <div style="font-size:11px;color:var(--muted);margin-top:4px">Objetivo declarado: "Optimizar la gestión de grupos / comunidades"</div>
       </div>
       <button onclick="closeGruposModal()" style="background:rgba(255,255,255,.06);border:none;color:var(--muted);font-size:18px;cursor:pointer;border-radius:6px;padding:4px 10px;line-height:1">✕</button>
+    </div>
+    <div style="margin-bottom:16px">
+      <label style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;display:block;margin-bottom:6px">Objetivo declarado</label>
+      <select id="gruposObjSelect" onchange="renderGruposModal()"
+        style="width:100%;background:#1a2744;border:1px solid rgba(255,255,255,.1);border-radius:8px;color:#e2e8f0;font-family:'DM Sans',sans-serif;font-size:12px;padding:8px 12px;cursor:pointer;outline:none">
+      </select>
     </div>
     <div id="gruposModalContent">cargando...</div>
   </div>
