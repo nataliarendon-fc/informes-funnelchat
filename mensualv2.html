@@ -805,6 +805,42 @@ function calcMonth(off){
     grupos: { con: ahaStats(conOnbMes,'AHA grupos'), sin: ahaStats(sinOnbMes,'AHA grupos') },
   };
 
+  // ── Upgrades / Downgrades from payments ──────────────
+  const paysByUserM = {};
+  RAW.payments.forEach(p => {
+    const uid = (p['User ID']||'').toString().trim();
+    if (!uid) return;
+    const d = parseSpDate(p['Date']) || parseISO(p['Date']);
+    const val = parseFloat((p['Plan Value']||'0').toString()) || 0;
+    const plan = (p['Plan Name']||'').trim();
+    if (!d) return;
+    if (!paysByUserM[uid]) paysByUserM[uid] = [];
+    paysByUserM[uid].push({ d, val, plan });
+  });
+  Object.values(paysByUserM).forEach(arr => arr.sort((a,b) => a.d - b.d));
+
+  // Cross-ref user_id → account for MRR and KPI
+
+  const upgrades = [], downgrades = [];
+  Object.entries(paysByUserM).forEach(([uid, pays]) => {
+    pays.forEach((pay, i) => {
+      if (!inRange(pay.d, range)) return;
+      const prev = pays[i-1];
+      if (!prev || prev.val === 0) return;
+      const delta = pay.val - prev.val;
+      const acct = acctById[uid] || {};
+      const entry = {
+        uid, plan: pay.plan, prevPlan: prev.plan,
+        val: pay.val, prevVal: prev.val, delta: Math.abs(delta),
+        acct
+      };
+      if (delta > 0) upgrades.push(entry);
+      else if (delta < 0) downgrades.push(entry);
+    });
+  });
+
+  const upMRR   = upgrades.reduce((s,e)=>s+e.delta, 0);
+  const downMRR = downgrades.reduce((s,e)=>s+e.delta, 0);
   return{
     range, off, ahaStats:ahaStatsData, ahaStatsMes,
     reposoN:reposoAll.length, reposoMRR:Math.round(reposoAll.reduce((s,r)=>s+getMRR(r),0)),
@@ -1215,44 +1251,6 @@ function render(m){
       <div style="font-size:11px;color:var(--muted);margin-top:4px">${m.onbAsistT} de ${m.nuevosMesT_n} trials · ant. ${m.cobTPrev}%</div>
     </div>`;
 
-  // ── Upgrades / Downgrades from payments ──────────────
-  const paysByUserM = {};
-  RAW.payments.forEach(p => {
-    const uid = (p['User ID']||'').toString().trim();
-    if (!uid) return;
-    const d = parseSpDate(p['Date']) || parseISO(p['Date']);
-    const val = parseFloat((p['Plan Value']||'0').toString()) || 0;
-    const plan = (p['Plan Name']||'').trim();
-    if (!d) return;
-    if (!paysByUserM[uid]) paysByUserM[uid] = [];
-    paysByUserM[uid].push({ d, val, plan });
-  });
-  Object.values(paysByUserM).forEach(arr => arr.sort((a,b) => a.d - b.d));
-
-  // Cross-ref user_id → account for MRR and KPI
-  const acctById = {};
-  C.forEach(r => { const id=(r['id']||'').toString().trim(); if(id) acctById[id]=r; });
-
-  const upgrades = [], downgrades = [];
-  Object.entries(paysByUserM).forEach(([uid, pays]) => {
-    pays.forEach((pay, i) => {
-      if (!inRange(pay.d, range)) return;
-      const prev = pays[i-1];
-      if (!prev || prev.val === 0) return;
-      const delta = pay.val - prev.val;
-      const acct = acctById[uid] || {};
-      const entry = {
-        uid, plan: pay.plan, prevPlan: prev.plan,
-        val: pay.val, prevVal: prev.val, delta: Math.abs(delta),
-        acct
-      };
-      if (delta > 0) upgrades.push(entry);
-      else if (delta < 0) downgrades.push(entry);
-    });
-  });
-
-  const upMRR   = upgrades.reduce((s,e)=>s+e.delta, 0);
-  const downMRR = downgrades.reduce((s,e)=>s+e.delta, 0);
 
   // ── Embudos render ────────────────────────────────
   (()=>{
