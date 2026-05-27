@@ -221,7 +221,10 @@ body{background:var(--navy);color:var(--text);font-family:'DM Sans',sans-serif;f
         <div id="nichoMes"></div>
       </div>
       <div class="card">
-        <div class="chart-title" style="margin-bottom:4px;font-size:12px">Objetivo declarado</div>
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
+          <div class="chart-title" style="font-size:12px;margin-bottom:0">Objetivo declarado</div>
+          <button onclick="openGruposModal()" style="font-size:9px;font-weight:700;padding:3px 10px;border-radius:6px;border:1px solid rgba(45,212,191,.3);background:rgba(45,212,191,.07);color:var(--teal);cursor:pointer;font-family:'DM Sans',sans-serif">🔍 Uso real grupos</button>
+        </div>
         <div style="font-size:10px;color:var(--muted);margin-bottom:8px">% este mes vs % acumulado histórico</div>
         <div id="objetivoMes"></div>
       </div>
@@ -419,6 +422,8 @@ async function loadAll(){
   });
   const json=await Promise.race([fetchData,timeout]);
   RAW.cuentas=(json.cuentas||[]).filter(r=>Object.keys(r).length>1);
+
+
   RAW.onboarding=(json.onboarding||[]).filter(r=>Object.keys(r).length>0);
   RAW.sesiones=(json.sesiones||[]).filter(r=>Object.keys(r).length>0);
   RAW.embudos=(json.embudos||[]).filter(r=>Object.keys(r).length>0);
@@ -431,10 +436,10 @@ function calcMonth(off){
   const range=getMonthRange(off);
   const C=RAW.cuentas,O=RAW.onboarding,S=RAW.sesiones;
 
-  const vigP=C.filter(r=>r['Vigencia del servicio']==='Vigente'&&isPaga(r));
-  const vigT=C.filter(r=>r['Vigencia del servicio']==='Vigente'&&isTrial(r));
-  const canP=C.filter(r=>r['Vigencia del servicio']==='Cancelado'&&isPaga(r));
-  const atrP=C.filter(r=>r['Vigencia del servicio']==='Atrasado'&&isPaga(r));
+  const vigP=C.filter(r=>(r['Vigencia del servicio']||'').trim()==='Vigente'&&isPaga(r));
+  const vigT=C.filter(r=>(r['Vigencia del servicio']||'').trim()==='Vigente'&&isTrial(r));
+  const canP=C.filter(r=>(r['Vigencia del servicio']||'').trim()==='Cancelado'&&isPaga(r));
+  const atrP=C.filter(r=>(r['Vigencia del servicio']||'').trim()==='Atrasado'&&isPaga(r));
 
   // Activas al inicio del mes: pagas creadas antes del mes que no habían cancelado aún
   const activasInicioMes = C.filter(r => {
@@ -470,6 +475,7 @@ function calcMonth(off){
   const mrrConv=Math.round(convMes.reduce((s,r)=>s+getMRR(r),0));
 
   const prevR=getMonthRange(off-1);
+  const prevCancelMesArr=canP.filter(r=>inRange(cancelDate(r),prevR));
   const prevNuevos=C.filter(r=>inRange(getCA(r),prevR)&&isPaga(r)).length;
   const prevCancel=canP.filter(r=>inRange(cancelDate(r),prevR)).length;
   const prevConv=C.filter(r=>{
@@ -506,8 +512,8 @@ function calcMonth(off){
     data:Array.from({length:6},(_,i)=>{
       const r=getMonthRange(off-5+i);
       const base=C.filter(rr=>rr['Planes Funnelchat']===plan&&isPaga(rr));
-      const act=base.filter(rr=>rr['Vigencia del servicio']!=='Cancelado').length;
-      const can=base.filter(rr=>rr['Vigencia del servicio']==='Cancelado'&&inRange(cancelDate(rr),r)).length;
+      const act=base.filter(rr=>(rr['Vigencia del servicio']||'').trim()!=='Cancelado').length;
+      const can=base.filter(rr=>(rr['Vigencia del servicio']||'').trim()==='Cancelado'&&inRange(cancelDate(rr),r)).length;
       return act>0?Math.round(can/act*1000)/10:0;
     })
   }));
@@ -552,7 +558,7 @@ function calcMonth(off){
   const factNuevasT=topN(nuevosMesT,'Facturación promedio mensual');
 
   // ── Trial cancelados este mes ───────────────────────
-  const cancelMesTrial=C.filter(r=>r['Vigencia del servicio']==='Cancelado'&&isTrial(r)&&inRange(cancelDate(r),range));
+  const cancelMesTrial=C.filter(r=>(r['Vigencia del servicio']||'').trim()==='Cancelado'&&isTrial(r)&&inRange(cancelDate(r),range));
   const nichoT=topN(cancelMesTrial,'Tipo de negocio');
   const objT=topN(cancelMesTrial,'Objetivo con Funnelchat');
   const expT=topN(cancelMesTrial,'Experiencia automatizando');
@@ -560,7 +566,7 @@ function calcMonth(off){
 
   // ── Histórico pagas cancelados (acumulado total) ───
   const allCancelP=canP;
-  const allCancelT=C.filter(r=>r['Vigencia del servicio']==='Cancelado'&&isTrial(r));
+  const allCancelT=C.filter(r=>(r['Vigencia del servicio']||'').trim()==='Cancelado'&&isTrial(r));
   const nichoHistP=topN(allCancelP,'Tipo de negocio');
   const objHistP=topN(allCancelP,'Objetivo con Funnelchat');
   const expHistP=topN(allCancelP,'Experiencia automatizando');
@@ -581,7 +587,7 @@ function calcMonth(off){
 
   // ── Mes anterior comparativa ────────────────────────
   const cancelPrev=canP.filter(r=>inRange(cancelDate(r),prevR));
-  const cancelPrevT=C.filter(r=>r['Vigencia del servicio']==='Cancelado'&&isTrial(r)&&inRange(cancelDate(r),prevR));
+  const cancelPrevT=C.filter(r=>(r['Vigencia del servicio']||'').trim()==='Cancelado'&&isTrial(r)&&inRange(cancelDate(r),prevR));
   const nichoCancelPrev=topN(cancelPrev,'Tipo de negocio');
   const objCancelPrev=topN(cancelPrev,'Objetivo con Funnelchat');
   const expCancelPrev=topN(cancelPrev,'Experiencia automatizando');
@@ -598,7 +604,7 @@ function calcMonth(off){
     for (let i = -2; i <= 0; i++) {
       const r = getMonthRange(off + i);
       const base = isTrialMode
-        ? C.filter(rr => rr['Vigencia del servicio']==='Cancelado' && isTrial(rr) && inRange(cancelDate(rr),r))
+        ? C.filter(rr => (rr['Vigencia del servicio']||'').trim()==='Cancelado' && isTrial(rr) && inRange(cancelDate(rr),r))
         : canP.filter(rr => inRange(cancelDate(rr),r));
       const ranked = topN(base, key, 10);
       const posMap = {};
@@ -666,8 +672,8 @@ function calcMonth(off){
 
   const conOnbAll=C.filter(r=>r['Onboarding']==='Con onboarding'&&isPaga(r));
   const sinOnbAll=C.filter(r=>r['Onboarding']==='Sin onboarding'&&isPaga(r));
-  const retCon=conOnbAll.length>0?conOnbAll.filter(r=>r['Vigencia del servicio']==='Vigente').length/conOnbAll.length:0;
-  const retSin=sinOnbAll.length>0?sinOnbAll.filter(r=>r['Vigencia del servicio']==='Vigente').length/sinOnbAll.length:0;
+  const retCon=conOnbAll.length>0?conOnbAll.filter(r=>(r['Vigencia del servicio']||'').trim()==='Vigente').length/conOnbAll.length:0;
+  const retSin=sinOnbAll.length>0?sinOnbAll.filter(r=>(r['Vigencia del servicio']||'').trim()==='Vigente').length/sinOnbAll.length:0;
   const retDiff=Math.max(0,retCon-retSin);
   const mrrPerCli=vigP.length>0?mrrActivo/vigP.length:ARPU;
   const mrrProtOnb=Math.max(0,Math.round(onbAsist*retDiff*mrrPerCli*12));
@@ -685,8 +691,8 @@ function calcMonth(off){
 
   // Helper: calc impact stats for a filtered set
   const calcImpact=(conArr,sinArr)=>({
-    conRet: conArr.length>0?Math.round(conArr.filter(r=>r['Vigencia del servicio']==='Vigente').length/conArr.length*100):0,
-    sinRet: sinArr.length>0?Math.round(sinArr.filter(r=>r['Vigencia del servicio']==='Vigente').length/sinArr.length*100):0,
+    conRet: conArr.length>0?Math.round(conArr.filter(r=>(r['Vigencia del servicio']||'').trim()==='Vigente').length/conArr.length*100):0,
+    sinRet: sinArr.length>0?Math.round(sinArr.filter(r=>(r['Vigencia del servicio']||'').trim()==='Vigente').length/sinArr.length*100):0,
     conLT: getLTavg(conArr), sinLT: getLTavg(sinArr),
     conLTV: getLTVavg(conArr), sinLTV: getLTVavg(sinArr),
     conN: conArr.length, sinN: sinArr.length
@@ -793,7 +799,9 @@ function calcMonth(off){
     range, ahaStats:ahaStatsData, ahaStatsMes,
     vigP:vigP.length,vigT:vigT.length,activasInicioMes,
     nuevosMesP:nuevosMesP.length,nuevosMesT:nuevosMesT.length,
-    cancelMes:cancelMes.length,convMes:convMes.length,atrP:atrP.length,
+    cancelMes:cancelMes.length,convMes:convMes.length,
+    cancelMesArr:cancelMes,cancelMesTrial:cancelMesTrial,
+    prevCancelMesArr:prevCancelMesArr,atrP:atrP.length,
     mrrActivo,mrrRiesgo,mrrNuevo,mrrPerdido,mrrConv,
     retNeta:nuevosMesP.length-cancelMes.length,
     prevNuevos,prevCancel,prevConv,
@@ -852,8 +860,8 @@ function calcMonth(off){
       const newT  = C.filter(r=>inRange(getCA(r),mRange)&&isTrial(r));
       const canM  = canP.filter(r=>inRange(cancelDate(r),mRange));
       const atrM  = C.filter(r=>{
-        if(r['Vigencia del servicio']!=='Atrasado'||!isPaga(r))return false;
-        const pt=parseISO(r['payment_till'])||parseSpanishDate(r['payment_till']);
+        if((r['Vigencia del servicio']||'').trim()!=='Atrasado'||!isPaga(r))return false;
+        const pt=parseISO(r['payment_till'])||parseSpDate(r['payment_till']);
         return pt&&inRange(pt,mRange);
       });
       const vigIni = C.filter(r=>{
@@ -891,7 +899,7 @@ function calcMonth(off){
       // Sesiones
       const sesM = (() => {
         const sesRows = RAW.sesiones.filter(r=>{
-          const d=parseISO(r['FECHA ATENCIÓN'])||parseSpanishDate(r['FECHA ATENCIÓN']);
+          const d=parseISO(r['FECHA ATENCIÓN'])||parseSpDate(r['FECHA ATENCIÓN']);
           return d&&inRange(d,mRange);
         });
         const asist = sesRows.filter(r=>r['Asistio?']==='1'||r['Asistio?']===1).length;
@@ -900,7 +908,7 @@ function calcMonth(off){
       })();
 
       // Riesgo — nuevas del mes con señal
-      const newVigP = newP.filter(r=>r['Vigencia del servicio']==='Vigente');
+      const newVigP = newP.filter(r=>(r['Vigencia del servicio']||'').trim()==='Vigente');
       const rSinWA  = newVigP.filter(r=>(r['Usa API?']||'')!=='Sí'&&(r['Usa Business?']||'')!=='Sí').length;
       const rSinFlw = newVigP.filter(r=>(v=>v===''||v==='0')((r['Usa flows']||'').toString().trim())).length;
       const rSinOnb = newVigP.filter(r=>r['Onboarding']==='Sin onboarding').length;
@@ -918,7 +926,7 @@ function calcMonth(off){
       // Retención Sesiones — clientes con sesión en vivo creados ese mes que siguen Vigentes
       const conSesM = C.filter(r=>inRange(getCA(r),mRange)&&isPaga(r)&&r['Sesiones en vivo']==='Asistió');
       const sinSesM = C.filter(r=>inRange(getCA(r),mRange)&&isPaga(r)&&r['Sesiones en vivo']==='No asistió');
-      const sesRetPct = conSesM.length>0?Math.round(conSesM.filter(r=>r['Vigencia del servicio']==='Vigente').length/conSesM.length*100):null;
+      const sesRetPct = conSesM.length>0?Math.round(conSesM.filter(r=>(r['Vigencia del servicio']||'').trim()==='Vigente').length/conSesM.length*100):null;
 
       // Retención Embudos por flujo
       const embRetM={};
@@ -1468,6 +1476,248 @@ function renderPerfilTable() {
   <div style="font-size:10px;color:var(--muted);margin-top:8px">% calculado sobre el total de cancelados pagas del mes · verde = mejora (baja) · rojo = empeora (sube)</div>`;
 }
 
+function openGruposModal() {
+  const m = window._mesMet;
+  if (!m) return;
+  document.getElementById('gruposModal').style.display = 'block';
+
+  const TARGET   = 'Optimizar la gestión de grupos / comunidades';
+  const isP      = window._quienesMesMode !== 'trial';
+  const allCanc  = [...(m.cancelMesArr||[]), ...(isP?[]:(m.cancelMesTrial||[]))];
+  // Use pagas only (most relevant for churn analysis)
+  const pool     = (m.cancelMesArr||[]);
+  const seg      = pool.filter(r => (r['Objetivo con Funnelchat']||'').trim() === TARGET);
+  const total    = seg.length;
+
+  if (!total) {
+    document.getElementById('gruposModalContent').innerHTML =
+      `<div style="color:var(--muted);font-size:12px;padding:20px 0">Sin cancelados con ese objetivo en ${m.label}.</div>`;
+    return;
+  }
+
+  // ── Helpers ────────────────────────────────────────
+  const usaGrupos = r => {
+    const v = (r['Usa grupos?']||r['Usa Grupos?']||r['Usa grupos']||'').toString().trim();
+    return v !== '' && v !== '0';
+  };
+  const usaFlow = r => {
+    const v = (r['Usa flows']||r['Usa Flow']||'').toString().trim();
+    return v !== '' && v !== '0';
+  };
+  const usaWA = r => {
+    const api = (r['Usa API']||r['Usa API?']||'').toString().trim();
+    const bus = (r['Usa Business']||r['Usa Business?']||'').toString().trim();
+    return api !== '' || bus !== '';
+  };
+  const getLT = r => parseInt(r['LT'])||0;
+  const getPlan = r => (r['Planes Funnelchat']||'').trim();
+  const getNiche = r => (r['Tipo de negocio']||'(sin tipo)').trim();
+  const getOnb = r => (r['Onboarding']||'').trim();
+  const getExp = r => (r['Experiencia automatizando']||'').trim();
+
+  const pct = (n,d) => d>0 ? Math.round(n/d*100) : 0;
+
+  // ── 1. Tendencia 6 meses ────────────────────────────
+  const hist6 = m.hist6 || [];
+  const trend = hist6.map(h => {
+    // We need to re-filter each month's cancelled accounts for this objective
+    // hist6 doesn't carry the raw rows, so we'll approximate from allCancelP
+    return { lbl: h.lbl, n: h.canM || 0 }; // placeholder
+  });
+  // Better: compute from full canceladas filtered by month using cancelDate
+  const RAW_C = window._rawCuentas || [];
+  const trendReal = hist6.map((h, idx) => {
+    const mStart = new Date(new Date().getFullYear(), new Date().getMonth() - (5-idx), 1);
+    const mEnd   = new Date(mStart.getFullYear(), mStart.getMonth()+1, 0, 23, 59, 59);
+    const inMon  = (m.cancelMesArr||[]).filter(r => {
+      const cd = window._cancelDateFn ? window._cancelDateFn(r) : null;
+      return cd && cd >= mStart && cd <= mEnd && (r['Objetivo con Funnelchat']||'').trim()===TARGET;
+    });
+    return { lbl: h.lbl, n: inMon.length };
+  });
+
+  const maxTrend = Math.max(...trendReal.map(t=>t.n), 1);
+  const trendBars = trendReal.map((t,i) => {
+    const isLast = i === trendReal.length-1;
+    const h = Math.round(t.n/maxTrend*60);
+    return `<div style="display:flex;flex-direction:column;align-items:center;gap:4px;flex:1">
+      <div style="font-size:10px;font-weight:700;color:${isLast?'var(--orange)':'var(--muted)'}">${t.n||''}</div>
+      <div style="width:100%;height:${Math.max(h,2)}px;background:${isLast?'rgba(251,146,60,.6)':'rgba(100,116,139,.3)'};border-radius:3px 3px 0 0"></div>
+      <div style="font-size:9px;color:var(--muted);white-space:nowrap">${t.lbl}</div>
+    </div>`;
+  }).join('');
+
+  // ── 2. LT buckets ────────────────────────────────────
+  const lt0_30   = seg.filter(r => getLT(r) <= 30).length;
+  const lt31_90  = seg.filter(r => getLT(r) > 30  && getLT(r) <= 90).length;
+  const lt91_180 = seg.filter(r => getLT(r) > 90  && getLT(r) <= 180).length;
+  const lt181p   = seg.filter(r => getLT(r) > 180).length;
+  const avgLT    = total > 0 ? Math.round(seg.reduce((s,r)=>s+getLT(r),0)/total) : 0;
+
+  // ── 3. Uso de plataforma ────────────────────────────
+  const nGrupos  = seg.filter(usaGrupos).length;
+  const nFlow    = seg.filter(usaFlow).length;
+  const nWA      = seg.filter(usaWA).length;
+  const nOnb     = seg.filter(r=>getOnb(r)==='Con onboarding').length;
+
+  // ── 4. Planes ──────────────────────────────────────
+  const planes = ['Plan Starter','Plan Growth','Plan Advanced','Advanced Personalizado'];
+  const planRows = planes.map(p => ({ p, n: seg.filter(r=>getPlan(r)===p).length })).filter(r=>r.n>0);
+
+  // ── 5. Nicho top 6 ────────────────────────────────
+  const nicheMap = {};
+  seg.forEach(r => { const n=getNiche(r); nicheMap[n]=(nicheMap[n]||0)+1; });
+  const niches = Object.entries(nicheMap).sort((a,b)=>b[1]-a[1]).slice(0,6);
+  const maxN = niches[0]?.[1]||1;
+
+  // ── 6. Experiencia ───────────────────────────────
+  const expMap = {};
+  seg.forEach(r => { const e=getExp(r)||'No indicada'; expMap[e]=(expMap[e]||0)+1; });
+  const exps = Object.entries(expMap).sort((a,b)=>b[1]-a[1]);
+
+  // ── 7. AHA alcanzados ────────────────────────────
+  const ahaWA  = seg.filter(r=>(r['AHA WA']||'').trim()!=='').length;
+  const ahaFl  = seg.filter(r=>(r['AHA flows']||'').trim()!=='').length;
+  const ahaGr  = seg.filter(r=>(r['AHA grupos']||'').trim()!=='').length;
+
+  // ── Diagnosis ────────────────────────────────────
+  const diag = [];
+  if (lt181p / total > 0.4)
+    diag.push({ color:'var(--orange)', txt:`<strong>${pct(lt181p,total)}%</strong> son clientes maduros (+180d) — cancelan después de conocer bien la plataforma, posible insatisfacción con el nuevo producto.` });
+  if (pct(nGrupos,total) < 40)
+    diag.push({ color:'var(--red)', txt:`Solo <strong>${pct(nGrupos,total)}%</strong> activó grupos — la mayoría canceló sin llegar a usarlos. Señal de fricción en adopción, no de experiencia con el producto.` });
+  else
+    diag.push({ color:'var(--yellow)', txt:`<strong>${pct(nGrupos,total)}%</strong> sí usó grupos — canceló después de usarlos. El problema es de valor percibido o expectativas no cumplidas.` });
+  if (pct(nOnb,total) < 50)
+    diag.push({ color:'var(--muted)', txt:`Solo <strong>${pct(nOnb,total)}%</strong> tuvo onboarding — parte del problema puede ser falta de acompañamiento en adopción.` });
+
+  const pill = (color, txt) =>
+    `<div style="background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.07);border-radius:8px;padding:9px 14px;font-size:11px;color:#cbd5e1;line-height:1.65">
+      <span style="color:${color};font-weight:700">● </span>${txt}</div>`;
+
+  const kpi = (label, val, sub, color='#fff') =>
+    `<div style="background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.07);border-radius:10px;padding:12px 14px">
+      <div style="font-size:9px;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);margin-bottom:4px">${label}</div>
+      <div style="font-family:'Syne',sans-serif;font-size:22px;font-weight:800;color:${color};line-height:1">${val}</div>
+      ${sub?`<div style="font-size:10px;color:var(--muted);margin-top:4px">${sub}</div>`:''}
+    </div>`;
+
+  const miniBar = (n, max, color) =>
+    `<div style="flex:1;height:6px;background:rgba(255,255,255,.05);border-radius:3px;overflow:hidden">
+      <div style="width:${Math.round(n/max*100)}%;height:100%;background:${color};border-radius:3px"></div>
+    </div>`;
+
+  const planColors = {'Plan Starter':'#60a5fa','Plan Growth':'#a78bfa','Plan Advanced':'#2dd4bf','Advanced Personalizado':'#fbbf24'};
+
+  document.getElementById('gruposModalContent').innerHTML = `
+
+    <!-- DIAGNÓSTICO -->
+    <div style="margin-bottom:20px">
+      <div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:8px">🩺 Diagnóstico automático</div>
+      <div style="display:flex;flex-direction:column;gap:6px">${diag.map(d=>pill(d.color,d.txt)).join('')}</div>
+    </div>
+
+    <!-- KPIs FILA 1 -->
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:12px">
+      ${kpi('Cancelados en el segmento', total, `${m.label} · pagas`, 'var(--orange)')}
+      ${kpi('LT medio', avgLT+'d', 'días como cliente', avgLT>180?'var(--red)':'var(--yellow)')}
+      ${kpi('Con onboarding', pct(nOnb,total)+'%', `${nOnb} de ${total}`, nOnb/total>0.5?'var(--teal)':'var(--muted)')}
+      ${kpi('Usaron grupos', pct(nGrupos,total)+'%', `${nGrupos} activos al cancelar`, nGrupos/total>0.5?'var(--teal)':'var(--red)')}
+    </div>
+
+    <!-- KPIs AHA -->
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:20px">
+      ${kpi('Conectaron WA (AHA)', pct(ahaWA,total)+'%', `${ahaWA} alcanzaron hito`, 'var(--blue)')}
+      ${kpi('Activaron Flow (AHA)', pct(ahaFl,total)+'%', `${ahaFl} alcanzaron hito`, 'var(--blue)')}
+      ${kpi('Crearon Grupo (AHA)', pct(ahaGr,total)+'%', `${ahaGr} alcanzaron hito`, 'var(--blue)')}
+    </div>
+
+    <!-- TENDENCIA 6M + LT -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:20px">
+
+      <div style="background:rgba(255,255,255,.02);border:1px solid rgba(255,255,255,.07);border-radius:10px;padding:14px">
+        <div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:12px">Tendencia 6 meses</div>
+        <div style="display:flex;align-items:flex-end;gap:4px;height:80px">${trendBars}</div>
+        <div style="font-size:9px;color:var(--muted);margin-top:8px">↑ Volumen de cancelados con este objetivo</div>
+      </div>
+
+      <div style="background:rgba(255,255,255,.02);border:1px solid rgba(255,255,255,.07);border-radius:10px;padding:14px">
+        <div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:12px">Antigüedad (LT)</div>
+        ${[['0–30d', lt0_30, 'rgba(248,113,113,.7)'],['31–90d', lt31_90, 'rgba(251,146,60,.7)'],['91–180d', lt91_180, 'rgba(96,165,250,.7)'],['180d+', lt181p, 'rgba(45,212,191,.7)']].map(([l,n,c])=>
+          `<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+            <div style="font-size:10px;color:var(--muted);width:48px;flex-shrink:0">${l}</div>
+            ${miniBar(n, total, c)}
+            <div style="font-size:11px;font-weight:700;width:28px;text-align:right">${n}</div>
+            <div style="font-size:10px;color:var(--muted);width:32px">${pct(n,total)}%</div>
+          </div>`
+        ).join('')}
+      </div>
+    </div>
+
+    <!-- USO PLATAFORMA + PLANES -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:20px">
+
+      <div style="background:rgba(255,255,255,.02);border:1px solid rgba(255,255,255,.07);border-radius:10px;padding:14px">
+        <div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:12px">Uso de plataforma al cancelar</div>
+        ${[['WhatsApp conectado',nWA,'rgba(45,212,191,.7)'],['Flow activo',nFlow,'rgba(96,165,250,.7)'],['Grupos activos',nGrupos,'rgba(167,139,250,.7)'],['Con onboarding',nOnb,'rgba(251,146,60,.7)']].map(([l,n,c])=>
+          `<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+            <div style="font-size:10px;color:var(--muted);flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${l}</div>
+            ${miniBar(n, total, c)}
+            <div style="font-size:11px;font-weight:700;width:28px;text-align:right">${n}</div>
+            <div style="font-size:10px;color:var(--muted);width:32px">${pct(n,total)}%</div>
+          </div>`
+        ).join('')}
+      </div>
+
+      <div style="background:rgba(255,255,255,.02);border:1px solid rgba(255,255,255,.07);border-radius:10px;padding:14px">
+        <div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:12px">Por plan</div>
+        ${planRows.map(({p,n})=>
+          `<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+            <div style="font-size:10px;color:var(--muted);flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${p.replace('Plan ','')}</div>
+            ${miniBar(n, total, planColors[p]||'rgba(100,116,139,.5)')}
+            <div style="font-size:11px;font-weight:700;width:28px;text-align:right">${n}</div>
+            <div style="font-size:10px;color:var(--muted);width:32px">${pct(n,total)}%</div>
+          </div>`
+        ).join('')}
+      </div>
+    </div>
+
+    <!-- NICHO + EXPERIENCIA -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:16px">
+
+      <div style="background:rgba(255,255,255,.02);border:1px solid rgba(255,255,255,.07);border-radius:10px;padding:14px">
+        <div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:12px">Top nichos</div>
+        ${niches.map(([n,v])=>
+          `<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+            <div style="font-size:10px;color:var(--muted);flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${n}">${n}</div>
+            ${miniBar(v, maxN, 'rgba(251,146,60,.6)')}
+            <div style="font-size:11px;font-weight:700;width:24px;text-align:right">${v}</div>
+          </div>`
+        ).join('')}
+      </div>
+
+      <div style="background:rgba(255,255,255,.02);border:1px solid rgba(255,255,255,.07);border-radius:10px;padding:14px">
+        <div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:12px">Experiencia automatizando</div>
+        ${exps.map(([e,v])=>
+          `<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+            <div style="font-size:10px;color:var(--muted);flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${e}</div>
+            ${miniBar(v, total, 'rgba(96,165,250,.5)')}
+            <div style="font-size:11px;font-weight:700;width:24px;text-align:right">${v}</div>
+            <div style="font-size:10px;color:var(--muted);width:32px">${pct(v,total)}%</div>
+          </div>`
+        ).join('')}
+      </div>
+    </div>
+
+    <div style="font-size:9px;color:var(--muted);border-top:1px solid rgba(255,255,255,.06);padding-top:10px">
+      Base: cancelados pagas · ${m.label} · Objetivo = "${TARGET}"
+    </div>`;
+}
+
+function closeGruposModal() {
+  document.getElementById('gruposModal').style.display = 'none';
+}
+
 function renderQuienesMes(mode) {
   const m = window._mesMet;
   if (!m) return;
@@ -1880,5 +2130,19 @@ function buildMonthNav(){
   }
 })();
 </script>
+<!-- MODAL: Uso real de grupos en cancelados por objetivo -->
+<div id="gruposModal" style="display:none;position:fixed;inset:0;z-index:1000;background:rgba(0,0,0,.65);backdrop-filter:blur(4px)" onclick="if(event.target===this)closeGruposModal()">
+  <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:min(920px,96vw);max-height:85vh;overflow-y:auto;background:#131e35;border:1px solid rgba(255,255,255,.1);border-radius:16px;padding:28px 32px">
+    <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:20px">
+      <div>
+        <div style="font-family:'Syne',sans-serif;font-size:16px;font-weight:800;color:#fff">🔍 Análisis: Cancelados por objetivo de grupos</div>
+        <div style="font-size:11px;color:var(--muted);margin-top:4px">Objetivo declarado: "Optimizar la gestión de grupos / comunidades"</div>
+      </div>
+      <button onclick="closeGruposModal()" style="background:rgba(255,255,255,.06);border:none;color:var(--muted);font-size:18px;cursor:pointer;border-radius:6px;padding:4px 10px;line-height:1">✕</button>
+    </div>
+    <div id="gruposModalContent">cargando...</div>
+  </div>
+</div>
+
 </body>
 </html>
