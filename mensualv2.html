@@ -298,6 +298,11 @@ body{background:var(--navy);color:var(--text);font-family:'DM Sans',sans-serif;f
 
     <div id="hist6_s4" style="margin-top:14px;margin-bottom:28px"></div>
 
+  <!-- BLOQUE: MOVIMIENTOS DE PLAN -->
+  <div id="hist6_upgdown" style="margin-top:14px;margin-bottom:8px"></div>
+  <div class="sec-label"><span class="sec-num" style="background:rgba(34,197,94,.15);color:var(--green)">↑↓</span> Movimientos de plan <span class="sec-desc">· Upgrades y downgrades del período · cantidad y MRR</span></div>
+  <div id="upgDownSection" style="margin-bottom:28px"></div>
+
   <!-- BLOQUE 6 -->
   <div class="block">
     <div class="sec-label"><span class="sec-num">06</span> Plan de acción — mes siguiente <span class="sec-desc">· Preventivas + Reactivación · editable</span></div>
@@ -322,7 +327,7 @@ body{background:var(--navy);color:var(--text);font-family:'DM Sans',sans-serif;f
 <script>
 const API_URL='https://script.google.com/macros/s/AKfycbwNp-Hnmi1imEggg6Qz7xRP_fR57ZvcQb9hFR2WUPn1c-BdsN23x2vrnlU5zY6Rydrlng/exec';
 const ARPU=69;
-let RAW={cuentas:[],onboarding:[],sesiones:[],embudos:[],cancelaciones:[]};
+let RAW={cuentas:[],onboarding:[],sesiones:[],embudos:[],cancelaciones:[],payments:[]};
 let currentMonthOffset=0;
 let charts={};
 
@@ -428,6 +433,7 @@ async function loadAll(){
   RAW.sesiones=(json.sesiones||[]).filter(r=>Object.keys(r).length>0);
   RAW.embudos=(json.embudos||[]).filter(r=>Object.keys(r).length>0);
   RAW.cancelaciones=(json.cancelaciones||[]).filter(r=>Object.keys(r).length>0);
+  RAW.payments     =(json.payments     ||[]).filter(r=>Object.keys(r).length>0);
   if(!RAW.cuentas.length)throw new Error('Hoja de cuentas vacía. Verificar Apps Script.');
 }
 
@@ -437,6 +443,10 @@ function calcMonth(off){
   const C=RAW.cuentas,O=RAW.onboarding,S=RAW.sesiones;
 
   const vigP=C.filter(r=>(r['Vigencia del servicio']||'').trim()==='Vigente'&&isPaga(r));
+
+  // ── Plan de reposo ─────────────────────────────────
+  const isReposo = r => (r['Plan (Nombre original)']||'').toLowerCase().includes('reposo');
+  const reposoAll = C.filter(r => isReposo(r) && (r['Vigencia del servicio']||'').trim()==='Vigente');
   const vigT=C.filter(r=>(r['Vigencia del servicio']||'').trim()==='Vigente'&&isTrial(r));
   const canP=C.filter(r=>(r['Vigencia del servicio']||'').trim()==='Cancelado'&&isPaga(r));
   const atrP=C.filter(r=>(r['Vigencia del servicio']||'').trim()==='Atrasado'&&isPaga(r));
@@ -797,6 +807,8 @@ function calcMonth(off){
 
   return{
     range, off, ahaStats:ahaStatsData, ahaStatsMes,
+    reposoN:reposoAll.length, reposoMRR:Math.round(reposoAll.reduce((s,r)=>s+getMRR(r),0)),
+    upgrades, downgrades, upMRR:Math.round(upMRR), downMRR:Math.round(downMRR),
     vigP:vigP.length,vigT:vigT.length,activasInicioMes,
     nuevosMesP:nuevosMesP.length,nuevosMesT:nuevosMesT.length,
     cancelMes:cancelMes.length,convMes:convMes.length,
@@ -858,6 +870,7 @@ function calcMonth(off){
 
       // Datos duros
       const newP  = C.filter(r=>inRange(getCA(r),mRange)&&isPaga(r));
+      const reposoM = C.filter(r=>(r['Plan (Nombre original)']||'').toLowerCase().includes('reposo')&&(r['Vigencia del servicio']||'').trim()==='Vigente').length;
       const newT  = C.filter(r=>inRange(getCA(r),mRange)&&isTrial(r));
       const canM  = canP.filter(r=>inRange(cancelDate(r),mRange));
       const atrM  = C.filter(r=>{
@@ -946,7 +959,7 @@ function calcMonth(off){
       months.push({
         lbl,
         // Sección 1
-        newP:newP.length, newT:newT.length,
+        newP:newP.length, newT:newT.length, reposoM,
         canM:canM.length, atrM:atrM.length,
         vigIni:vigIni.length, mrrM, churnRate,
         retNeta:newP.length-canM.length,
@@ -1004,6 +1017,11 @@ function render(m){
       </div>
       <div class="p-value" style="color:var(--teal)">${m.vigP.toLocaleString('es-CO')}</div>
       <div class="p-context">MRR activo: <strong>${fmt$(m.mrrActivo)}</strong><br>Trial activos: ${m.vigT}</div>
+    </div>
+    <div class="p-card" style="border-top:3px solid var(--muted);opacity:.9">
+      <div class="p-label">En plan reposo</div>
+      <div class="p-value" style="color:var(--muted)">${m.reposoN.toLocaleString('es-CO')}</div>
+      <div class="p-context">${m.reposoMRR>0?'MRR: <strong>$'+m.reposoMRR.toLocaleString('es-CO')+'</strong>':'Sin MRR registrado'}</div>
     </div>
     <div class="p-card c-teal" style="opacity:.85">
       <div class="p-label">
@@ -1197,6 +1215,45 @@ function render(m){
       <div style="font-size:11px;color:var(--muted);margin-top:4px">${m.onbAsistT} de ${m.nuevosMesT_n} trials · ant. ${m.cobTPrev}%</div>
     </div>`;
 
+  // ── Upgrades / Downgrades from payments ──────────────
+  const paysByUserM = {};
+  RAW.payments.forEach(p => {
+    const uid = (p['User ID']||'').toString().trim();
+    if (!uid) return;
+    const d = parseSpDate(p['Date']) || parseISO(p['Date']);
+    const val = parseFloat((p['Plan Value']||'0').toString()) || 0;
+    const plan = (p['Plan Name']||'').trim();
+    if (!d) return;
+    if (!paysByUserM[uid]) paysByUserM[uid] = [];
+    paysByUserM[uid].push({ d, val, plan });
+  });
+  Object.values(paysByUserM).forEach(arr => arr.sort((a,b) => a.d - b.d));
+
+  // Cross-ref user_id → account for MRR and KPI
+  const acctById = {};
+  C.forEach(r => { const id=(r['id']||'').toString().trim(); if(id) acctById[id]=r; });
+
+  const upgrades = [], downgrades = [];
+  Object.entries(paysByUserM).forEach(([uid, pays]) => {
+    pays.forEach((pay, i) => {
+      if (!inRange(pay.d, range)) return;
+      const prev = pays[i-1];
+      if (!prev || prev.val === 0) return;
+      const delta = pay.val - prev.val;
+      const acct = acctById[uid] || {};
+      const entry = {
+        uid, plan: pay.plan, prevPlan: prev.plan,
+        val: pay.val, prevVal: prev.val, delta: Math.abs(delta),
+        acct
+      };
+      if (delta > 0) upgrades.push(entry);
+      else if (delta < 0) downgrades.push(entry);
+    });
+  });
+
+  const upMRR   = upgrades.reduce((s,e)=>s+e.delta, 0);
+  const downMRR = downgrades.reduce((s,e)=>s+e.delta, 0);
+
   // ── Embudos render ────────────────────────────────
   (()=>{
     const E=RAW.embudos;
@@ -1388,6 +1445,9 @@ function render(m){
 
   // Histórico 6 meses — tablas comparativas
   renderHist6(m);
+
+  // Upgrades / Downgrades section
+  renderUpgDown(m);
 }
 
 // Global toggle function for 4 dimensions
@@ -2054,6 +2114,7 @@ function renderHist6(m) {
     {label:'Retención neta',      values:H.map(h=>h.retNeta),   inv:false, fmt:'n'},
     {label:'Tasa churn (%)',      values:H.map(h=>h.churnRate), inv:true,  fmt:'%'},
     {label:'MRR inicio mes ($)',  values:H.map(h=>h.mrrM),      inv:false, fmt:'$'},
+        {label:'En plan reposo',       values:H.map(h=>h.reposoM??null), inv:true,  fmt:'n'},
   ]);
 
   // SECCIÓN 2 — Razones / encuesta
@@ -2117,6 +2178,75 @@ function renderHist6(m) {
     {label:'Sin flow activo',      values:H.map(h=>h.rSinFlw), inv:true,  fmt:'n'},
     {label:'Sin onboarding',       values:H.map(h=>h.rSinOnb), inv:true,  fmt:'n'},
   ]);
+}
+
+function renderUpgDown(m) {
+  const el = document.getElementById('upgDownSection');
+  if (!el) return;
+  const ups  = m.upgrades  || [];
+  const downs= m.downgrades|| [];
+  if (!ups.length && !downs.length) {
+    el.innerHTML = '<div style="color:var(--muted);font-size:12px;padding:12px 0">Sin movimientos de plan en el período seleccionado.</div>';
+    return;
+  }
+  const fmt$ = n => '$' + Math.round(n||0).toLocaleString('es-CO');
+  const planColor = {'Plan Starter':'#60a5fa','Plan Growth':'#a78bfa','Plan Advanced':'#2dd4bf','Advanced Personalizado':'#fbbf24'};
+
+  function movTable(items, color, label, icon) {
+    if (!items.length) return `<div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px 20px;flex:1">
+      <div style="font-size:10px;font-weight:700;color:${color};text-transform:uppercase;letter-spacing:.08em;margin-bottom:8px">${icon} ${label}</div>
+      <div style="color:var(--muted);font-size:12px">Sin ${label.toLowerCase()} este mes.</div>
+    </div>`;
+    const totalMRR = items.reduce((s,e)=>s+e.delta,0);
+    const rows = items.slice(0,10).map(e => {
+      const seg = (e.acct['Segmento de cliente (priorización de cliente)']||'').trim();
+      const kam = (e.acct['KAM']||'').trim();
+      return `<tr style="border-bottom:1px solid var(--border)">
+        <td style="padding:6px 10px;font-size:11px;color:var(--muted)">${e.acct['id']||e.uid}</td>
+        <td style="padding:6px 10px;font-size:10px;color:var(--muted);white-space:nowrap">${e.prevPlan||'—'} → <span style="color:${color}">${e.plan||'—'}</span></td>
+        <td style="padding:6px 10px;font-size:11px;text-align:right;font-weight:700;color:${color}">${icon}${fmt$(e.delta)}</td>
+        <td style="padding:6px 10px;font-size:10px;text-align:center"><span style="background:${planColor[e.acct['Segmento de cliente (priorización de cliente)']]||'rgba(100,116,139,.2)'};color:#fff;padding:1px 6px;border-radius:10px;font-size:9px">${seg||'—'}</span></td>
+        <td style="padding:6px 10px;font-size:10px;color:var(--muted)">${kam||'—'}</td>
+      </tr>`;
+    }).join('');
+    return `<div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px 20px;flex:1;min-width:0">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+        <div style="font-size:10px;font-weight:700;color:${color};text-transform:uppercase;letter-spacing:.08em">${icon} ${label}</div>
+        <div style="display:flex;gap:16px">
+          <div style="text-align:center">
+            <div style="font-family:'Syne',sans-serif;font-size:20px;font-weight:800;color:${color}">${items.length}</div>
+            <div style="font-size:9px;color:var(--muted)">cuentas</div>
+          </div>
+          <div style="text-align:center">
+            <div style="font-family:'Syne',sans-serif;font-size:20px;font-weight:800;color:${color}">${fmt$(totalMRR)}</div>
+            <div style="font-size:9px;color:var(--muted)">MRR ${label==='Upgrades'?'ganado':'perdido'}</div>
+          </div>
+        </div>
+      </div>
+      <div style="overflow-x:auto">
+        <table style="width:100%;border-collapse:collapse">
+          <thead><tr style="background:rgba(255,255,255,.02)">
+            <th style="padding:5px 10px;font-size:9px;color:var(--muted);text-align:left;border-bottom:1px solid var(--border)">ID</th>
+            <th style="padding:5px 10px;font-size:9px;color:var(--muted);text-align:left;border-bottom:1px solid var(--border)">Movimiento</th>
+            <th style="padding:5px 10px;font-size:9px;color:var(--muted);text-align:right;border-bottom:1px solid var(--border)">Delta MRR</th>
+            <th style="padding:5px 10px;font-size:9px;color:var(--muted);text-align:center;border-bottom:1px solid var(--border)">Seg</th>
+            <th style="padding:5px 10px;font-size:9px;color:var(--muted);border-bottom:1px solid var(--border)">KAM</th>
+          </tr></thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>
+      ${items.length>10?`<div style="font-size:10px;color:var(--muted);margin-top:8px">Mostrando 10 de ${items.length} movimientos</div>`:''}
+    </div>`;
+  }
+
+  el.innerHTML = `<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+    ${movTable(ups,  'var(--green)', 'Upgrades',   '▲')}
+    ${movTable(downs,'var(--red)',   'Downgrades',  '▼')}
+  </div>
+  <div style="margin-top:10px;font-size:10px;color:var(--muted)">
+    Neto MRR: <strong style="color:${m.upMRR-m.downMRR>=0?'var(--green)':'var(--red)'}">${m.upMRR-m.downMRR>=0?'▲':'▼'} $${Math.abs(m.upMRR-m.downMRR).toLocaleString('es-CO')}</strong>
+    · Basado en tabla payments · pagos del período comparados con el pago anterior del mismo usuario
+  </div>`;
 }
 
 function destroyChart(id){const c=Chart.getChart(id);if(c)c.destroy();}
