@@ -681,6 +681,20 @@ function calcMonth(off){
   const tipoMap={};
   onbGHLAsist.forEach(r=>{const t=(r['Tipo de ONB GHL']||'Sin tipo').trim();tipoMap[t]=(tipoMap[t]||0)+1;});
   const onbTipos=Object.entries(tipoMap).sort((a,b)=>b[1]-a[1]);
+  // Días al ONB por plan — cross con tabla cuentas
+  const planes4=['Plan Starter','Plan Growth','Plan Advanced','Advanced Personalizado'];
+  const onbByPlan=planes4.map(plan=>{
+    const rows=onbGHLAsist.filter(r=>{
+      const uid=(r['user_id']||'').toString().trim();
+      const acct=acctById[uid];
+      return acct&&(acct['Planes Funnelchat']||'').trim()===plan;
+    });
+    const dias=rows.map(getOnbDias).filter(x=>x!==null);
+    const avg=dias.length?Math.round(dias.reduce((a,b)=>a+b,0)/dias.length):null;
+    const min=dias.length?Math.min(...dias):null;
+    const max=dias.length?Math.max(...dias):null;
+    return {plan,n:rows.length,avg,min,max};
+  }).filter(p=>p.n>0);
   const onbProp=onbAll.length;
   const onbAgen=onbAll.filter(r=>['Agendó','Asistió','No show','No asistió'].includes(r['Estado del onboarding'])).length;
   const onbAsist=onbAll.filter(r=>r['Estado del onboarding']==='Asistió').length;
@@ -904,7 +918,7 @@ function calcMonth(off){
     cancelPrevTotal:cancelPrev.length,
     onbProp,onbAgen,onbAsist,onbNoShow,onbNoShowReal,
     onbNuevas:onbNuevas.length,onbAntiguas:onbAntiguas.length,
-    diasNuevas,diasAntiguas,onbResponsables,onbTipos,
+    diasNuevas,diasAntiguas,onbResponsables,onbTipos,onbByPlan,
     onbPropPrev,onbAgenPrev,onbAsistPrev,onbNoShowPrev,
     cobPPrev,cobTPrev,
     onbAsistP,onbAsistT,cobP,cobT,
@@ -2288,7 +2302,7 @@ function renderOnbEnriched(m) {
       </div>
     </div>
 
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px">
       <div>
         <div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px">Por responsable</div>
         ${respRows || '<div style="color:var(--muted);font-size:11px">Sin datos</div>'}
@@ -2298,7 +2312,51 @@ function renderOnbEnriched(m) {
         ${tipoRows || '<div style="color:var(--muted);font-size:11px">Sin datos</div>'}
       </div>
     </div>
+
+    ${buildOnbPlanTable(m.onbByPlan||[])}
   </div>`;
+}
+
+function buildOnbPlanTable(rows) {
+  if (!rows.length) return '';
+  const planColors = {'Plan Starter':'#60a5fa','Plan Growth':'#a78bfa','Plan Advanced':'#2dd4bf','Advanced Personalizado':'#fbbf24'};
+  const maxAvg = Math.max(...rows.map(r=>r.avg||0), 1);
+  const minAvg = Math.min(...rows.filter(r=>r.avg!==null).map(r=>r.avg));
+  const trs = rows.map(r => {
+    const pct  = r.avg !== null ? Math.round(r.avg/maxAvg*100) : 0;
+    const fast = r.avg !== null && r.avg === minAvg;
+    const c    = planColors[r.plan] || 'rgba(100,116,139,.5)';
+    return '<tr style="border-bottom:1px solid var(--border)">'
+      + '<td style="padding:7px 12px;font-size:11px;font-weight:600;color:'+c+'">' + r.plan.replace('Plan ','') + '</td>'
+      + '<td style="padding:7px 10px;text-align:center;font-size:11px">' + r.n + '</td>'
+      + '<td style="padding:7px 10px;text-align:center">'
+      +   (r.avg !== null
+           ? '<span style="font-family:Syne,sans-serif;font-weight:800;font-size:15px;color:'+c+'">' + r.avg + 'd</span>'
+             + (fast ? '<span style="font-size:9px;color:var(--teal);margin-left:4px">✓ más rápido</span>' : '')
+           : '<span style="color:var(--muted)">—</span>')
+      + '</td>'
+      + '<td style="padding:7px 10px;text-align:center;font-size:11px;color:var(--muted)">' + (r.min!==null?r.min+'d':'—') + '</td>'
+      + '<td style="padding:7px 10px;text-align:center;font-size:11px;color:var(--muted)">' + (r.max!==null?r.max+'d':'—') + '</td>'
+      + '<td style="padding:7px 10px">'
+      +   (r.avg !== null
+           ? '<div style="height:6px;background:rgba(255,255,255,.05);border-radius:3px;overflow:hidden">'
+             + '<div style="width:'+pct+'%;height:100%;background:'+c+';border-radius:3px"></div></div>'
+           : '')
+      + '</td></tr>';
+  }).join('');
+  return '<div style="border-top:1px solid var(--border);padding-top:14px">'
+    + '<div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:10px">Días hasta ONB por plan — ¿los planes avanzados llegan más rápido?</div>'
+    + '<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;min-width:420px">'
+    + '<thead><tr style="background:rgba(255,255,255,.02)">'
+    + '<th style="padding:6px 12px;font-size:10px;color:var(--muted);text-align:left;border-bottom:1px solid var(--border)">Plan</th>'
+    + '<th style="padding:6px 10px;font-size:10px;color:var(--muted);text-align:center;border-bottom:1px solid var(--border)">Cuentas</th>'
+    + '<th style="padding:6px 10px;font-size:10px;color:var(--teal);text-align:center;border-bottom:1px solid var(--border)">Días promedio</th>'
+    + '<th style="padding:6px 10px;font-size:10px;color:var(--muted);text-align:center;border-bottom:1px solid var(--border)">Mín</th>'
+    + '<th style="padding:6px 10px;font-size:10px;color:var(--muted);text-align:center;border-bottom:1px solid var(--border)">Máx</th>'
+    + '<th style="padding:6px 10px;font-size:10px;color:var(--muted);text-align:left;border-bottom:1px solid var(--border)">Velocidad relativa</th>'
+    + '</tr></thead><tbody>' + trs + '</tbody></table></div>'
+    + '<div style="font-size:9px;color:var(--muted);margin-top:8px">Días = creación de cuenta → sesión ONB · barra proporcional al plan más lento</div>'
+    + '</div>';
 }
 
 function renderUpgDown(m) {
@@ -2422,7 +2480,7 @@ function downloadChurnCSV(planFilter) {
     { h:'Usa WA',              k: r => (r['Usa API?']||r['Usa Business?']||'')===''?'No':'Sí' },
     { h:'Usa Flow',            k: r => { const v=(r['Usa flows']||'').toString().trim(); return (v===''||v==='0')?'No':'Sí ('+v+')'; } },
     { h:'Usa Grupos',          k: r => { const v=(r['Usa grupos?']||r['Usa grupos']||'').toString().trim(); return (v===''||v==='0')?'No':'Sí ('+v+')'; } },
-    { h:'MRR',                 k: r => getMonthlyMRR(r)||'' },
+    { h:'MRR',                 k: r => getMRR(r)||'' },
   ];
 
   const esc = v => '"' + String(v).replace(/"/g,'""') + '"';
