@@ -685,7 +685,9 @@ function calcMonth(off){
   // Días al ONB por plan — cross con tabla cuentas
   const planes4=['Plan Starter','Plan Growth','Plan Advanced','Advanced Personalizado'];
   const onbByPlan=planes4.map(plan=>{
+    // Only 'Cuentas nuevas' to avoid skew from legacy accounts
     const rows=onbGHLAsist.filter(r=>{
+      if(getOnbTipo(r)!=='nuevas') return false;
       const uid=(r['user_id']||'').toString().trim();
       const acct=acctById[uid];
       return acct&&(acct['Planes Funnelchat']||'').trim()===plan;
