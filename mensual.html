@@ -164,7 +164,10 @@ body{background:var(--navy);color:var(--text);font-family:'DM Sans',sans-serif;f
         <div class="trend-row" id="trendBadges"></div>
       </div>
       <div class="card">
-        <div class="chart-title">Tasa de churn mensual por plan</div>
+        <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:4px">
+          <div class="chart-title" style="margin-bottom:0">Tasa de churn mensual por plan</div>
+          <div style="display:flex;gap:6px;flex-wrap:wrap" id="churnDownloadBtns"></div>
+        </div>
         <div class="chart-sub">Cancelaciones ÷ activos inicio mes · solo pagas · benchmark 5%</div>
         <div class="chart-wrap-lg"><canvas id="churnMesChart"></canvas></div>
         <div class="insight" id="churnInsight"></div>
@@ -223,7 +226,7 @@ body{background:var(--navy);color:var(--text);font-family:'DM Sans',sans-serif;f
       <div class="card">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
           <div class="chart-title" style="font-size:12px;margin-bottom:0">Objetivo declarado</div>
-          <button onclick="openGruposModal()" style="font-size:9px;font-weight:700;padding:3px 10px;border-radius:6px;border:1px solid rgba(45,212,191,.3);background:rgba(45,212,191,.07);color:var(--teal);cursor:pointer;font-family:'DM Sans',sans-serif">🔍 Uso real grupos</button>
+          <button onclick="openGruposModal()" style="font-size:9px;font-weight:700;padding:3px 10px;border-radius:6px;border:1px solid rgba(45,212,191,.3);background:rgba(45,212,191,.07);color:var(--teal);cursor:pointer;font-family:'DM Sans',sans-serif">🔍 Análisis por objetivo</button>
         </div>
         <div style="font-size:10px;color:var(--muted);margin-bottom:8px">% este mes vs % acumulado histórico</div>
         <div id="objetivoMes"></div>
@@ -257,6 +260,7 @@ body{background:var(--navy);color:var(--text);font-family:'DM Sans',sans-serif;f
       <div class="onb-funnel" id="onbFunnel"></div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:14px" id="onbCobertura"></div>
       <div id="onbImpactTable" style="margin-top:14px"></div>
+      <div id="onbEnrichedPanel" style="margin-top:12px"></div>
     </div>
     <!-- Embudos -->
     <div class="card" style="margin-bottom:16px">
@@ -298,6 +302,11 @@ body{background:var(--navy);color:var(--text);font-family:'DM Sans',sans-serif;f
 
     <div id="hist6_s4" style="margin-top:14px;margin-bottom:28px"></div>
 
+  <!-- BLOQUE: MOVIMIENTOS DE PLAN -->
+  <div id="hist6_upgdown" style="margin-top:14px;margin-bottom:8px"></div>
+  <div class="sec-label"><span class="sec-num" style="background:rgba(34,197,94,.15);color:var(--green)">↑↓</span> Movimientos de plan <span class="sec-desc">· Upgrades y downgrades del período · cantidad y MRR</span></div>
+  <div id="upgDownSection" style="margin-bottom:28px"></div>
+
   <!-- BLOQUE 6 -->
   <div class="block">
     <div class="sec-label"><span class="sec-num">06</span> Plan de acción — mes siguiente <span class="sec-desc">· Preventivas + Reactivación · editable</span></div>
@@ -322,7 +331,7 @@ body{background:var(--navy);color:var(--text);font-family:'DM Sans',sans-serif;f
 <script>
 const API_URL='https://script.google.com/macros/s/AKfycbwNp-Hnmi1imEggg6Qz7xRP_fR57ZvcQb9hFR2WUPn1c-BdsN23x2vrnlU5zY6Rydrlng/exec';
 const ARPU=69;
-let RAW={cuentas:[],onboarding:[],sesiones:[],embudos:[],cancelaciones:[]};
+let RAW={cuentas:[],onboarding:[],sesiones:[],embudos:[],cancelaciones:[],payments:[]};
 let currentMonthOffset=0;
 let charts={};
 
@@ -335,6 +344,14 @@ function parseISO(s){
   if(m){const d=new Date(parseInt(m[3]),parseInt(m[2])-1,parseInt(m[1]));return isNaN(d)?null:d;}
   try{const d=new Date(s);return isNaN(d)?null:d;}catch{return null;}
 }
+function parseSpanishLong(s) {
+  if (!s||!s.trim()) return null;
+  const mo={enero:0,febrero:1,marzo:2,abril:3,mayo:4,junio:5,julio:6,agosto:7,septiembre:8,octubre:9,noviembre:10,diciembre:11};
+  const m = s.toString().toLowerCase().match(/([a-záéíóúü]+)\s+(\d{1,2}),\s+(\d{4})/);
+  if (m) { const mv=mo[m[1]]; if(mv!==undefined) return new Date(parseInt(m[3]),mv,parseInt(m[2])); }
+  return null;
+}
+
 function parseSpDate(s){
   if(!s)return null;
   const m=s.toString().match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
@@ -365,6 +382,9 @@ function isPaga(r){const t=(r['trial']||'').toString().trim().toUpperCase();retu
 function isTrial(r){return!isPaga(r);}
 function getCA(r){return parseISO(r['created_at'])||parseISO(r['Fecha creación']);}
 function getOnbDate(r){return parseISO(r['Fecha registro'])||parseISO(r['Fecha estado onboarding'])||null;}
+function getOnbGHLDate(r){return parseSpDate(r['Fecha de ONB GHL'])||parseISO(r['Fecha de ONB GHL'])||null;}
+function getOnbDias(r){const v=parseInt(r['Días para ONB']||'');return isNaN(v)?null:v;}
+function getOnbTipo(r){const t=(r['Tipo de cuenta']||'').trim();return t==='Cuenta antiguo'?'antiguo':t==='Cuentas nuevas'?'nuevas':null;}
 function parseEmbDate(s){
   if(!s)return null;
   const str=s.toString().trim();
@@ -428,6 +448,7 @@ async function loadAll(){
   RAW.sesiones=(json.sesiones||[]).filter(r=>Object.keys(r).length>0);
   RAW.embudos=(json.embudos||[]).filter(r=>Object.keys(r).length>0);
   RAW.cancelaciones=(json.cancelaciones||[]).filter(r=>Object.keys(r).length>0);
+  RAW.payments     =(json.payments     ||[]).filter(r=>Object.keys(r).length>0);
   if(!RAW.cuentas.length)throw new Error('Hoja de cuentas vacía. Verificar Apps Script.');
 }
 
@@ -437,6 +458,10 @@ function calcMonth(off){
   const C=RAW.cuentas,O=RAW.onboarding,S=RAW.sesiones;
 
   const vigP=C.filter(r=>(r['Vigencia del servicio']||'').trim()==='Vigente'&&isPaga(r));
+
+  // ── Plan de reposo ─────────────────────────────────
+  const isReposo = r => (r['Plan (Nombre original)']||'').toLowerCase().includes('reposo');
+  const reposoAll = C.filter(r => isReposo(r) && (r['Vigencia del servicio']||'').trim()==='Vigente');
   const vigT=C.filter(r=>(r['Vigencia del servicio']||'').trim()==='Vigente'&&isTrial(r));
   const canP=C.filter(r=>(r['Vigencia del servicio']||'').trim()==='Cancelado'&&isPaga(r));
   const atrP=C.filter(r=>(r['Vigencia del servicio']||'').trim()==='Atrasado'&&isPaga(r));
@@ -533,7 +558,7 @@ function calcMonth(off){
 
   // Perfil cancelados
   const cm=cancelMes.length||1;
-  const cp_sin_onb=pct(cancelMes.filter(r=>r['Onboarding']==='Sin onboarding').length,cm);
+  const cp_sin_onb=pct(cancelMes.filter(r=>(r['Onboarding']||'').trim()!=='Con onboarding').length,cm);
   const cp_sin_flow=pct(cancelMes.filter(r=>(v=>v===''||v==='0')((r['Usa flows']||'').toString().trim())).length,cm);
   const cp_sin_wa=pct(cancelMes.filter(r=>(r['Usa API?']||'')!=='Sí'&&(r['Usa Business?']||'')!=='Sí').length,cm);
   const cp_sin_ses=pct(cancelMes.filter(r=>r['Sesiones en vivo']==='No asistió').length,cm);
@@ -578,7 +603,7 @@ function calcMonth(off){
 
   // ── Histórico barras perfil ─────────────────────────
   const allCm=allCancelP.length||1;
-  const hist_sin_onb=pct(allCancelP.filter(r=>r['Onboarding']==='Sin onboarding').length,allCm);
+  const hist_sin_onb=pct(allCancelP.filter(r=>(r['Onboarding']||'').trim()!=='Con onboarding').length,allCm);
   const hist_sin_flow=pct(allCancelP.filter(r=>(v=>v===''||v==='0')((r['Usa flows']||'').toString().trim())).length,allCm);
   const hist_sin_wa=pct(allCancelP.filter(r=>(r['Usa API?']||'')!=='Sí'&&(r['Usa Business?']||'')!=='Sí').length,allCm);
   const hist_sin_ses=pct(allCancelP.filter(r=>r['Sesiones en vivo']==='No asistió').length,allCm);
@@ -640,6 +665,22 @@ function calcMonth(off){
 
   // Onboarding
   const onbAll=O.filter(r=>inRange(getOnbDate(r),range));
+  // Enriched ONB using Fecha de ONB GHL
+  const onbGHL     = O.filter(r => inRange(getOnbGHLDate(r), range));
+  const onbGHLAsist= onbGHL.filter(r => r['Estado del onboarding']==='Asistió');
+  const avgDias    = arr => { const v=arr.map(getOnbDias).filter(x=>x!==null); return v.length?Math.round(v.reduce((a,b)=>a+b,0)/v.length):null; };
+  const onbNuevas  = onbGHLAsist.filter(r => getOnbTipo(r)==='nuevas');
+  const onbAntiguas= onbGHLAsist.filter(r => getOnbTipo(r)==='antiguo');
+  const diasNuevas = avgDias(onbNuevas);
+  const diasAntiguas=avgDias(onbAntiguas);
+  // Responsable breakdown
+  const respMap={};
+  onbGHLAsist.forEach(r=>{const resp=(r['Responsable ONB GHL']||'Sin asignar').trim();respMap[resp]=(respMap[resp]||0)+1;});
+  const onbResponsables=Object.entries(respMap).sort((a,b)=>b[1]-a[1]);
+  // Tipo ONB breakdown
+  const tipoMap={};
+  onbGHLAsist.forEach(r=>{const t=(r['Tipo de ONB GHL']||'Sin tipo').trim();tipoMap[t]=(tipoMap[t]||0)+1;});
+  const onbTipos=Object.entries(tipoMap).sort((a,b)=>b[1]-a[1]);
   const onbProp=onbAll.length;
   const onbAgen=onbAll.filter(r=>['Agendó','Asistió','No show','No asistió'].includes(r['Estado del onboarding'])).length;
   const onbAsist=onbAll.filter(r=>r['Estado del onboarding']==='Asistió').length;
@@ -671,7 +712,7 @@ function calcMonth(off){
   const cobT=pct(onbAsistT,nuevosMesT.length);
 
   const conOnbAll=C.filter(r=>r['Onboarding']==='Con onboarding'&&isPaga(r));
-  const sinOnbAll=C.filter(r=>r['Onboarding']==='Sin onboarding'&&isPaga(r));
+  const sinOnbAll=C.filter(r=>(r['Onboarding']||'').trim()!=='Con onboarding'&&isPaga(r));
   const retCon=conOnbAll.length>0?conOnbAll.filter(r=>(r['Vigencia del servicio']||'').trim()==='Vigente').length/conOnbAll.length:0;
   const retSin=sinOnbAll.length>0?sinOnbAll.filter(r=>(r['Vigencia del servicio']||'').trim()==='Vigente').length/sinOnbAll.length:0;
   const retDiff=Math.max(0,retCon-retSin);
@@ -700,7 +741,7 @@ function calcMonth(off){
 
   // Onboarding impact — 12m
   const conOnb12=C12.filter(r=>r['Onboarding']==='Con onboarding'&&isPaga(r));
-  const sinOnb12=C12.filter(r=>r['Onboarding']==='Sin onboarding'&&isPaga(r));
+  const sinOnb12=C12.filter(r=>(r['Onboarding']||'').trim()!=='Con onboarding'&&isPaga(r));
   const onbImpact={
     ...calcImpact(conOnb12, sinOnb12),
     // Historical for context
@@ -746,7 +787,7 @@ function calcMonth(off){
   const sinFlow=vigP.filter(r=>(v=>v===''||v==='0')((r['Usa flows']||'').toString().trim()));
   const sinGrupos=vigP.filter(r=>(v=>v===''||v==='0')((r['Usa grupos?']||'').toString().trim()));
   const sinLogin=vigP.filter(r=>{const ll=parseISO(r['last_login_at']);return!ll||(new Date()-ll)/86400000>14;});
-  const sinOnb=vigP.filter(r=>r['Onboarding']==='Sin onboarding');
+  const sinOnb=vigP.filter(r=>(r['Onboarding']||'').trim()!=='Con onboarding');
 
   // Export columns for each risk group
   const exportCols=['id','country_name','Planes Funnelchat','payment_type','payment_amount',
@@ -772,14 +813,14 @@ function calcMonth(off){
   const sinFlowMes=nuevosMesP.filter(r=>(v=>v===''||v==='0')((r['Usa flows']||'').toString().trim()));
   const sinGruposMes=nuevosMesP.filter(r=>(v=>v===''||v==='0')((r['Usa grupos?']||'').toString().trim()));
   const sinLoginMes=nuevosMesP.filter(r=>{const ll=parseISO(r['last_login_at']);return!ll||(new Date()-ll)/86400000>14;});
-  const sinOnbMes=nuevosMesP.filter(r=>r['Onboarding']==='Sin onboarding');
+  const sinOnbMes=nuevosMesP.filter(r=>(r['Onboarding']||'').trim()!=='Con onboarding');
 
   // ── AHA stats — últimos 6 meses ─────────────────
   const range6mAha = { start: new Date(range.end.getFullYear(), range.end.getMonth()-5, 1), end: range.end };
   const C6aha = C.filter(r => { const ca=getCA(r); return ca && ca >= range6mAha.start; });
   const ahaStatsData = (() => {
-    const conOnb6 = C6aha.filter(r => r['Onboarding']==='Con onboarding' && isPaga(r));
-    const sinOnb6 = C6aha.filter(r => r['Onboarding']==='Sin onboarding' && isPaga(r));
+    const conOnb6 = C6aha.filter(r => (r['Onboarding']||'').trim()==='Con onboarding' && isPaga(r));
+    const sinOnb6 = C6aha.filter(r => (r['Onboarding']||'').trim()!=='Con onboarding' && isPaga(r));
     return {
       wa:     { con: ahaStats(conOnb6,'AHA WA'),     sin: ahaStats(sinOnb6,'AHA WA')     },
       flows:  { con: ahaStats(conOnb6,'AHA flows'),  sin: ahaStats(sinOnb6,'AHA flows')  },
@@ -788,19 +829,58 @@ function calcMonth(off){
   })();
 
   // AHA del mes actual
-  const conOnbMes = nuevosMesP.filter(r => r['Onboarding']==='Con onboarding');
+  const conOnbMes = nuevosMesP.filter(r => (r['Onboarding']||'').trim()==='Con onboarding');
   const ahaStatsMes = {
     wa:     { con: ahaStats(conOnbMes,'AHA WA'),     sin: ahaStats(sinOnbMes,'AHA WA')     },
     flows:  { con: ahaStats(conOnbMes,'AHA flows'),  sin: ahaStats(sinOnbMes,'AHA flows')  },
     grupos: { con: ahaStats(conOnbMes,'AHA grupos'), sin: ahaStats(sinOnbMes,'AHA grupos') },
   };
 
+  // ── Upgrades / Downgrades from payments ──────────────
+  const paysByUserM = {};
+  RAW.payments.forEach(p => {
+    const uid = (p['User ID']||'').toString().trim();
+    if (!uid) return;
+    const d = parseSpanishLong(p['Date']) || parseSpDate(p['Date']) || parseISO(p['Date']);
+    const val = parseFloat((p['Plan Value']||'0').toString()) || 0;
+    const plan = (p['Plan Name']||'').trim();
+    if (!d) return;
+    if (!paysByUserM[uid]) paysByUserM[uid] = [];
+    paysByUserM[uid].push({ d, val, plan });
+  });
+  Object.values(paysByUserM).forEach(arr => arr.sort((a,b) => a.d - b.d));
+
+  // Cross-ref user_id → account for MRR and KPI
+
+  const upgrades = [], downgrades = [];
+  Object.entries(paysByUserM).forEach(([uid, pays]) => {
+    pays.forEach((pay, i) => {
+      if (!inRange(pay.d, range)) return;
+      const prev = pays[i-1];
+      if (!prev || prev.val === 0) return;
+      const delta = pay.val - prev.val;
+      const acct = acctById[uid] || {};
+      const entry = {
+        uid, plan: pay.plan, prevPlan: prev.plan,
+        val: pay.val, prevVal: prev.val, delta: Math.abs(delta),
+        acct
+      };
+      if (delta > 0) upgrades.push(entry);
+      else if (delta < 0) downgrades.push(entry);
+    });
+  });
+
+  const upMRR   = upgrades.reduce((s,e)=>s+e.delta, 0);
+  const downMRR = downgrades.reduce((s,e)=>s+e.delta, 0);
   return{
-    range, ahaStats:ahaStatsData, ahaStatsMes,
+    range, off, ahaStats:ahaStatsData, ahaStatsMes,
+    reposoN:reposoAll.length, reposoMRR:Math.round(reposoAll.reduce((s,r)=>s+getMRR(r),0)),
+    upgrades, downgrades, upMRR:Math.round(upMRR), downMRR:Math.round(downMRR),
     vigP:vigP.length,vigT:vigT.length,activasInicioMes,
     nuevosMesP:nuevosMesP.length,nuevosMesT:nuevosMesT.length,
     cancelMes:cancelMes.length,convMes:convMes.length,
     cancelMesArr:cancelMes,cancelMesTrial:cancelMesTrial,
+    allCancelP:allCancelP,
     prevCancelMesArr:prevCancelMesArr,atrP:atrP.length,
     mrrActivo,mrrRiesgo,mrrNuevo,mrrPerdido,mrrConv,
     retNeta:nuevosMesP.length-cancelMes.length,
@@ -823,6 +903,8 @@ function calcMonth(off){
     nichoTPrev,objTPrev,expTPrev,factTPrev,
     cancelPrevTotal:cancelPrev.length,
     onbProp,onbAgen,onbAsist,onbNoShow,onbNoShowReal,
+    onbNuevas:onbNuevas.length,onbAntiguas:onbAntiguas.length,
+    diasNuevas,diasAntiguas,onbResponsables,onbTipos,
     onbPropPrev,onbAgenPrev,onbAsistPrev,onbNoShowPrev,
     cobPPrev,cobTPrev,
     onbAsistP,onbAsistT,cobP,cobT,
@@ -857,6 +939,11 @@ function calcMonth(off){
 
       // Datos duros
       const newP  = C.filter(r=>inRange(getCA(r),mRange)&&isPaga(r));
+      // Reposo: count payments with reposo plan in this month
+      const reposoM = RAW.payments.filter(p => {
+        const d = parseSpanishLong(p['Date']) || parseSpDate(p['Date']) || parseISO(p['Date']);
+        return d && inRange(d, mRange) && (p['Plan Name']||'').toLowerCase().includes('reposo');
+      }).length;
       const newT  = C.filter(r=>inRange(getCA(r),mRange)&&isTrial(r));
       const canM  = canP.filter(r=>inRange(cancelDate(r),mRange));
       const atrM  = C.filter(r=>{
@@ -887,9 +974,18 @@ function calcMonth(off){
       const cobM      = newP.length>0?Math.round(onbAsistM/newP.length*100):0;
       const asistTasaM= onbAgenM>0?Math.round(onbAsistM/onbAgenM*100):0;
 
+      // ONB GHL enriched — per month
+      const onbGHLM      = O.filter(r => inRange(getOnbGHLDate(r), mRange));
+      const onbGHLAsistM = onbGHLM.filter(r => r['Estado del onboarding']==='Asistió');
+      const onbGHLNuevasM  = onbGHLAsistM.filter(r => getOnbTipo(r)==='nuevas');
+      const onbGHLAntiguasM= onbGHLAsistM.filter(r => getOnbTipo(r)==='antiguo');
+      const avgDiasM     = arr => { const v=arr.map(getOnbDias).filter(x=>x!==null); return v.length?Math.round(v.reduce((a,b)=>a+b,0)/v.length):null; };
+      const diasNuevasM  = avgDiasM(onbGHLNuevasM);
+      const diasAntiguasM= avgDiasM(onbGHLAntiguasM);
+
       // AHA — tiempo al hito por mes, con ONB vs sin ONB
-      const conOnbM = newP.filter(r => r['Onboarding']==='Con onboarding');
-      const sinOnbM = newP.filter(r => r['Onboarding']==='Sin onboarding');
+      const conOnbM = newP.filter(r => (r['Onboarding']||'').trim()==='Con onboarding');
+      const sinOnbM = newP.filter(r => (r['Onboarding']||'').trim()!=='Con onboarding');
       const ahaM = {
         wa:     { con: ahaStats(conOnbM,'AHA WA'),     sin: ahaStats(sinOnbM,'AHA WA')     },
         flows:  { con: ahaStats(conOnbM,'AHA flows'),  sin: ahaStats(sinOnbM,'AHA flows')  },
@@ -911,7 +1007,7 @@ function calcMonth(off){
       const newVigP = newP.filter(r=>(r['Vigencia del servicio']||'').trim()==='Vigente');
       const rSinWA  = newVigP.filter(r=>(r['Usa API?']||'')!=='Sí'&&(r['Usa Business?']||'')!=='Sí').length;
       const rSinFlw = newVigP.filter(r=>(v=>v===''||v==='0')((r['Usa flows']||'').toString().trim())).length;
-      const rSinOnb = newVigP.filter(r=>r['Onboarding']==='Sin onboarding').length;
+      const rSinOnb = newVigP.filter(r=>(r['Onboarding']||'').trim()!=='Con onboarding').length;
 
       // Retención ONB — asistentes del mes que siguen Vigentes hoy
       const acctMapH={};
@@ -945,7 +1041,7 @@ function calcMonth(off){
       months.push({
         lbl,
         // Sección 1
-        newP:newP.length, newT:newT.length,
+        newP:newP.length, newT:newT.length, reposoM,
         canM:canM.length, atrM:atrM.length,
         vigIni:vigIni.length, mrrM, churnRate,
         retNeta:newP.length-canM.length,
@@ -953,13 +1049,15 @@ function calcMonth(off){
         survN:survM.length,
         survPct:canM.length>0?Math.round(survM.length/canM.length*100):0,
         // Perfil cancelados pagas del mes
-        pSinOnb:   canM.length>0?Math.round(canM.filter(r=>r['Onboarding']==='Sin onboarding').length/canM.length*100):0,
+        pSinOnb:   canM.length>0?Math.round(canM.filter(r=>(r['Onboarding']||'').trim()!=='Con onboarding').length/canM.length*100):0,
         pSinFlow:  canM.length>0?Math.round(canM.filter(r=>(v=>v===''||v==='0')((r['Usa flows']||'').toString().trim())).length/canM.length*100):0,
         pSinWA:    canM.length>0?Math.round(canM.filter(r=>(r['Usa API?']||'')!=='Sí'&&(r['Usa Business?']||'')!=='Sí').length/canM.length*100):0,
         pSinSes:   canM.length>0?Math.round(canM.filter(r=>r['Sesiones en vivo']==='No asistió').length/canM.length*100):0,
         pSinGrupos:canM.length>0?Math.round(canM.filter(r=>(v=>v===''||v==='0')((r['Usa grupos?']||'').toString().trim())).length/canM.length*100):0,
         pSinTrial: canM.length>0?Math.round(canM.filter(r=>(r['flow trial']||'').includes('No pasó')).length/canM.length*100):0,
         // Sección 3 — onboarding
+        onbGHLNuevas:onbGHLNuevasM.length, onbGHLAntiguas:onbGHLAntiguasM.length,
+        diasNuevasM, diasAntiguasM,
         onbProp:onbM.length, onbAgen:onbAgenM,
         onbAsist:onbAsistM, onbNS:onbNSM,
         onbCob:cobM, onbAsistTasa:asistTasaM,
@@ -1003,6 +1101,11 @@ function render(m){
       </div>
       <div class="p-value" style="color:var(--teal)">${m.vigP.toLocaleString('es-CO')}</div>
       <div class="p-context">MRR activo: <strong>${fmt$(m.mrrActivo)}</strong><br>Trial activos: ${m.vigT}</div>
+    </div>
+    <div class="p-card" style="border-top:3px solid var(--muted);opacity:.9">
+      <div class="p-label">En plan reposo</div>
+      <div class="p-value" style="color:var(--muted)">${m.reposoN.toLocaleString('es-CO')}</div>
+      <div class="p-context">${m.reposoMRR>0?'MRR: <strong>$'+m.reposoMRR.toLocaleString('es-CO')+'</strong>':'Sin MRR registrado'}</div>
     </div>
     <div class="p-card c-teal" style="opacity:.85">
       <div class="p-label">
@@ -1174,6 +1277,9 @@ function render(m){
   const onbImpEl=document.getElementById('onbImpactTable');
   if(onbImpEl){
     onbImpEl.innerHTML=impactTable('Onboarding','Con ONB','Sin ONB',m.onbImpact,'var(--green2)')+ahaTable(m.ahaStatsMes,m.ahaStats);
+  // ONB enriched panel
+  const onbEnrEl = document.getElementById('onbEnrichedPanel');
+  if (onbEnrEl) onbEnrEl.innerHTML = renderOnbEnriched(m);
   }
 
   const cobDlt=(now,prev)=>{
@@ -1195,6 +1301,7 @@ function render(m){
       <div style="margin-top:6px">${cobDlt(m.cobT,m.cobTPrev)}</div>
       <div style="font-size:11px;color:var(--muted);margin-top:4px">${m.onbAsistT} de ${m.nuevosMesT_n} trials · ant. ${m.cobTPrev}%</div>
     </div>`;
+
 
   // ── Embudos render ────────────────────────────────
   (()=>{
@@ -1385,8 +1492,12 @@ function render(m){
     }).join('');
   }
 
+  renderChurnDownloadBtns(m);
   // Histórico 6 meses — tablas comparativas
   renderHist6(m);
+
+  // Upgrades / Downgrades section
+  renderUpgDown(m);
 }
 
 // Global toggle function for 4 dimensions
@@ -1476,116 +1587,262 @@ function renderPerfilTable() {
   <div style="font-size:10px;color:var(--muted);margin-top:8px">% calculado sobre el total de cancelados pagas del mes · verde = mejora (baja) · rojo = empeora (sube)</div>`;
 }
 
-function openGruposModal() {
+function openGruposModal(preselect) {
   const m = window._mesMet;
   if (!m) return;
   document.getElementById('gruposModal').style.display = 'block';
 
-  const TARGET = 'Optimizar la gestión de grupos / comunidades';
-  const isP = window._quienesMesMode !== 'trial';
-  const pool = isP ? (m.cancelMesArr||[]) : (m.cancelMesTrial||[]);
+  // Populate selector with all unique objectives from cancelled accounts
+  const pool = (m.cancelMesArr||[]);
+  const objectives = [...new Set(
+    pool.map(r => (r['Objetivo con Funnelchat']||'').trim()).filter(Boolean)
+  )].sort();
 
-  // Filter to target objective
-  const targetCanc = pool.filter(r =>
-    (r['Objetivo con Funnelchat']||'').trim() === TARGET
-  );
-
-  if (!targetCanc.length) {
+  const sel = document.getElementById('gruposObjSelect');
+  const defaultTarget = preselect || 'Optimizar la gestión de grupos / comunidades';
+  sel.innerHTML = objectives.map(o =>
+    `<option value="${o}" ${o===defaultTarget?'selected':''}>${o}</option>`
+  ).join('');
+  if (!objectives.length) {
     document.getElementById('gruposModalContent').innerHTML =
-      `<div style="color:var(--muted);font-size:12px;padding:20px 0">No hay cancelados con ese objetivo en el mes seleccionado (${m.label}).</div>`;
+      '<div style="color:var(--muted);font-size:12px;padding:20px 0">Sin datos de objetivos en el mes seleccionado.</div>';
     return;
   }
 
-  const sinFlow  = v => (v===''||v==='0');
+  renderGruposModal();
+}
+
+function renderGruposModal() {
+  const m = window._mesMet;
+  if (!m) return;
+  const sel = document.getElementById('gruposObjSelect');
+  const TARGET = sel ? sel.value : 'Optimizar la gestión de grupos / comunidades';
+  const pool     = (m.cancelMesArr||[]);
+  const seg      = pool.filter(r => (r['Objetivo con Funnelchat']||'').trim() === TARGET);
+  const total    = seg.length;
+
+  if (!total) {
+    document.getElementById('gruposModalContent').innerHTML =
+      `<div style="color:var(--muted);font-size:12px;padding:20px 0">Sin cancelados con el objetivo "<strong>${TARGET}</strong>" en ${m.label}.</div>`;
+    return;
+  }
+
+  // ── Helpers ────────────────────────────────────────
   const usaGrupos = r => {
-    const v = (r['Usa grupos?']||r['Usa Grupos?']||r['Usa grupos']||'').toString().trim();
-    return !sinFlow(v);
+    const v = (r['Usa grupos?']||r['Usa grupos 5']||r['Usa grupos']||'').toString().trim();
+    return v !== '' && v !== '0';
   };
+  const usaFlow = r => {
+    const v = (r['Usa flows']||r['Usa Flow 6']||r['Usa Flow']||'').toString().trim();
+    return v !== '' && v !== '0';
+  };
+  const usaWA = r =>
+    (r['Usa API?']||'').trim() === 'Sí' || (r['Usa Business?']||'').trim() === 'Sí';
+  const getLT = r => parseInt(r['LT'])||0;
+  const getPlan = r => (r['Planes Funnelchat']||'').trim();
+  const getNiche = r => (r['Tipo de negocio']||'(sin tipo)').trim();
+  const getOnb = r => (r['Onboarding']||'').trim();
+  const getExp = r => (r['Experiencia automatizando']||'').trim();
 
-  const conGrupos = targetCanc.filter(usaGrupos);
-  const sinGrupos = targetCanc.filter(r => !usaGrupos(r));
-  const pctCon    = Math.round(conGrupos.length / targetCanc.length * 100);
-  const pctSin    = 100 - pctCon;
+  const pct = (n,d) => d>0 ? Math.round(n/d*100) : 0;
 
-  // Breakdown by plan
+  // ── 1. Tendencia 6 meses — usa allCancelP (histórico completo) ──
+  const hist6 = m.hist6 || [];
+  const allC  = m.allCancelP || [];
+  const trendReal = hist6.map((h, i) => {
+    // Reconstruct month range from hist6 label using off
+    const off6 = -(5-i);
+    const mR   = getMonthRange ? getMonthRange(m.off !== undefined ? m.off + off6 : off6) : null;
+    if (!mR) return { lbl: h.lbl, n: 0 };
+    const inMon = allC.filter(r => {
+      const cd = cancelDate(r);
+      return cd && cd >= mR.start && cd <= mR.end &&
+             (r['Objetivo con Funnelchat']||'').trim() === TARGET;
+    });
+    return { lbl: h.lbl, n: inMon.length };
+  });
+
+  const maxTrend = Math.max(...trendReal.map(t=>t.n), 1);
+  const trendBars = trendReal.map((t,i) => {
+    const isLast = i === trendReal.length-1;
+    const h = Math.round(t.n/maxTrend*60);
+    return `<div style="display:flex;flex-direction:column;align-items:center;gap:4px;flex:1">
+      <div style="font-size:10px;font-weight:700;color:${isLast?'var(--orange)':'var(--muted)'}">${t.n||''}</div>
+      <div style="width:100%;height:${Math.max(h,2)}px;background:${isLast?'rgba(251,146,60,.6)':'rgba(100,116,139,.3)'};border-radius:3px 3px 0 0"></div>
+      <div style="font-size:9px;color:var(--muted);white-space:nowrap">${t.lbl}</div>
+    </div>`;
+  }).join('');
+
+  // ── 2. LT buckets ────────────────────────────────────
+  const lt0_30   = seg.filter(r => getLT(r) <= 30).length;
+  const lt31_90  = seg.filter(r => getLT(r) > 30  && getLT(r) <= 90).length;
+  const lt91_180 = seg.filter(r => getLT(r) > 90  && getLT(r) <= 180).length;
+  const lt181p   = seg.filter(r => getLT(r) > 180).length;
+  const avgLT    = total > 0 ? Math.round(seg.reduce((s,r)=>s+getLT(r),0)/total) : 0;
+
+  // ── 3. Uso de plataforma ────────────────────────────
+  const nGrupos  = seg.filter(usaGrupos).length;
+  const nFlow    = seg.filter(usaFlow).length;
+  const nWA      = seg.filter(usaWA).length;
+  const nOnb     = seg.filter(r=>getOnb(r)==='Con onboarding').length;
+
+  // ── 4. Planes ──────────────────────────────────────
   const planes = ['Plan Starter','Plan Growth','Plan Advanced','Advanced Personalizado'];
-  const planRows = planes.map(p => {
-    const enP = targetCanc.filter(r => (r['Planes Funnelchat']||'').trim() === p);
-    if (!enP.length) return null;
-    const usaron = enP.filter(usaGrupos).length;
-    return { plan:p, total:enP.length, usaron, pct:Math.round(usaron/enP.length*100) };
-  }).filter(Boolean);
+  const planRows = planes.map(p => ({ p, n: seg.filter(r=>getPlan(r)===p).length })).filter(r=>r.n>0);
 
-  // Prev month comparison
-  const prevPool = isP ? (m.prevCancelMesArr||[]) : [];
-  const prevTarget = prevPool.filter(r => (r['Objetivo con Funnelchat']||'').trim() === TARGET);
-  const prevCon = prevTarget.filter(usaGrupos).length;
-  const prevPct = prevTarget.length > 0 ? Math.round(prevCon/prevTarget.length*100) : null;
+  // ── 5. Nicho top 6 ────────────────────────────────
+  const nicheMap = {};
+  seg.forEach(r => { const n=getNiche(r); nicheMap[n]=(nicheMap[n]||0)+1; });
+  const niches = Object.entries(nicheMap).sort((a,b)=>b[1]-a[1]).slice(0,6);
+  const maxN = niches[0]?.[1]||1;
 
-  const bar = (pct, color) =>
-    `<div style="height:8px;border-radius:4px;background:rgba(255,255,255,.06);overflow:hidden;margin-top:4px">
-      <div style="width:${pct}%;height:100%;background:${color};border-radius:4px"></div>
+  // ── 6. Experiencia ───────────────────────────────
+  const expMap = {};
+  seg.forEach(r => { const e=getExp(r)||'No indicada'; expMap[e]=(expMap[e]||0)+1; });
+  const exps = Object.entries(expMap).sort((a,b)=>b[1]-a[1]);
+
+  // ── 7. AHA alcanzados ────────────────────────────
+  const ahaWA  = seg.filter(r=>(r['AHA WA']||'').trim()!=='').length;
+  const ahaFl  = seg.filter(r=>(r['AHA flows']||'').trim()!=='').length;
+  const ahaGr  = seg.filter(r=>(r['AHA grupos']||'').trim()!=='').length;
+
+  // ── Diagnosis ────────────────────────────────────
+  const diag = [];
+  if (lt181p / total > 0.4)
+    diag.push({ color:'var(--orange)', txt:`<strong>${pct(lt181p,total)}%</strong> son clientes maduros (+180d) — llevan más de 6 meses en la plataforma antes de cancelar.` });
+  else if (lt0_30 / total > 0.4)
+    diag.push({ color:'var(--red)', txt:`<strong>${pct(lt0_30,total)}%</strong> canceló en los primeros 30 días — señal de problema en adopción inicial o fit del producto.` });
+  if (pct(nGrupos,total) < 30)
+    diag.push({ color:'var(--red)', txt:`Solo <strong>${pct(nGrupos,total)}%</strong> tenía grupos activos al cancelar — la función no llegó a usarse realmente en este segmento.` });
+  if (pct(nFlow,total) < 30)
+    diag.push({ color:'var(--yellow)', txt:`Solo <strong>${pct(nFlow,total)}%</strong> tenía flows activos — posible perfil de baja activación general de la plataforma.` });
+  if (pct(nWA,total) < 50)
+    diag.push({ color:'var(--red)', txt:`Solo <strong>${pct(nWA,total)}%</strong> tenía WhatsApp conectado — cancelaron sin completar el setup básico.` });
+  if (pct(nOnb,total) < 50)
+    diag.push({ color:'var(--muted)', txt:`Solo <strong>${pct(nOnb,total)}%</strong> tuvo onboarding — parte del problema puede ser falta de acompañamiento en la adopción.` });
+  if (!diag.length)
+    diag.push({ color:'var(--teal)', txt:`Perfil activo: mayoría con WA, flows y onboarding. El problema en este segmento parece ser de valor percibido, no de adopción técnica.` });
+
+  const pill = (color, txt) =>
+    `<div style="background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.07);border-radius:8px;padding:9px 14px;font-size:11px;color:#cbd5e1;line-height:1.65">
+      <span style="color:${color};font-weight:700">● </span>${txt}</div>`;
+
+  const kpi = (label, val, sub, color='#fff') =>
+    `<div style="background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.07);border-radius:10px;padding:12px 14px">
+      <div style="font-size:9px;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);margin-bottom:4px">${label}</div>
+      <div style="font-family:'Syne',sans-serif;font-size:22px;font-weight:800;color:${color};line-height:1">${val}</div>
+      ${sub?`<div style="font-size:10px;color:var(--muted);margin-top:4px">${sub}</div>`:''}
     </div>`;
 
-  const planTable = planRows.map(r =>
-    `<tr style="border-bottom:1px solid rgba(255,255,255,.05)">
-      <td style="padding:7px 10px;font-size:11px;color:var(--muted)">${r.plan}</td>
-      <td style="padding:7px 10px;text-align:center;font-size:11px">${r.total}</td>
-      <td style="padding:7px 10px;text-align:center;font-size:11px;color:var(--teal)">${r.usaron}</td>
-      <td style="padding:7px 10px;text-align:center;font-size:11px">
-        <span style="font-weight:700;color:${r.pct>=50?'var(--teal)':'var(--red)'}">${r.pct}%</span>
-      </td>
-    </tr>`
-  ).join('');
+  const miniBar = (n, max, color) =>
+    `<div style="flex:1;height:6px;background:rgba(255,255,255,.05);border-radius:3px;overflow:hidden">
+      <div style="width:${Math.round(n/max*100)}%;height:100%;background:${color};border-radius:3px"></div>
+    </div>`;
+
+  const planColors = {'Plan Starter':'#60a5fa','Plan Growth':'#a78bfa','Plan Advanced':'#2dd4bf','Advanced Personalizado':'#fbbf24'};
 
   document.getElementById('gruposModalContent').innerHTML = `
-    <!-- KPIs -->
-    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:22px">
-      <div style="background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.07);border-radius:10px;padding:14px">
-        <div style="font-size:9px;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);margin-bottom:6px">Cancelados con ese objetivo</div>
-        <div style="font-family:'Syne',sans-serif;font-size:26px;font-weight:800;color:#fff">${targetCanc.length}</div>
-        ${prevTarget.length ? `<div style="font-size:10px;color:var(--muted);margin-top:4px">Mes anterior: ${prevTarget.length}</div>` : ''}
+
+    <!-- DIAGNÓSTICO -->
+    <div style="margin-bottom:20px">
+      <div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:8px">🩺 Diagnóstico automático</div>
+      <div style="display:flex;flex-direction:column;gap:6px">${diag.map(d=>pill(d.color,d.txt)).join('')}</div>
+    </div>
+
+    <!-- KPIs FILA 1 -->
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:12px">
+      ${kpi('Cancelados en el segmento', total, `${m.label} · pagas`, 'var(--orange)')}
+      ${kpi('LT medio', avgLT+'d', 'días como cliente', avgLT>180?'var(--red)':'var(--yellow)')}
+      ${kpi('Con onboarding', pct(nOnb,total)+'%', `${nOnb} de ${total}`, nOnb/total>0.5?'var(--teal)':'var(--muted)')}
+      ${kpi('Usaron grupos', pct(nGrupos,total)+'%', `${nGrupos} activos al cancelar`, nGrupos/total>0.5?'var(--teal)':'var(--red)')}
+    </div>
+
+    <!-- KPIs AHA -->
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:20px">
+      ${kpi('Conectaron WA (AHA)', pct(ahaWA,total)+'%', `${ahaWA} alcanzaron hito`, 'var(--blue)')}
+      ${kpi('Activaron Flow (AHA)', pct(ahaFl,total)+'%', `${ahaFl} alcanzaron hito`, 'var(--blue)')}
+      ${kpi('Crearon Grupo (AHA)', pct(ahaGr,total)+'%', `${ahaGr} alcanzaron hito`, 'var(--blue)')}
+    </div>
+
+    <!-- TENDENCIA 6M + LT -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:20px">
+
+      <div style="background:rgba(255,255,255,.02);border:1px solid rgba(255,255,255,.07);border-radius:10px;padding:14px">
+        <div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:12px">Tendencia 6 meses</div>
+        <div style="display:flex;align-items:flex-end;gap:4px;height:80px">${trendBars}</div>
+        <div style="font-size:9px;color:var(--muted);margin-top:8px">↑ Volumen de cancelados con este objetivo</div>
       </div>
-      <div style="background:rgba(45,212,191,.06);border:1px solid rgba(45,212,191,.15);border-radius:10px;padding:14px">
-        <div style="font-size:9px;text-transform:uppercase;letter-spacing:.1em;color:var(--teal);margin-bottom:6px">Sí usaron grupos</div>
-        <div style="font-family:'Syne',sans-serif;font-size:26px;font-weight:800;color:var(--teal)">${conGrupos.length}</div>
-        <div style="font-size:10px;color:var(--muted);margin-top:4px">${pctCon}% del segmento${prevPct!==null?` · prev: ${prevPct}%`:''}</div>
-        ${bar(pctCon,'var(--teal)')}
-      </div>
-      <div style="background:rgba(248,113,113,.06);border:1px solid rgba(248,113,113,.15);border-radius:10px;padding:14px">
-        <div style="font-size:9px;text-transform:uppercase;letter-spacing:.1em;color:var(--red);margin-bottom:6px">No usaron grupos</div>
-        <div style="font-family:'Syne',sans-serif;font-size:26px;font-weight:800;color:var(--red)">${sinGrupos.length}</div>
-        <div style="font-size:10px;color:var(--muted);margin-top:4px">${pctSin}% del segmento</div>
-        ${bar(pctSin,'var(--red)')}
+
+      <div style="background:rgba(255,255,255,.02);border:1px solid rgba(255,255,255,.07);border-radius:10px;padding:14px">
+        <div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:12px">Antigüedad (LT)</div>
+        ${[['0–30d', lt0_30, 'rgba(248,113,113,.7)'],['31–90d', lt31_90, 'rgba(251,146,60,.7)'],['91–180d', lt91_180, 'rgba(96,165,250,.7)'],['180d+', lt181p, 'rgba(45,212,191,.7)']].map(([l,n,c])=>
+          `<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+            <div style="font-size:10px;color:var(--muted);width:48px;flex-shrink:0">${l}</div>
+            ${miniBar(n, total, c)}
+            <div style="font-size:11px;font-weight:700;width:28px;text-align:right">${n}</div>
+            <div style="font-size:10px;color:var(--muted);width:32px">${pct(n,total)}%</div>
+          </div>`
+        ).join('')}
       </div>
     </div>
 
-    <!-- Insight -->
-    <div style="background:rgba(251,146,60,.06);border:1px solid rgba(251,146,60,.15);border-radius:8px;padding:12px 16px;margin-bottom:20px;font-size:11px;color:#cbd5e1;line-height:1.7">
-      ${pctSin >= 60
-        ? `⚠️ <strong style="color:var(--orange)">${pctSin}%</strong> canceló queriendo usar grupos pero <strong>nunca los activó</strong> — señal de fricción en adopción o desconocimiento de la funcionalidad.`
-        : pctCon >= 60
-        ? `💡 <strong style="color:var(--teal)">${pctCon}%</strong> sí usó grupos antes de cancelar — la funcionalidad llegó pero no retuvo. Revisar si el problema es de valor percibido o expectativas no cumplidas.`
-        : `📊 Distribución pareja: ${pctCon}% usó grupos, ${pctSin}% no. Analizar ambos subgrupos por separado.`}
+    <!-- USO PLATAFORMA + PLANES -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:20px">
+
+      <div style="background:rgba(255,255,255,.02);border:1px solid rgba(255,255,255,.07);border-radius:10px;padding:14px">
+        <div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:12px">Uso de plataforma al cancelar</div>
+        ${[['WhatsApp conectado',nWA,'rgba(45,212,191,.7)'],['Flow activo',nFlow,'rgba(96,165,250,.7)'],['Grupos activos',nGrupos,'rgba(167,139,250,.7)'],['Con onboarding',nOnb,'rgba(251,146,60,.7)']].map(([l,n,c])=>
+          `<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+            <div style="font-size:10px;color:var(--muted);flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${l}</div>
+            ${miniBar(n, total, c)}
+            <div style="font-size:11px;font-weight:700;width:28px;text-align:right">${n}</div>
+            <div style="font-size:10px;color:var(--muted);width:32px">${pct(n,total)}%</div>
+          </div>`
+        ).join('')}
+      </div>
+
+      <div style="background:rgba(255,255,255,.02);border:1px solid rgba(255,255,255,.07);border-radius:10px;padding:14px">
+        <div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:12px">Por plan</div>
+        ${planRows.map(({p,n})=>
+          `<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+            <div style="font-size:10px;color:var(--muted);flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${p.replace('Plan ','')}</div>
+            ${miniBar(n, total, planColors[p]||'rgba(100,116,139,.5)')}
+            <div style="font-size:11px;font-weight:700;width:28px;text-align:right">${n}</div>
+            <div style="font-size:10px;color:var(--muted);width:32px">${pct(n,total)}%</div>
+          </div>`
+        ).join('')}
+      </div>
     </div>
 
-    <!-- Plan breakdown -->
-    ${planRows.length ? `
-    <div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:8px">Desglose por plan</div>
-    <div style="border:1px solid rgba(255,255,255,.07);border-radius:10px;overflow:hidden">
-      <table style="width:100%;border-collapse:collapse">
-        <thead><tr style="background:rgba(255,255,255,.03)">
-          <th style="padding:7px 10px;font-size:10px;font-weight:600;color:var(--muted);text-align:left">Plan</th>
-          <th style="padding:7px 10px;font-size:10px;font-weight:600;color:var(--muted);text-align:center">Total</th>
-          <th style="padding:7px 10px;font-size:10px;font-weight:600;color:var(--teal);text-align:center">Usaron grupos</th>
-          <th style="padding:7px 10px;font-size:10px;font-weight:600;color:var(--muted);text-align:center">%</th>
-        </tr></thead>
-        <tbody>${planTable}</tbody>
-      </table>
-    </div>` : ''}
+    <!-- NICHO + EXPERIENCIA -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:16px">
 
-    <div style="font-size:9px;color:var(--muted);margin-top:14px">
-      Vista: ${isP?'Pagas':'Trial'} · Mes: ${m.label} · Columna evaluada: Usa grupos / Usa grupos?
+      <div style="background:rgba(255,255,255,.02);border:1px solid rgba(255,255,255,.07);border-radius:10px;padding:14px">
+        <div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:12px">Top nichos</div>
+        ${niches.map(([n,v])=>
+          `<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+            <div style="font-size:10px;color:var(--muted);flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${n}">${n}</div>
+            ${miniBar(v, maxN, 'rgba(251,146,60,.6)')}
+            <div style="font-size:11px;font-weight:700;width:24px;text-align:right">${v}</div>
+          </div>`
+        ).join('')}
+      </div>
+
+      <div style="background:rgba(255,255,255,.02);border:1px solid rgba(255,255,255,.07);border-radius:10px;padding:14px">
+        <div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:12px">Experiencia automatizando</div>
+        ${exps.map(([e,v])=>
+          `<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+            <div style="font-size:10px;color:var(--muted);flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${e}</div>
+            ${miniBar(v, total, 'rgba(96,165,250,.5)')}
+            <div style="font-size:11px;font-weight:700;width:24px;text-align:right">${v}</div>
+            <div style="font-size:10px;color:var(--muted);width:32px">${pct(v,total)}%</div>
+          </div>`
+        ).join('')}
+      </div>
+    </div>
+
+    <div style="font-size:9px;color:var(--muted);border-top:1px solid rgba(255,255,255,.06);padding-top:10px">
+      Base: cancelados pagas · ${m.label} · Objetivo = "${TARGET}"
     </div>`;
 }
 
@@ -1907,6 +2164,7 @@ function renderHist6(m) {
     {label:'Retención neta',      values:H.map(h=>h.retNeta),   inv:false, fmt:'n'},
     {label:'Tasa churn (%)',      values:H.map(h=>h.churnRate), inv:true,  fmt:'%'},
     {label:'MRR inicio mes ($)',  values:H.map(h=>h.mrrM),      inv:false, fmt:'$'},
+        {label:'En plan reposo',       values:H.map(h=>h.reposoM??null), inv:true,  fmt:'n'},
   ]);
 
   // SECCIÓN 2 — Razones / encuesta
@@ -1938,6 +2196,10 @@ function renderHist6(m) {
         {label:'ONB propuesto',                values:H.map(h=>h.onbProp),       inv:false, fmt:'n'},
         {label:'Agendados',                    values:H.map(h=>h.onbAgen),       inv:false, fmt:'n'},
         {label:'Asistentes',                   values:H.map(h=>h.onbAsist),      inv:false, fmt:'n'},
+        {label:'↳ Cuentas nuevas',          values:H.map(h=>h.onbGHLNuevas??null),  inv:false, fmt:'n'},
+        {label:'↳ Cuentas antiguas',        values:H.map(h=>h.onbGHLAntiguas??null),inv:false, fmt:'n'},
+        {label:'Días prom. al ONB (nuevas)',  values:H.map(h=>h.diasNuevasM??null),  inv:true,  fmt:'n'},
+        {label:'Días prom. al ONB (antiguas)',values:H.map(h=>h.diasAntiguasM??null),inv:true,  fmt:'n'},
         {label:'No show',                      values:H.map(h=>h.onbNS),         inv:true,  fmt:'n'},
         {label:'% No show',                    values:H.map(h=>h.onbAgen>0?Math.round(h.onbNS/h.onbAgen*100):0), inv:true, fmt:'%'},
         {label:'% Cobertura pagas',            values:H.map(h=>h.onbCob),        inv:false, fmt:'%'},
@@ -1970,6 +2232,212 @@ function renderHist6(m) {
     {label:'Sin flow activo',      values:H.map(h=>h.rSinFlw), inv:true,  fmt:'n'},
     {label:'Sin onboarding',       values:H.map(h=>h.rSinOnb), inv:true,  fmt:'n'},
   ]);
+}
+
+function renderOnbEnriched(m) {
+  const total = (m.onbNuevas||0) + (m.onbAntiguas||0);
+  if (!total) return '';
+  const pct = (n,d) => d>0?Math.round(n/d*100):0;
+  const bar = (n,max,color) =>
+    `<div style="flex:1;height:6px;background:rgba(255,255,255,.05);border-radius:3px;overflow:hidden">
+      <div style="width:${Math.round(n/(max||1)*100)}%;height:100%;background:${color};border-radius:3px"></div>
+    </div>`;
+  const dias = (v,label) => v!==null
+    ? `<span style="font-family:'Syne',sans-serif;font-size:18px;font-weight:800;color:var(--teal)">${v}d</span> <span style="font-size:10px;color:var(--muted)">${label}</span>`
+    : `<span style="color:var(--muted);font-size:11px">—</span>`;
+
+  // Responsables
+  const respRows = (m.onbResponsables||[]).slice(0,5).map(([r,n]) =>
+    `<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+      <div style="font-size:11px;color:var(--muted);flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${r}</div>
+      ${bar(n,total,'rgba(45,212,191,.6)')}
+      <div style="font-size:11px;font-weight:700;width:24px;text-align:right">${n}</div>
+    </div>`
+  ).join('');
+
+  // Tipos
+  const tipoRows = (m.onbTipos||[]).slice(0,5).map(([t,n]) =>
+    `<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+      <div style="font-size:11px;color:var(--muted);flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${t}</div>
+      ${bar(n,total,'rgba(96,165,250,.6)')}
+      <div style="font-size:11px;font-weight:700;width:24px;text-align:right">${n}</div>
+    </div>`
+  ).join('');
+
+  return `<div style="background:rgba(255,255,255,.02);border:1px solid var(--border);border-radius:12px;padding:16px 18px;margin-top:4px">
+    <div style="font-size:10px;font-weight:700;color:var(--teal);text-transform:uppercase;letter-spacing:.08em;margin-bottom:14px">Detalle ONB — Tipo de cuenta y responsable</div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:12px;margin-bottom:16px">
+      <div style="background:rgba(45,212,191,.06);border:1px solid rgba(45,212,191,.15);border-radius:8px;padding:12px">
+        <div style="font-size:9px;text-transform:uppercase;letter-spacing:.1em;color:var(--teal);margin-bottom:4px">Cuentas nuevas (≤30d)</div>
+        <div style="font-family:'Syne',sans-serif;font-size:22px;font-weight:800;color:var(--teal)">${m.onbNuevas}</div>
+        <div style="font-size:10px;color:var(--muted);margin-top:2px">${pct(m.onbNuevas,total)}% del total ONB</div>
+      </div>
+      <div style="background:rgba(251,146,60,.06);border:1px solid rgba(251,146,60,.15);border-radius:8px;padding:12px">
+        <div style="font-size:9px;text-transform:uppercase;letter-spacing:.1em;color:var(--orange);margin-bottom:4px">Cuentas antiguas (>30d)</div>
+        <div style="font-family:'Syne',sans-serif;font-size:22px;font-weight:800;color:var(--orange)">${m.onbAntiguas}</div>
+        <div style="font-size:10px;color:var(--muted);margin-top:2px">${pct(m.onbAntiguas,total)}% del total ONB</div>
+      </div>
+      <div style="background:rgba(255,255,255,.02);border:1px solid var(--border);border-radius:8px;padding:12px">
+        <div style="font-size:9px;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);margin-bottom:4px">Días al ONB (nuevas)</div>
+        <div style="margin-top:4px">${dias(m.diasNuevas,'días promedio')}</div>
+      </div>
+      <div style="background:rgba(255,255,255,.02);border:1px solid var(--border);border-radius:8px;padding:12px">
+        <div style="font-size:9px;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);margin-bottom:4px">Días al ONB (antiguas)</div>
+        <div style="margin-top:4px">${dias(m.diasAntiguas,'días promedio')}</div>
+      </div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
+      <div>
+        <div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px">Por responsable</div>
+        ${respRows || '<div style="color:var(--muted);font-size:11px">Sin datos</div>'}
+      </div>
+      <div>
+        <div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px">Por tipo de ONB</div>
+        ${tipoRows || '<div style="color:var(--muted);font-size:11px">Sin datos</div>'}
+      </div>
+    </div>
+  </div>`;
+}
+
+function renderUpgDown(m) {
+  const el = document.getElementById('upgDownSection');
+  if (!el) return;
+  const ups  = m.upgrades  || [];
+  const downs= m.downgrades|| [];
+  if (!ups.length && !downs.length) {
+    el.innerHTML = '<div style="color:var(--muted);font-size:12px;padding:12px 0">Sin movimientos de plan en el período seleccionado.</div>';
+    return;
+  }
+  const fmt$ = n => '$' + Math.round(n||0).toLocaleString('es-CO');
+  const planColor = {'Plan Starter':'#60a5fa','Plan Growth':'#a78bfa','Plan Advanced':'#2dd4bf','Advanced Personalizado':'#fbbf24'};
+
+  function movTable(items, color, label, icon) {
+    if (!items.length) return `<div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px 20px;flex:1">
+      <div style="font-size:10px;font-weight:700;color:${color};text-transform:uppercase;letter-spacing:.08em;margin-bottom:8px">${icon} ${label}</div>
+      <div style="color:var(--muted);font-size:12px">Sin ${label.toLowerCase()} este mes.</div>
+    </div>`;
+    const totalMRR = items.reduce((s,e)=>s+e.delta,0);
+    const rows = items.slice(0,10).map(e => {
+      const seg = (e.acct['Segmento de cliente (priorización de cliente)']||'').trim();
+      const kam = (e.acct['KAM']||'').trim();
+      return `<tr style="border-bottom:1px solid var(--border)">
+        <td style="padding:6px 10px;font-size:11px;color:var(--muted)">${e.acct['id']||e.uid}</td>
+        <td style="padding:6px 10px;font-size:10px;color:var(--muted);white-space:nowrap">${e.prevPlan||'—'} → <span style="color:${color}">${e.plan||'—'}</span></td>
+        <td style="padding:6px 10px;font-size:11px;text-align:right;font-weight:700;color:${color}">${icon}${fmt$(e.delta)}</td>
+        <td style="padding:6px 10px;font-size:10px;text-align:center"><span style="background:${planColor[e.acct['Segmento de cliente (priorización de cliente)']]||'rgba(100,116,139,.2)'};color:#fff;padding:1px 6px;border-radius:10px;font-size:9px">${seg||'—'}</span></td>
+        <td style="padding:6px 10px;font-size:10px;color:var(--muted)">${kam||'—'}</td>
+      </tr>`;
+    }).join('');
+    return `<div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px 20px;flex:1;min-width:0">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+        <div style="font-size:10px;font-weight:700;color:${color};text-transform:uppercase;letter-spacing:.08em">${icon} ${label}</div>
+        <div style="display:flex;gap:16px">
+          <div style="text-align:center">
+            <div style="font-family:'Syne',sans-serif;font-size:20px;font-weight:800;color:${color}">${items.length}</div>
+            <div style="font-size:9px;color:var(--muted)">cuentas</div>
+          </div>
+          <div style="text-align:center">
+            <div style="font-family:'Syne',sans-serif;font-size:20px;font-weight:800;color:${color}">${fmt$(totalMRR)}</div>
+            <div style="font-size:9px;color:var(--muted)">MRR ${label==='Upgrades'?'ganado':'perdido'}</div>
+          </div>
+        </div>
+      </div>
+      <div style="overflow-x:auto">
+        <table style="width:100%;border-collapse:collapse">
+          <thead><tr style="background:rgba(255,255,255,.02)">
+            <th style="padding:5px 10px;font-size:9px;color:var(--muted);text-align:left;border-bottom:1px solid var(--border)">ID</th>
+            <th style="padding:5px 10px;font-size:9px;color:var(--muted);text-align:left;border-bottom:1px solid var(--border)">Movimiento</th>
+            <th style="padding:5px 10px;font-size:9px;color:var(--muted);text-align:right;border-bottom:1px solid var(--border)">Delta MRR</th>
+            <th style="padding:5px 10px;font-size:9px;color:var(--muted);text-align:center;border-bottom:1px solid var(--border)">Seg</th>
+            <th style="padding:5px 10px;font-size:9px;color:var(--muted);border-bottom:1px solid var(--border)">KAM</th>
+          </tr></thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>
+      ${items.length>10?`<div style="font-size:10px;color:var(--muted);margin-top:8px">Mostrando 10 de ${items.length} movimientos</div>`:''}
+    </div>`;
+  }
+
+  el.innerHTML = `<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+    ${movTable(ups,  'var(--green)', 'Upgrades',   '▲')}
+    ${movTable(downs,'var(--red)',   'Downgrades',  '▼')}
+  </div>
+  <div style="margin-top:10px;font-size:10px;color:var(--muted)">
+    Neto MRR: <strong style="color:${m.upMRR-m.downMRR>=0?'var(--green)':'var(--red)'}">${m.upMRR-m.downMRR>=0?'▲':'▼'} $${Math.abs(m.upMRR-m.downMRR).toLocaleString('es-CO')}</strong>
+    · Basado en tabla payments · pagos del período comparados con el pago anterior del mismo usuario
+  </div>`;
+}
+
+function renderChurnDownloadBtns(m) {
+  const el = document.getElementById('churnDownloadBtns');
+  if (!el || !m) return;
+  const plans = ['Todos','Plan Starter','Plan Growth','Plan Advanced','Advanced Personalizado'];
+  el.innerHTML = '';
+  plans.forEach(p => {
+    const btn = document.createElement('button');
+    btn.textContent = '↓ ' + (p==='Todos'?'Todos los planes':p.replace('Plan ',''));
+    btn.style.cssText = 'font-size:9px;font-weight:700;padding:3px 10px;border-radius:6px;border:1px solid rgba(96,165,250,.25);background:rgba(96,165,250,.07);color:var(--blue);cursor:pointer;font-family:DM Sans,sans-serif;white-space:nowrap';
+    btn.onclick = () => downloadChurnCSV(p);
+    el.appendChild(btn);
+  });
+}
+
+function downloadChurnCSV(planFilter) {
+  const m = window._mesMet;
+  if (!m) return;
+
+  // Get all cancelled accounts for the selected month
+  const cancelados = (m.allCancelP||[]).filter(r => {
+    const cd = cancelDate(r);
+    return cd && cd >= m.range.start && cd <= m.range.end;
+  });
+
+  const filtered = planFilter === 'Todos'
+    ? cancelados
+    : cancelados.filter(r => (r['Planes Funnelchat']||'').trim() === planFilter);
+
+  if (!filtered.length) {
+    alert('Sin cancelados' + (planFilter!=='Todos'?' para '+planFilter:'') + ' en el período seleccionado.');
+    return;
+  }
+
+  // Columns to export
+  const cols = [
+    { h:'ID',                  k: r => r['id']||'' },
+    { h:'Plan',                k: r => r['Planes Funnelchat']||'' },
+    { h:'Plan original',       k: r => r['Plan (Nombre original)']||'' },
+    { h:'Vigencia',            k: r => r['Vigencia del servicio']||'' },
+    { h:'Payment till',        k: r => r['payment_till']||'' },
+    { h:'Fecha cancelación',   k: r => { const cd=cancelDate(r); return cd?cd.toLocaleDateString('es-CO'):''; } },
+    { h:'LT (días)',           k: r => r['LT']||'' },
+    { h:'Creado',              k: r => r['created_at']||'' },
+    { h:'Tipo de negocio',     k: r => r['Tipo de negocio']||'' },
+    { h:'Objetivo',            k: r => r['Objetivo con Funnelchat']||'' },
+    { h:'Experiencia',         k: r => r['Experiencia automatizando']||'' },
+    { h:'Onboarding',          k: r => r['Onboarding']||'' },
+    { h:'Segmento',            k: r => r['Segmento de cliente (priorización de cliente)']||'' },
+    { h:'KAM',                 k: r => r['KAM']||'' },
+    { h:'Usa WA',              k: r => (r['Usa API?']||r['Usa Business?']||'')===''?'No':'Sí' },
+    { h:'Usa Flow',            k: r => { const v=(r['Usa flows']||'').toString().trim(); return (v===''||v==='0')?'No':'Sí ('+v+')'; } },
+    { h:'Usa Grupos',          k: r => { const v=(r['Usa grupos?']||r['Usa grupos']||'').toString().trim(); return (v===''||v==='0')?'No':'Sí ('+v+')'; } },
+    { h:'MRR',                 k: r => getMonthlyMRR(r)||'' },
+  ];
+
+  const esc = v => '"' + String(v).replace(/"/g,'""') + '"';
+  const header = cols.map(c => esc(c.h)).join(',');
+  const rows   = filtered.map(r => cols.map(c => esc(c.k(r))).join(','));
+  const csv = '\uFEFF' + [header, ...rows].join('\n');
+
+  const blob = new Blob([csv], { type:'text/csv;charset=utf-8;' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  const planSlug = planFilter.replace(/\s+/g,'-').toLowerCase();
+  a.href     = url;
+  a.download = `cancelados_${planSlug}_${m.label.replace(/\s/g,'-')}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
 }
 
 function destroyChart(id){const c=Chart.getChart(id);if(c)c.destroy();}
@@ -2007,13 +2475,19 @@ function buildMonthNav(){
 </script>
 <!-- MODAL: Uso real de grupos en cancelados por objetivo -->
 <div id="gruposModal" style="display:none;position:fixed;inset:0;z-index:1000;background:rgba(0,0,0,.65);backdrop-filter:blur(4px)" onclick="if(event.target===this)closeGruposModal()">
-  <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:min(680px,95vw);max-height:85vh;overflow-y:auto;background:#131e35;border:1px solid rgba(255,255,255,.1);border-radius:16px;padding:28px 32px">
+  <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:min(920px,96vw);max-height:85vh;overflow-y:auto;background:#131e35;border:1px solid rgba(255,255,255,.1);border-radius:16px;padding:28px 32px">
     <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:20px">
       <div>
-        <div style="font-family:'Syne',sans-serif;font-size:16px;font-weight:800;color:#fff">🔍 Uso real de Grupos en cancelados</div>
+        <div style="font-family:'Syne',sans-serif;font-size:16px;font-weight:800;color:#fff">🔍 Análisis por objetivo declarado</div>
         <div style="font-size:11px;color:var(--muted);margin-top:4px">Objetivo declarado: "Optimizar la gestión de grupos / comunidades"</div>
       </div>
       <button onclick="closeGruposModal()" style="background:rgba(255,255,255,.06);border:none;color:var(--muted);font-size:18px;cursor:pointer;border-radius:6px;padding:4px 10px;line-height:1">✕</button>
+    </div>
+    <div style="margin-bottom:16px">
+      <label style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;display:block;margin-bottom:6px">Objetivo declarado</label>
+      <select id="gruposObjSelect" onchange="renderGruposModal()"
+        style="width:100%;background:#1a2744;border:1px solid rgba(255,255,255,.1);border-radius:8px;color:#e2e8f0;font-family:'DM Sans',sans-serif;font-size:12px;padding:8px 12px;cursor:pointer;outline:none">
+      </select>
     </div>
     <div id="gruposModalContent">cargando...</div>
   </div>
