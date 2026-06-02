@@ -2495,7 +2495,8 @@ function downloadChurnCSV(planFilter) {
   const a    = document.createElement('a');
   const planSlug = planFilter.replace(/\s+/g,'-').toLowerCase();
   a.href     = url;
-  a.download = `cancelados_${planSlug}_${m.label.replace(/\s/g,'-')}.csv`;
+  const mesLabel = (m&&m.range&&m.range.start) ? fmtMonth(new Date(m.range.start)).replace(/[\s\/,]/g,'-') : 'mes';
+  a.download = `cancelados_${planSlug}_${mesLabel}.csv`;
   a.click();
   URL.revokeObjectURL(url);
 }
