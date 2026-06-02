@@ -456,6 +456,7 @@ async function loadAll(){
 function calcMonth(off){
   const range=getMonthRange(off);
   const C=RAW.cuentas,O=RAW.onboarding,S=RAW.sesiones;
+  const acctById={};C.forEach(r=>{const id=(r['id']||'').toString().trim();if(id)acctById[id]=r;});
 
   const vigP=C.filter(r=>(r['Vigencia del servicio']||'').trim()==='Vigente'&&isPaga(r));
 
@@ -773,7 +774,6 @@ function calcMonth(off){
   };
 
   // Embudos impact — 12m only
-  const acctById={};C.forEach(r=>{const id=(r['id']||'').toString().trim();if(id)acctById[id]=r;});
   const embImpactData={};
   ['Pago Atrasado','TRIAL SIN WA','TRIAL SIN FLOW','Cancelación'].forEach(f=>{
     const impactedIds=new Set(RAW.embudos.filter(r=>(r['Flujo']||'').trim()===f)
