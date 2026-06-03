@@ -261,6 +261,7 @@ body{background:var(--navy);color:var(--text);font-family:'DM Sans',sans-serif;f
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:14px" id="onbCobertura"></div>
       <div id="onbImpactTable" style="margin-top:14px"></div>
       <div id="onbEnrichedPanel" style="margin-top:12px"></div>
+      <div id="onbNoShowPanel" style="margin-top:12px"></div>
     </div>
     <!-- Embudos -->
     <div class="card" style="margin-bottom:16px">
@@ -678,6 +679,33 @@ function calcMonth(off){
   const respMap={};
   onbGHLAsist.forEach(r=>{const resp=(r['Responsable ONB GHL']||'Sin asignar').trim();respMap[resp]=(respMap[resp]||0)+1;});
   const onbResponsables=Object.entries(respMap).sort((a,b)=>b[1]-a[1]);
+
+  // No-show + Agendados sin asistir profile
+  const onbNoShowRows  = onbGHL.filter(r => ['No show','No asistió'].includes(r['Estado del onboarding']));
+  const onbPendingRows = onbGHL.filter(r => r['Estado del onboarding']==='Agendó');
+  const profileSegment = (rows) => {
+    const result = { pagas:0, trial:0, plans:{}, nicho:{}, seg:{} };
+    rows.forEach(r => {
+      const uid  = (r['user_id']||'').toString().trim();
+      const acct = acctById[uid];
+      if (!acct) return;
+      if (isPaga(acct)) result.pagas++; else result.trial++;
+      const plan = (acct['Planes Funnelchat']||'Sin plan').trim();
+      result.plans[plan] = (result.plans[plan]||0)+1;
+      const n = (acct['Tipo de negocio']||'Sin tipo').trim();
+      result.nicho[n] = (result.nicho[n]||0)+1;
+      const s = (acct['Segmento de cliente (priorización de cliente)']||'Sin seg').trim();
+      result.seg[s] = (result.seg[s]||0)+1;
+    });
+    result.plansArr = Object.entries(result.plans).sort((a,b)=>b[1]-a[1]).slice(0,5);
+    result.nichoArr  = Object.entries(result.nicho).sort((a,b)=>b[1]-a[1]).slice(0,5);
+    result.segArr    = Object.entries(result.seg).sort((a,b)=>b[1]-a[1]);
+    result.total     = rows.length;
+    result.matched   = result.pagas + result.trial;
+    return result;
+  };
+  const noShowProfile  = profileSegment(onbNoShowRows);
+  const pendingProfile = profileSegment(onbPendingRows);
   // Tipo ONB breakdown
   const tipoMap={};
   onbGHLAsist.forEach(r=>{const t=(r['Tipo de ONB GHL']||'Sin tipo').trim();tipoMap[t]=(tipoMap[t]||0)+1;});
@@ -921,6 +949,8 @@ function calcMonth(off){
     onbProp,onbAgen,onbAsist,onbNoShow,onbNoShowReal,
     onbNuevas:onbNuevas.length,onbAntiguas:onbAntiguas.length,
     diasNuevas,diasAntiguas,onbResponsables,onbTipos,onbByPlan,
+    noShowProfile, pendingProfile,
+    onbNoShowN:onbNoShowRows.length, onbPendingN:onbPendingRows.length,
     onbPropPrev,onbAgenPrev,onbAsistPrev,onbNoShowPrev,
     cobPPrev,cobTPrev,
     onbAsistP,onbAsistT,cobP,cobT,
@@ -1296,6 +1326,8 @@ function render(m){
   // ONB enriched panel
   const onbEnrEl = document.getElementById('onbEnrichedPanel');
   if (onbEnrEl) onbEnrEl.innerHTML = renderOnbEnriched(m);
+  const onbNSEl = document.getElementById('onbNoShowPanel');
+  if (onbNSEl) onbNSEl.innerHTML = renderNoShowProfile(m);
   }
 
   const cobDlt=(now,prev)=>{
@@ -1342,7 +1374,7 @@ function render(m){
       const prevRows=rows.filter(r=>inRange(parseEmbDate(r['fecha_asignacion_etiqueta']),prevMonthR));
       const mesUsers=new Set(mesRows.map(r=>(r['user_id']||'').toString()).filter(Boolean));
       const prevUsers=new Set(prevRows.map(r=>(r['user_id']||'').toString()).filter(Boolean));
-      const vigentes=[...mesUsers].filter(uid=>acctM[uid]&&acctM[uid]['Vigencia del servicio']==='Vigente').length;
+      const vigentes=[...mesUsers].filter(uid=>acctM[uid]&&(acctM[uid]['Vigencia del servicio']||'').trim()==='Vigente').length;
       const retPct=mesUsers.size>0?Math.round(vigentes/mesUsers.size*100):0;
       const mrrImp=Math.round([...mesUsers].reduce((s,uid)=>s+(acctM[uid]?getMRR(acctM[uid]):0),0));
       const diff=mesUsers.size-prevUsers.size;
@@ -2317,6 +2349,91 @@ function renderOnbEnriched(m) {
 
     ${buildOnbPlanTable(m.onbByPlan||[])}
   </div>`;
+}
+
+function renderNoShowProfile(m) {
+  const ns  = m.noShowProfile  || { total:0, matched:0, pagas:0, trial:0, plansArr:[], nichoArr:[], segArr:[] };
+  const pnd = m.pendingProfile || { total:0, matched:0, pagas:0, trial:0, plansArr:[], nichoArr:[], segArr:[] };
+  if (!ns.total && !pnd.total) return '';
+
+  const pct = (n,d) => d>0 ? Math.round(n/d*100) : 0;
+  const planColors = {'Plan Starter':'#60a5fa','Plan Growth':'#a78bfa','Plan Advanced':'#2dd4bf','Advanced Personalizado':'#fbbf24'};
+  const segColors  = {'A':'var(--green2)','B':'var(--yellow)','C':'var(--muted)'};
+
+  function miniBar(n, max, color) {
+    return '<div style="flex:1;height:5px;background:rgba(255,255,255,.05);border-radius:3px;overflow:hidden">'
+      + '<div style="width:'+Math.round(n/(max||1)*100)+'%;height:100%;background:'+color+';border-radius:3px"></div></div>';
+  }
+  function rowList(arr, colors, total) {
+    if (!arr.length) return '<div style="color:var(--muted);font-size:10px">Sin datos cruzados</div>';
+    const max = arr[0][1];
+    return arr.map(([k,v]) => {
+      const c = colors[k] || 'rgba(148,163,184,.5)';
+      return '<div style="display:flex;align-items:center;gap:6px;margin-bottom:5px">'
+        + '<div style="font-size:10px;color:var(--muted);width:130px;flex-shrink:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="'+k+'">'+k+'</div>'
+        + miniBar(v, max, c)
+        + '<div style="font-size:10px;font-weight:700;width:22px;text-align:right">'+v+'</div>'
+        + '<div style="font-size:9px;color:var(--muted);width:28px">'+pct(v,total)+'%</div>'
+        + '</div>';
+    }).join('');
+  }
+
+  function segBadges(segArr, total) {
+    return ['A','B','C'].map(s => {
+      const n = segArr.find(([k])=>k===s)?.[1] || 0;
+      return '<div style="text-align:center;flex:1">'
+        + '<div style="font-family:Syne,sans-serif;font-size:18px;font-weight:800;color:'+(segColors[s]||'var(--muted)')+'">'+n+'</div>'
+        + '<div style="font-size:9px;color:var(--muted)">Seg '+s+'</div>'
+        + '<div style="font-size:9px;color:var(--muted)">'+pct(n,total)+'%</div>'
+        + '</div>';
+    }).join('');
+  }
+
+  function panel(title, color, icon, data) {
+    if (!data.total) return '<div style="background:var(--card);border:1px solid var(--border);border-radius:10px;padding:14px;flex:1">'
+      + '<div style="font-size:10px;font-weight:700;color:'+color+';text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px">'+icon+' '+title+'</div>'
+      + '<div style="color:var(--muted);font-size:11px">Sin registros en el período</div></div>';
+
+    return '<div style="background:var(--card);border:1px solid var(--border);border-radius:10px;padding:14px;flex:1">'
+      + '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">'
+      +   '<div style="font-size:10px;font-weight:700;color:'+color+';text-transform:uppercase;letter-spacing:.06em">'+icon+' '+title+'</div>'
+      +   '<div style="font-family:Syne,sans-serif;font-size:22px;font-weight:800;color:'+color+'">'+data.total+'</div>'
+      + '</div>'
+      // Pagas vs Trial
+      + '<div style="display:flex;gap:8px;margin-bottom:10px">'
+      +   '<div style="flex:1;background:rgba(96,165,250,.08);border:1px solid rgba(96,165,250,.15);border-radius:6px;padding:6px 8px;text-align:center">'
+      +     '<div style="font-family:Syne,sans-serif;font-size:16px;font-weight:800;color:var(--blue)">'+data.pagas+'</div>'
+      +     '<div style="font-size:9px;color:var(--muted)">Pagas</div>'
+      +   '</div>'
+      +   '<div style="flex:1;background:rgba(167,139,250,.08);border:1px solid rgba(167,139,250,.15);border-radius:6px;padding:6px 8px;text-align:center">'
+      +     '<div style="font-family:Syne,sans-serif;font-size:16px;font-weight:800;color:var(--purple)">'+data.trial+'</div>'
+      +     '<div style="font-size:9px;color:var(--muted)">Trial</div>'
+      +   '</div>'
+      +   '<div style="flex:1;background:rgba(255,255,255,.02);border:1px solid var(--border);border-radius:6px;padding:6px 8px;text-align:center">'
+      +     '<div style="font-family:Syne,sans-serif;font-size:16px;font-weight:800;color:var(--muted)">'+(data.total-data.matched)+'</div>'
+      +     '<div style="font-size:9px;color:var(--muted)">Sin cruce</div>'
+      +   '</div>'
+      + '</div>'
+      // Segmento badges
+      + '<div style="font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px">Por segmento</div>'
+      + '<div style="display:flex;gap:8px;margin-bottom:10px">'+segBadges(data.segArr, data.matched)+'</div>'
+      // Plan breakdown
+      + '<div style="font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px">Por plan</div>'
+      + rowList(data.plansArr, planColors, data.matched)
+      // Nicho breakdown
+      + '<div style="font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin:8px 0 6px">Por nicho</div>'
+      + rowList(data.nichoArr, {}, data.matched)
+      + '</div>';
+  }
+
+  return '<div style="background:rgba(255,255,255,.02);border:1px solid var(--border);border-radius:12px;padding:16px 18px;margin-top:4px">'
+    + '<div style="font-size:10px;font-weight:700;color:var(--red);text-transform:uppercase;letter-spacing:.08em;margin-bottom:12px">Perfil: No show y agendados sin asistir</div>'
+    + '<div style="display:flex;gap:14px;flex-wrap:wrap">'
+    + panel('No show / No asistió', 'var(--red)',    '✗', ns)
+    + panel('Agendados pendientes', 'var(--yellow)', '⏳', pnd)
+    + '</div>'
+    + '<div style="font-size:9px;color:var(--muted);margin-top:10px">Basado en Fecha de ONB GHL · cruce con tabla de cuentas por user_id</div>'
+    + '</div>';
 }
 
 function buildOnbPlanTable(rows) {
