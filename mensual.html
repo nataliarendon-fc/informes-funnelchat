@@ -2982,7 +2982,7 @@ function buildMonthNav(){
     document.getElementById('loadingState').style.display='none';
     document.getElementById('mainContent').style.display='block';
     buildMonthNav();
-    render(calcMonth(currentMonthOffset));
+    try{const _m=calcMonth(currentMonthOffset);render(_m);}catch(_e){const _d=document.getElementById('_errBox')||document.createElement('div');_d.id='_errBox';_d.style.cssText='position:fixed;top:60px;left:50%;transform:translateX(-50%);background:#7f1d1d;color:#fca5a5;padding:12px 18px;border-radius:8px;font-size:11px;font-family:monospace;max-width:640px;z-index:9999;white-space:pre-wrap';_d.textContent='Error: '+_e.message+'\n'+(_e.stack||'').split('\n').slice(0,5).join('\n');document.body.appendChild(_d);}
   }catch(err){
     document.getElementById('loadingState').innerHTML=`
       <div style="max-width:500px;margin:0 auto;background:rgba(248,113,113,.08);border:1px solid rgba(248,113,113,.25);border-radius:12px;padding:24px 28px">
