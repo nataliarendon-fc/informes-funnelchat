@@ -1039,7 +1039,7 @@ function calcMonth(off){
     expCancel,factCancel,
     nichoNuevas,objNuevas,expNuevas,factNuevas,
     nichoNuevasT,objNuevasT,expNuevasT,factNuevasT,
-    cancelMesTrial:cancelMesTrial.length,
+    cancelMesTrialN:cancelMesTrial.length,
     nichoT,objT,expT,factT,
     nichoHistP,objHistP,expHistP,factHistP,
     nichoHistT,objHistT,expHistT,factHistT,
@@ -2013,14 +2013,14 @@ function renderQuienesMes(mode) {
   if (tP) tP.className = 'mn-btn' + (isP ? ' active' : '');
   if (tT) tT.className = 'mn-btn' + (!isP ? ' active' : '');
 
-  const total = isP ? m.cancelMes : m.cancelMesTrial;
+  const total = isP ? m.cancelMes : m.cancelMesTrialN;
   const histData = isP
     ? {nicho:m.nichoHistP, obj:m.objHistP, exp:m.expHistP, fact:m.factHistP}
     : {nicho:m.nichoHistT, obj:m.objHistT, exp:m.expHistT, fact:m.factHistT};
   const mesData = isP
     ? {nicho:m.nichoCancel, obj:m.objCancel, exp:m.expCancel, fact:m.factCancel}
     : {nicho:m.nichoT, obj:m.objT, exp:m.expT, fact:m.factT};
-  const histTotal = isP ? m.cancelMes : m.cancelMesTrial; // relative to same pool
+  const histTotal = isP ? m.cancelMes : m.cancelMesTrialN; // relative to same pool
 
   if (sub) sub.textContent = `${total} ${isP ? 'pagas' : 'trials'} cancelados este mes`;
 
