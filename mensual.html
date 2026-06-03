@@ -976,16 +976,33 @@ function calcMonth(off){
   const baibenObjs   = Object.entries(objB).sort((a,b)=>b[1]-a[1]);
   const baibenTotal  = baibenAll.filter(b=>acctById[b.uid]).length || 1;
 
-  // "No necesitan Funnelchat" segment analysis — from cancelaciones survey
-  const noNeedRows = RAW.cancelaciones.filter(r =>
-    (r['Motivo Cancelación']||'').trim() === 'Ya no la necesito'
-  );
+  // "No necesitan Funnelchat" segment analysis
+  // El motivo "Ya no la necesito" puede venir de DOS fuentes:
+  //   1) tabla principal de cuentas → columna "Motivo Cancelación"
+  //   2) tabla de cancelaciones (encuesta) → columna "Macromotivo"
+  // Se cruza por id de cuenta y se deduplica para no contar dos veces.
+  const NO_NEED = 'Ya no la necesito';
+  const noNeedIds = new Set();     // ids de cuenta que califican
+  let noNeedUnmatched = 0;         // filas de encuesta sin cuenta asociada
+  // 1) desde la tabla de cuentas (Motivo Cancelación)
+  C.forEach(r => {
+    if ((r['Motivo Cancelación']||'').toString().trim() === NO_NEED) {
+      const id = (r['id']||'').toString().trim();
+      if (id) noNeedIds.add(id);
+    }
+  });
+  // 2) desde la tabla de cancelaciones (Macromotivo), cruce por Contact ID / user_id
+  RAW.cancelaciones.forEach(r => {
+    if ((r['Macromotivo']||'').toString().trim() !== NO_NEED) return;
+    const uid = (r['Contact ID']||r['contact_id']||r['user_id']||'').toString().trim();
+    if (uid && acctById[uid]) noNeedIds.add(uid);
+    else noNeedUnmatched++;
+  });
   const noNeedSeg = { A:0, B:0, C:0, Sin:0 };
   const noNeedNicho = {};
   const noNeedPlan  = {};
-  noNeedRows.forEach(r => {
-    const uid  = (r['Contact ID']||r['contact_id']||r['user_id']||'').toString().trim();
-    const acct = acctById[uid];
+  noNeedIds.forEach(id => {
+    const acct = acctById[id];
     if (!acct) { noNeedSeg.Sin++; return; }
     const s = (acct['Segmento de cliente (priorización de cliente)']||'Sin').trim();
     noNeedSeg[s] = (noNeedSeg[s]||0)+1;
@@ -994,6 +1011,8 @@ function calcMonth(off){
     const p = (acct['Planes Funnelchat']||'Sin plan').trim();
     noNeedPlan[p]  = (noNeedPlan[p]||0)+1;
   });
+  noNeedSeg.Sin += noNeedUnmatched;
+  const noNeedN = noNeedIds.size + noNeedUnmatched;
   const noNeedNichoArr = Object.entries(noNeedNicho).sort((a,b)=>b[1]-a[1]).slice(0,6);
   const noNeedPlanArr  = Object.entries(noNeedPlan).sort((a,b)=>b[1]-a[1]);
   const planB = {};
@@ -1066,7 +1085,7 @@ function calcMonth(off){
     nuevosMesP_n:nuevosMesP.length,nuevosMesT_n:nuevosMesT.length,
     mrrProtOnb,pctRetCon:Math.round(retCon*100),pctRetSin:Math.round(retSin*100),
     baiben:{ total:baibenAll.length, churnN:baibenChurnMes.length, pct:baibenPct, avgCycles, avgGapDias, avgGapMes, niches:baibenNiches, objs:baibenObjs, baibenTotal, plans:baibenPlans, trend:baibenTrend },
-    noNeed:{ n:noNeedRows.length, seg:noNeedSeg, nicho:noNeedNichoArr, plan:noNeedPlanArr },
+    noNeed:{ n:noNeedN, seg:noNeedSeg, nicho:noNeedNichoArr, plan:noNeedPlanArr },
     onbImpact,sesImpact,embImpactData,
     retDiff:Math.round(retDiff*100),
     ses6,sesMes:ses6[5]?.asist||0,sesSesiones:ses6[5]?.sesiones||0,sesPorSesion:ses6[5]?.porSesion||0,
