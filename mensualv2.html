@@ -967,6 +967,28 @@ function calcMonth(off){
   });
   const baibenPlans = Object.entries(planB).sort((a,b)=>b[1]-a[1]);
 
+  // Monthly baibén cancellations — last 8 months for bar chart
+  const baibenTrend = (() => {
+    const months = [];
+    for (let i = -7; i <= 0; i++) {
+      const r = getMonthRange(off + i);
+      const cancelled = canP.filter(rr => {
+        const cd = cancelDate(rr);
+        if (!cd || !inRange(cd, r)) return false;
+        return !!baibenMap[(rr['id']||'').toString().trim()];
+      });
+      // Expected return window based on average gap
+      const retDate = new Date(r.start);
+      retDate.setDate(retDate.getDate() + avgGapDias);
+      months.push({
+        label: fmtMonthShort(r.start),
+        n: cancelled.length,
+        retLabel: fmtMonthShort(retDate),
+      });
+    }
+    return months;
+  })();
+
   return{
     range, off, ahaStats:ahaStatsData, ahaStatsMes,
     reposoN:reposoAll.length, reposoMRR:Math.round(reposoAll.reduce((s,r)=>s+getMRR(r),0)),
@@ -1007,7 +1029,7 @@ function calcMonth(off){
     onbAsistP,onbAsistT,cobP,cobT,
     nuevosMesP_n:nuevosMesP.length,nuevosMesT_n:nuevosMesT.length,
     mrrProtOnb,pctRetCon:Math.round(retCon*100),pctRetSin:Math.round(retSin*100),
-    baiben:{ total:baibenAll.length, churnN:baibenChurnMes.length, pct:baibenPct, avgCycles, avgGapDias, avgGapMes, niches:baibenNiches, plans:baibenPlans },
+    baiben:{ total:baibenAll.length, churnN:baibenChurnMes.length, pct:baibenPct, avgCycles, avgGapDias, avgGapMes, niches:baibenNiches, plans:baibenPlans, trend:baibenTrend },
     onbImpact,sesImpact,embImpactData,
     retDiff:Math.round(retDiff*100),
     ses6,sesMes:ses6[5]?.asist||0,sesSesiones:ses6[5]?.sesiones||0,sesPorSesion:ses6[5]?.porSesion||0,
@@ -2595,10 +2617,75 @@ function renderBaiben(m) {
         + planRows
       + '</div>'
     + '</div>'
+    + '<div style="margin-top:16px;background:var(--card);border:1px solid var(--border);border-radius:10px;padding:14px">'
+      + '<div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px">Cancelaciones baibén por mes — y ventana de posible reactivación</div>'
+      + '<div style="font-size:10px;color:var(--muted);margin-bottom:10px">Barra = canceladas ese mes · etiqueta naranja = mes esperado de retorno (gap promedio: '+b.avgGapMes+'m)</div>'
+      + '<div style="position:relative;height:160px"><canvas id="baibenChart"></canvas></div>'
+    + '</div>'
     + '<div style="font-size:9px;color:var(--muted);margin-top:10px;line-height:1.6">'
     + '⚙ Metodología: cuenta baibén = usuario con 2+ temporadas de pago separadas por un gap de ≥60 días sin ningún pago · '
-    + 'temporada = pagos consecutivos con ≤45 días entre ellos · calculado desde la tabla payments completa'
+    + 'temporada = pagos consecutivos con ≤45 días entre ellos · ventana de reactivación = mes de cancelación + gap promedio · calculado desde la tabla payments completa'
     + '</div>';
+
+  // Render chart after DOM update
+  setTimeout(() => {
+    destroyChart('baibenChart');
+    const ctx = document.getElementById('baibenChart');
+    if (!ctx || !b.trend) return;
+    const T = b.trend;
+    const maxN = Math.max(...T.map(t=>t.n), 1);
+    new Chart(ctx, {
+      type: 'bar',
+      data: {
+        labels: T.map(t => t.label),
+        datasets: [{
+          label: 'Cancelaciones baibén',
+          data:  T.map(t => t.n),
+          backgroundColor: T.map((t,i) => i===T.length-1 ? 'rgba(251,191,36,.8)' : 'rgba(251,191,36,.35)'),
+          borderColor:     T.map((t,i) => i===T.length-1 ? 'rgba(251,191,36,1)'  : 'rgba(251,191,36,.6)'),
+          borderWidth: 1.5,
+          borderRadius: 4,
+        }]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            callbacks: {
+              afterBody: (items) => {
+                const idx = items[0].dataIndex;
+                return ['→ Retorno esperado: ' + T[idx].retLabel];
+              }
+            }
+          }
+        },
+        scales: {
+          x: { grid: { color:'rgba(255,255,255,.04)' }, ticks: { color:'#64748b', font:{size:10} } },
+          y: { grid: { color:'rgba(255,255,255,.04)' }, ticks: { color:'#64748b', font:{size:10}, stepSize:1 },
+               beginAtZero:true }
+        },
+        animation: false,
+      },
+      plugins: [{
+        id: 'retLabels',
+        afterDatasetsDraw(chart) {
+          const {ctx: c, scales:{x,y}} = chart;
+          c.save();
+          T.forEach((t, i) => {
+            if (!t.n) return;
+            const xPos = x.getPixelForValue(i);
+            const yPos = y.getPixelForValue(t.n) - 22;
+            c.fillStyle = 'rgba(251,146,60,.9)';
+            c.font = 'bold 9px DM Sans, sans-serif';
+            c.textAlign = 'center';
+            c.fillText('→ ' + t.retLabel, xPos, yPos);
+          });
+          c.restore();
+        }
+      }]
+    });
+  }, 50);
 }
 
 function renderUpgDown(m) {
