@@ -544,7 +544,17 @@ function calcMonth(off){
     data:Array.from({length:6},(_,i)=>{
       const r=getMonthRange(off-5+i);
       const base=C.filter(rr=>rr['Planes Funnelchat']===plan&&isPaga(rr));
-      const act=base.filter(rr=>(rr['Vigencia del servicio']||'').trim()!=='Cancelado').length;
+      // Activos al inicio del mes r: pagas del plan creadas antes del mes que
+      // no habían cancelado aún al iniciar (incluye las que cancelan dentro del mes).
+      const act=base.filter(rr=>{
+        const ca=getCA(rr);
+        if(!ca||ca>=r.start)return false; // no existía al inicio del mes
+        if((rr['Vigencia del servicio']||'').trim()==='Cancelado'){
+          const cd=cancelDate(rr);
+          return cd&&cd>=r.start; // canceló durante o después → estaba activa al inicio
+        }
+        return true; // Vigente o Atrasado = activa al inicio
+      }).length;
       const can=base.filter(rr=>(rr['Vigencia del servicio']||'').trim()==='Cancelado'&&inRange(cancelDate(rr),r)).length;
       return act>0?Math.round(can/act*1000)/10:0;
     })
@@ -1016,7 +1026,7 @@ function calcMonth(off){
   })();
 
   return{
-    range, off, ahaStats:ahaStatsData, ahaStatsMes,
+    range, off, label:fmtMonth(range.start), ahaStats:ahaStatsData, ahaStatsMes,
     reposoN:reposoAll.length, reposoMRR:Math.round(reposoAll.reduce((s,r)=>s+getMRR(r),0)),
     upgrades, downgrades, upMRR:Math.round(upMRR), downMRR:Math.round(downMRR),
     vigP:vigP.length,vigT:vigT.length,activasInicioMes,
@@ -2982,7 +2992,7 @@ function buildMonthNav(){
     document.getElementById('loadingState').style.display='none';
     document.getElementById('mainContent').style.display='block';
     buildMonthNav();
-    try{const _m=calcMonth(currentMonthOffset);render(_m);}catch(_e){const _d=document.getElementById('_errBox')||document.createElement('div');_d.id='_errBox';_d.style.cssText='position:fixed;top:60px;left:50%;transform:translateX(-50%);background:#7f1d1d;color:#fca5a5;padding:12px 18px;border-radius:8px;font-size:11px;font-family:monospace;max-width:640px;z-index:9999;white-space:pre-wrap';_d.textContent='Error: '+_e.message+'\n'+(_e.stack||'').split('\n').slice(0,5).join('\n');document.body.appendChild(_d);}
+    render(calcMonth(currentMonthOffset));
   }catch(err){
     document.getElementById('loadingState').innerHTML=`
       <div style="max-width:500px;margin:0 auto;background:rgba(248,113,113,.08);border:1px solid rgba(248,113,113,.25);border-radius:12px;padding:24px 28px">
