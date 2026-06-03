@@ -164,7 +164,10 @@ body{background:var(--navy);color:var(--text);font-family:'DM Sans',sans-serif;f
         <div class="trend-row" id="trendBadges"></div>
       </div>
       <div class="card">
-        <div class="chart-title">Tasa de churn mensual por plan</div>
+        <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:4px">
+          <div class="chart-title" style="margin-bottom:0">Tasa de churn mensual por plan</div>
+          <div style="display:flex;gap:6px;flex-wrap:wrap" id="churnDownloadBtns"></div>
+        </div>
         <div class="chart-sub">Cancelaciones ÷ activos inicio mes · solo pagas · benchmark 5%</div>
         <div class="chart-wrap-lg"><canvas id="churnMesChart"></canvas></div>
         <div class="insight" id="churnInsight"></div>
@@ -243,6 +246,10 @@ body{background:var(--navy);color:var(--text);font-family:'DM Sans',sans-serif;f
 
     <div id="hist6_s2" style="margin-top:14px;margin-bottom:28px"></div>
 
+  <!-- BLOQUE: CUENTAS BAIBÉN -->
+  <div class="sec-label"><span class="sec-num" style="background:rgba(251,191,36,.12);color:var(--yellow)">↔</span> Cuentas que van y vienen <span class="sec-desc">· Churn recurrente · infoproductores y agencias de lanzamiento</span></div>
+  <div id="baibenSection" style="margin-bottom:28px"></div>
+
   <!-- BLOQUE 4 -->
   <div class="block">
     <div class="sec-label"><span class="sec-num">04</span> Lo que el área hizo para retener <span class="sec-desc">· Resumen mensual con impacto económico</span></div>
@@ -257,6 +264,8 @@ body{background:var(--navy);color:var(--text);font-family:'DM Sans',sans-serif;f
       <div class="onb-funnel" id="onbFunnel"></div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:14px" id="onbCobertura"></div>
       <div id="onbImpactTable" style="margin-top:14px"></div>
+      <div id="onbEnrichedPanel" style="margin-top:12px"></div>
+      <div id="onbNoShowPanel" style="margin-top:12px"></div>
     </div>
     <!-- Embudos -->
     <div class="card" style="margin-bottom:16px">
@@ -378,6 +387,9 @@ function isPaga(r){const t=(r['trial']||'').toString().trim().toUpperCase();retu
 function isTrial(r){return!isPaga(r);}
 function getCA(r){return parseISO(r['created_at'])||parseISO(r['Fecha creación']);}
 function getOnbDate(r){return parseISO(r['Fecha registro'])||parseISO(r['Fecha estado onboarding'])||null;}
+function getOnbGHLDate(r){return parseSpDate(r['Fecha de ONB GHL'])||parseISO(r['Fecha de ONB GHL'])||null;}
+function getOnbDias(r){const v=parseInt(r['Días para ONB']||'');return isNaN(v)?null:v;}
+function getOnbTipo(r){const t=(r['Tipo de cuenta']||'').trim();return t==='Cuenta antiguo'?'antiguo':t==='Cuentas nuevas'?'nuevas':null;}
 function parseEmbDate(s){
   if(!s)return null;
   const str=s.toString().trim();
@@ -449,6 +461,7 @@ async function loadAll(){
 function calcMonth(off){
   const range=getMonthRange(off);
   const C=RAW.cuentas,O=RAW.onboarding,S=RAW.sesiones;
+  const acctById={};C.forEach(r=>{const id=(r['id']||'').toString().trim();if(id)acctById[id]=r;});
 
   const vigP=C.filter(r=>(r['Vigencia del servicio']||'').trim()==='Vigente'&&isPaga(r));
 
@@ -551,7 +564,7 @@ function calcMonth(off){
 
   // Perfil cancelados
   const cm=cancelMes.length||1;
-  const cp_sin_onb=pct(cancelMes.filter(r=>r['Onboarding']==='Sin onboarding').length,cm);
+  const cp_sin_onb=pct(cancelMes.filter(r=>(r['Onboarding']||'').trim()!=='Con onboarding').length,cm);
   const cp_sin_flow=pct(cancelMes.filter(r=>(v=>v===''||v==='0')((r['Usa flows']||'').toString().trim())).length,cm);
   const cp_sin_wa=pct(cancelMes.filter(r=>(r['Usa API?']||'')!=='Sí'&&(r['Usa Business?']||'')!=='Sí').length,cm);
   const cp_sin_ses=pct(cancelMes.filter(r=>r['Sesiones en vivo']==='No asistió').length,cm);
@@ -596,7 +609,7 @@ function calcMonth(off){
 
   // ── Histórico barras perfil ─────────────────────────
   const allCm=allCancelP.length||1;
-  const hist_sin_onb=pct(allCancelP.filter(r=>r['Onboarding']==='Sin onboarding').length,allCm);
+  const hist_sin_onb=pct(allCancelP.filter(r=>(r['Onboarding']||'').trim()!=='Con onboarding').length,allCm);
   const hist_sin_flow=pct(allCancelP.filter(r=>(v=>v===''||v==='0')((r['Usa flows']||'').toString().trim())).length,allCm);
   const hist_sin_wa=pct(allCancelP.filter(r=>(r['Usa API?']||'')!=='Sí'&&(r['Usa Business?']||'')!=='Sí').length,allCm);
   const hist_sin_ses=pct(allCancelP.filter(r=>r['Sesiones en vivo']==='No asistió').length,allCm);
@@ -658,6 +671,65 @@ function calcMonth(off){
 
   // Onboarding
   const onbAll=O.filter(r=>inRange(getOnbDate(r),range));
+  // Enriched ONB using Fecha de ONB GHL
+  const onbGHL     = O.filter(r => inRange(getOnbGHLDate(r), range));
+  const onbGHLAsist= onbGHL.filter(r => r['Estado del onboarding']==='Asistió');
+  const avgDias    = arr => { const v=arr.map(getOnbDias).filter(x=>x!==null); return v.length?Math.round(v.reduce((a,b)=>a+b,0)/v.length):null; };
+  const onbNuevas  = onbGHLAsist.filter(r => getOnbTipo(r)==='nuevas');
+  const onbAntiguas= onbGHLAsist.filter(r => getOnbTipo(r)==='antiguo');
+  const diasNuevas = avgDias(onbNuevas);
+  const diasAntiguas=avgDias(onbAntiguas);
+  // Responsable breakdown
+  const respMap={};
+  onbGHLAsist.forEach(r=>{const resp=(r['Responsable ONB GHL']||'Sin asignar').trim();respMap[resp]=(respMap[resp]||0)+1;});
+  const onbResponsables=Object.entries(respMap).sort((a,b)=>b[1]-a[1]);
+
+  // No-show + Agendados sin asistir profile
+  const onbNoShowRows  = onbGHL.filter(r => ['No show','No asistió'].includes(r['Estado del onboarding']));
+  const onbPendingRows = onbGHL.filter(r => r['Estado del onboarding']==='Agendó');
+  const profileSegment = (rows) => {
+    const result = { pagas:0, trial:0, plans:{}, nicho:{}, seg:{} };
+    rows.forEach(r => {
+      const uid  = (r['user_id']||'').toString().trim();
+      const acct = acctById[uid];
+      if (!acct) return;
+      if (isPaga(acct)) result.pagas++; else result.trial++;
+      const plan = (acct['Planes Funnelchat']||'Sin plan').trim();
+      result.plans[plan] = (result.plans[plan]||0)+1;
+      const n = (acct['Tipo de negocio']||'Sin tipo').trim();
+      result.nicho[n] = (result.nicho[n]||0)+1;
+      const s = (acct['Segmento de cliente (priorización de cliente)']||'Sin seg').trim();
+      result.seg[s] = (result.seg[s]||0)+1;
+    });
+    result.plansArr = Object.entries(result.plans).sort((a,b)=>b[1]-a[1]).slice(0,5);
+    result.nichoArr  = Object.entries(result.nicho).sort((a,b)=>b[1]-a[1]).slice(0,5);
+    result.segArr    = Object.entries(result.seg).sort((a,b)=>b[1]-a[1]);
+    result.total     = rows.length;
+    result.matched   = result.pagas + result.trial;
+    return result;
+  };
+  const noShowProfile  = profileSegment(onbNoShowRows);
+  const pendingProfile = profileSegment(onbPendingRows);
+  // Tipo ONB breakdown
+  const tipoMap={};
+  onbGHLAsist.forEach(r=>{const t=(r['Tipo de ONB GHL']||'Sin tipo').trim();tipoMap[t]=(tipoMap[t]||0)+1;});
+  const onbTipos=Object.entries(tipoMap).sort((a,b)=>b[1]-a[1]);
+  // Días al ONB por plan — cross con tabla cuentas
+  const planes4=['Plan Starter','Plan Growth','Plan Advanced','Advanced Personalizado'];
+  const onbByPlan=planes4.map(plan=>{
+    // Only 'Cuentas nuevas' to avoid skew from legacy accounts
+    const rows=onbGHLAsist.filter(r=>{
+      if(getOnbTipo(r)!=='nuevas') return false;
+      const uid=(r['user_id']||'').toString().trim();
+      const acct=acctById[uid];
+      return acct&&(acct['Planes Funnelchat']||'').trim()===plan;
+    });
+    const dias=rows.map(getOnbDias).filter(x=>x!==null);
+    const avg=dias.length?Math.round(dias.reduce((a,b)=>a+b,0)/dias.length):null;
+    const min=dias.length?Math.min(...dias):null;
+    const max=dias.length?Math.max(...dias):null;
+    return {plan,n:rows.length,avg,min,max};
+  }).filter(p=>p.n>0);
   const onbProp=onbAll.length;
   const onbAgen=onbAll.filter(r=>['Agendó','Asistió','No show','No asistió'].includes(r['Estado del onboarding'])).length;
   const onbAsist=onbAll.filter(r=>r['Estado del onboarding']==='Asistió').length;
@@ -689,7 +761,7 @@ function calcMonth(off){
   const cobT=pct(onbAsistT,nuevosMesT.length);
 
   const conOnbAll=C.filter(r=>r['Onboarding']==='Con onboarding'&&isPaga(r));
-  const sinOnbAll=C.filter(r=>r['Onboarding']==='Sin onboarding'&&isPaga(r));
+  const sinOnbAll=C.filter(r=>(r['Onboarding']||'').trim()!=='Con onboarding'&&isPaga(r));
   const retCon=conOnbAll.length>0?conOnbAll.filter(r=>(r['Vigencia del servicio']||'').trim()==='Vigente').length/conOnbAll.length:0;
   const retSin=sinOnbAll.length>0?sinOnbAll.filter(r=>(r['Vigencia del servicio']||'').trim()==='Vigente').length/sinOnbAll.length:0;
   const retDiff=Math.max(0,retCon-retSin);
@@ -718,7 +790,7 @@ function calcMonth(off){
 
   // Onboarding impact — 12m
   const conOnb12=C12.filter(r=>r['Onboarding']==='Con onboarding'&&isPaga(r));
-  const sinOnb12=C12.filter(r=>r['Onboarding']==='Sin onboarding'&&isPaga(r));
+  const sinOnb12=C12.filter(r=>(r['Onboarding']||'').trim()!=='Con onboarding'&&isPaga(r));
   const onbImpact={
     ...calcImpact(conOnb12, sinOnb12),
     // Historical for context
@@ -736,7 +808,6 @@ function calcMonth(off){
   };
 
   // Embudos impact — 12m only
-  const acctById={};C.forEach(r=>{const id=(r['id']||'').toString().trim();if(id)acctById[id]=r;});
   const embImpactData={};
   ['Pago Atrasado','TRIAL SIN WA','TRIAL SIN FLOW','Cancelación'].forEach(f=>{
     const impactedIds=new Set(RAW.embudos.filter(r=>(r['Flujo']||'').trim()===f)
@@ -764,7 +835,7 @@ function calcMonth(off){
   const sinFlow=vigP.filter(r=>(v=>v===''||v==='0')((r['Usa flows']||'').toString().trim()));
   const sinGrupos=vigP.filter(r=>(v=>v===''||v==='0')((r['Usa grupos?']||'').toString().trim()));
   const sinLogin=vigP.filter(r=>{const ll=parseISO(r['last_login_at']);return!ll||(new Date()-ll)/86400000>14;});
-  const sinOnb=vigP.filter(r=>r['Onboarding']==='Sin onboarding');
+  const sinOnb=vigP.filter(r=>(r['Onboarding']||'').trim()!=='Con onboarding');
 
   // Export columns for each risk group
   const exportCols=['id','country_name','Planes Funnelchat','payment_type','payment_amount',
@@ -790,14 +861,14 @@ function calcMonth(off){
   const sinFlowMes=nuevosMesP.filter(r=>(v=>v===''||v==='0')((r['Usa flows']||'').toString().trim()));
   const sinGruposMes=nuevosMesP.filter(r=>(v=>v===''||v==='0')((r['Usa grupos?']||'').toString().trim()));
   const sinLoginMes=nuevosMesP.filter(r=>{const ll=parseISO(r['last_login_at']);return!ll||(new Date()-ll)/86400000>14;});
-  const sinOnbMes=nuevosMesP.filter(r=>r['Onboarding']==='Sin onboarding');
+  const sinOnbMes=nuevosMesP.filter(r=>(r['Onboarding']||'').trim()!=='Con onboarding');
 
   // ── AHA stats — últimos 6 meses ─────────────────
   const range6mAha = { start: new Date(range.end.getFullYear(), range.end.getMonth()-5, 1), end: range.end };
   const C6aha = C.filter(r => { const ca=getCA(r); return ca && ca >= range6mAha.start; });
   const ahaStatsData = (() => {
-    const conOnb6 = C6aha.filter(r => r['Onboarding']==='Con onboarding' && isPaga(r));
-    const sinOnb6 = C6aha.filter(r => r['Onboarding']==='Sin onboarding' && isPaga(r));
+    const conOnb6 = C6aha.filter(r => (r['Onboarding']||'').trim()==='Con onboarding' && isPaga(r));
+    const sinOnb6 = C6aha.filter(r => (r['Onboarding']||'').trim()!=='Con onboarding' && isPaga(r));
     return {
       wa:     { con: ahaStats(conOnb6,'AHA WA'),     sin: ahaStats(sinOnb6,'AHA WA')     },
       flows:  { con: ahaStats(conOnb6,'AHA flows'),  sin: ahaStats(sinOnb6,'AHA flows')  },
@@ -806,7 +877,7 @@ function calcMonth(off){
   })();
 
   // AHA del mes actual
-  const conOnbMes = nuevosMesP.filter(r => r['Onboarding']==='Con onboarding');
+  const conOnbMes = nuevosMesP.filter(r => (r['Onboarding']||'').trim()==='Con onboarding');
   const ahaStatsMes = {
     wa:     { con: ahaStats(conOnbMes,'AHA WA'),     sin: ahaStats(sinOnbMes,'AHA WA')     },
     flows:  { con: ahaStats(conOnbMes,'AHA flows'),  sin: ahaStats(sinOnbMes,'AHA flows')  },
@@ -880,11 +951,16 @@ function calcMonth(off){
     nichoTPrev,objTPrev,expTPrev,factTPrev,
     cancelPrevTotal:cancelPrev.length,
     onbProp,onbAgen,onbAsist,onbNoShow,onbNoShowReal,
+    onbNuevas:onbNuevas.length,onbAntiguas:onbAntiguas.length,
+    diasNuevas,diasAntiguas,onbResponsables,onbTipos,onbByPlan,
+    noShowProfile, pendingProfile,
+    onbNoShowN:onbNoShowRows.length, onbPendingN:onbPendingRows.length,
     onbPropPrev,onbAgenPrev,onbAsistPrev,onbNoShowPrev,
     cobPPrev,cobTPrev,
     onbAsistP,onbAsistT,cobP,cobT,
     nuevosMesP_n:nuevosMesP.length,nuevosMesT_n:nuevosMesT.length,
     mrrProtOnb,pctRetCon:Math.round(retCon*100),pctRetSin:Math.round(retSin*100),
+    baiben:{ total:baibenAll.length, churnN:baibenChurnMes.length, pct:baibenPct, avgCycles, avgGapDias, avgGapMes, niches:baibenNiches, plans:baibenPlans },
     onbImpact,sesImpact,embImpactData,
     retDiff:Math.round(retDiff*100),
     ses6,sesMes:ses6[5]?.asist||0,sesSesiones:ses6[5]?.sesiones||0,sesPorSesion:ses6[5]?.porSesion||0,
@@ -949,9 +1025,18 @@ function calcMonth(off){
       const cobM      = newP.length>0?Math.round(onbAsistM/newP.length*100):0;
       const asistTasaM= onbAgenM>0?Math.round(onbAsistM/onbAgenM*100):0;
 
+      // ONB GHL enriched — per month
+      const onbGHLM      = O.filter(r => inRange(getOnbGHLDate(r), mRange));
+      const onbGHLAsistM = onbGHLM.filter(r => r['Estado del onboarding']==='Asistió');
+      const onbGHLNuevasM  = onbGHLAsistM.filter(r => getOnbTipo(r)==='nuevas');
+      const onbGHLAntiguasM= onbGHLAsistM.filter(r => getOnbTipo(r)==='antiguo');
+      const avgDiasM     = arr => { const v=arr.map(getOnbDias).filter(x=>x!==null); return v.length?Math.round(v.reduce((a,b)=>a+b,0)/v.length):null; };
+      const diasNuevasM  = avgDiasM(onbGHLNuevasM);
+      const diasAntiguasM= avgDiasM(onbGHLAntiguasM);
+
       // AHA — tiempo al hito por mes, con ONB vs sin ONB
-      const conOnbM = newP.filter(r => r['Onboarding']==='Con onboarding');
-      const sinOnbM = newP.filter(r => r['Onboarding']==='Sin onboarding');
+      const conOnbM = newP.filter(r => (r['Onboarding']||'').trim()==='Con onboarding');
+      const sinOnbM = newP.filter(r => (r['Onboarding']||'').trim()!=='Con onboarding');
       const ahaM = {
         wa:     { con: ahaStats(conOnbM,'AHA WA'),     sin: ahaStats(sinOnbM,'AHA WA')     },
         flows:  { con: ahaStats(conOnbM,'AHA flows'),  sin: ahaStats(sinOnbM,'AHA flows')  },
@@ -973,7 +1058,7 @@ function calcMonth(off){
       const newVigP = newP.filter(r=>(r['Vigencia del servicio']||'').trim()==='Vigente');
       const rSinWA  = newVigP.filter(r=>(r['Usa API?']||'')!=='Sí'&&(r['Usa Business?']||'')!=='Sí').length;
       const rSinFlw = newVigP.filter(r=>(v=>v===''||v==='0')((r['Usa flows']||'').toString().trim())).length;
-      const rSinOnb = newVigP.filter(r=>r['Onboarding']==='Sin onboarding').length;
+      const rSinOnb = newVigP.filter(r=>(r['Onboarding']||'').trim()!=='Con onboarding').length;
 
       // Retención ONB — asistentes del mes que siguen Vigentes hoy
       const acctMapH={};
@@ -1015,13 +1100,15 @@ function calcMonth(off){
         survN:survM.length,
         survPct:canM.length>0?Math.round(survM.length/canM.length*100):0,
         // Perfil cancelados pagas del mes
-        pSinOnb:   canM.length>0?Math.round(canM.filter(r=>r['Onboarding']==='Sin onboarding').length/canM.length*100):0,
+        pSinOnb:   canM.length>0?Math.round(canM.filter(r=>(r['Onboarding']||'').trim()!=='Con onboarding').length/canM.length*100):0,
         pSinFlow:  canM.length>0?Math.round(canM.filter(r=>(v=>v===''||v==='0')((r['Usa flows']||'').toString().trim())).length/canM.length*100):0,
         pSinWA:    canM.length>0?Math.round(canM.filter(r=>(r['Usa API?']||'')!=='Sí'&&(r['Usa Business?']||'')!=='Sí').length/canM.length*100):0,
         pSinSes:   canM.length>0?Math.round(canM.filter(r=>r['Sesiones en vivo']==='No asistió').length/canM.length*100):0,
         pSinGrupos:canM.length>0?Math.round(canM.filter(r=>(v=>v===''||v==='0')((r['Usa grupos?']||'').toString().trim())).length/canM.length*100):0,
         pSinTrial: canM.length>0?Math.round(canM.filter(r=>(r['flow trial']||'').includes('No pasó')).length/canM.length*100):0,
         // Sección 3 — onboarding
+        onbGHLNuevas:onbGHLNuevasM.length, onbGHLAntiguas:onbGHLAntiguasM.length,
+        diasNuevasM, diasAntiguasM,
         onbProp:onbM.length, onbAgen:onbAgenM,
         onbAsist:onbAsistM, onbNS:onbNSM,
         onbCob:cobM, onbAsistTasa:asistTasaM,
@@ -1241,6 +1328,11 @@ function render(m){
   const onbImpEl=document.getElementById('onbImpactTable');
   if(onbImpEl){
     onbImpEl.innerHTML=impactTable('Onboarding','Con ONB','Sin ONB',m.onbImpact,'var(--green2)')+ahaTable(m.ahaStatsMes,m.ahaStats);
+  // ONB enriched panel
+  const onbEnrEl = document.getElementById('onbEnrichedPanel');
+  if (onbEnrEl) onbEnrEl.innerHTML = renderOnbEnriched(m);
+  const onbNSEl = document.getElementById('onbNoShowPanel');
+  if (onbNSEl) onbNSEl.innerHTML = renderNoShowProfile(m);
   }
 
   const cobDlt=(now,prev)=>{
@@ -1263,6 +1355,68 @@ function render(m){
       <div style="font-size:11px;color:var(--muted);margin-top:4px">${m.onbAsistT} de ${m.nuevosMesT_n} trials · ant. ${m.cobTPrev}%</div>
     </div>`;
 
+
+  // ── Cuentas baibén (van y vienen) ──────────────────
+  const GAP_DIAS = 60;   // días sin pago para considerar nueva temporada
+  const SEP_DIAS = 45;   // días máx entre pagos de la misma temporada
+
+  const baibenMap = {};
+  // Build payment timeline per user
+  Object.entries(paysByUserM).forEach(([uid, pays]) => {
+    if (pays.length < 2) return;
+    const sorted = [...pays].sort((a,b) => a.d-b.d);
+    // Detect seasons (clusters separated by GAP_DIAS)
+    const seasons = [];
+    let season = [sorted[0]];
+    for (let i = 1; i < sorted.length; i++) {
+      const gap = (sorted[i].d - sorted[i-1].d) / 86400000;
+      if (gap >= GAP_DIAS) {
+        seasons.push(season);
+        season = [sorted[i]];
+      } else {
+        season.push(sorted[i]);
+      }
+    }
+    seasons.push(season);
+    if (seasons.length < 2) return;
+    // Calculate gaps between seasons
+    const gaps = [];
+    for (let i = 1; i < seasons.length; i++) {
+      const lastPay  = seasons[i-1][seasons[i-1].length-1].d;
+      const firstPay = seasons[i][0].d;
+      gaps.push(Math.round((firstPay - lastPay) / 86400000));
+    }
+    baibenMap[uid] = { seasons: seasons.length, gaps, uid };
+  });
+
+  const baibenAll = Object.values(baibenMap);
+  // Baibén accounts that cancelled this month
+  const baibenChurnMes = cancelMes.filter(r => baibenMap[(r['id']||'').toString().trim()]);
+  const baibenPct  = cancelMes.length > 0 ? Math.round(baibenChurnMes.length/cancelMes.length*100) : 0;
+  // Average cycles
+  const avgCycles  = baibenAll.length > 0
+    ? Math.round(baibenAll.reduce((s,b) => s+b.seasons, 0) / baibenAll.length * 10)/10 : 0;
+  // Average gap (days)
+  const allGaps    = baibenAll.flatMap(b => b.gaps);
+  const avgGapDias = allGaps.length > 0
+    ? Math.round(allGaps.reduce((a,b)=>a+b,0)/allGaps.length) : 0;
+  const avgGapMes  = Math.round(avgGapDias/30*10)/10;
+  // Top niches for baibén accounts
+  const nicheB = {};
+  baibenAll.forEach(b => {
+    const acct = acctById[b.uid];
+    if (!acct) return;
+    const n = (acct['Tipo de negocio']||'Sin tipo').trim();
+    nicheB[n] = (nicheB[n]||0)+1;
+  });
+  const baibenNiches = Object.entries(nicheB).sort((a,b)=>b[1]-a[1]).slice(0,6);
+  // Plan breakdown for baibén churners this month
+  const planB = {};
+  baibenChurnMes.forEach(r => {
+    const p = (r['Planes Funnelchat']||'Sin plan').trim();
+    planB[p] = (planB[p]||0)+1;
+  });
+  const baibenPlans = Object.entries(planB).sort((a,b)=>b[1]-a[1]);
 
   // ── Embudos render ────────────────────────────────
   (()=>{
@@ -1287,7 +1441,7 @@ function render(m){
       const prevRows=rows.filter(r=>inRange(parseEmbDate(r['fecha_asignacion_etiqueta']),prevMonthR));
       const mesUsers=new Set(mesRows.map(r=>(r['user_id']||'').toString()).filter(Boolean));
       const prevUsers=new Set(prevRows.map(r=>(r['user_id']||'').toString()).filter(Boolean));
-      const vigentes=[...mesUsers].filter(uid=>acctM[uid]&&acctM[uid]['Vigencia del servicio']==='Vigente').length;
+      const vigentes=[...mesUsers].filter(uid=>acctM[uid]&&(acctM[uid]['Vigencia del servicio']||'').trim()==='Vigente').length;
       const retPct=mesUsers.size>0?Math.round(vigentes/mesUsers.size*100):0;
       const mrrImp=Math.round([...mesUsers].reduce((s,uid)=>s+(acctM[uid]?getMRR(acctM[uid]):0),0));
       const diff=mesUsers.size-prevUsers.size;
@@ -1453,6 +1607,8 @@ function render(m){
     }).join('');
   }
 
+  renderChurnDownloadBtns(m);
+  renderBaiben(m);
   // Histórico 6 meses — tablas comparativas
   renderHist6(m);
 
@@ -2156,6 +2312,10 @@ function renderHist6(m) {
         {label:'ONB propuesto',                values:H.map(h=>h.onbProp),       inv:false, fmt:'n'},
         {label:'Agendados',                    values:H.map(h=>h.onbAgen),       inv:false, fmt:'n'},
         {label:'Asistentes',                   values:H.map(h=>h.onbAsist),      inv:false, fmt:'n'},
+        {label:'↳ Cuentas nuevas',          values:H.map(h=>h.onbGHLNuevas??null),  inv:false, fmt:'n'},
+        {label:'↳ Cuentas antiguas',        values:H.map(h=>h.onbGHLAntiguas??null),inv:false, fmt:'n'},
+        {label:'Días prom. al ONB (nuevas)',  values:H.map(h=>h.diasNuevasM??null),  inv:true,  fmt:'n'},
+        {label:'Días prom. al ONB (antiguas)',values:H.map(h=>h.diasAntiguasM??null),inv:true,  fmt:'n'},
         {label:'No show',                      values:H.map(h=>h.onbNS),         inv:true,  fmt:'n'},
         {label:'% No show',                    values:H.map(h=>h.onbAgen>0?Math.round(h.onbNS/h.onbAgen*100):0), inv:true, fmt:'%'},
         {label:'% Cobertura pagas',            values:H.map(h=>h.onbCob),        inv:false, fmt:'%'},
@@ -2188,6 +2348,272 @@ function renderHist6(m) {
     {label:'Sin flow activo',      values:H.map(h=>h.rSinFlw), inv:true,  fmt:'n'},
     {label:'Sin onboarding',       values:H.map(h=>h.rSinOnb), inv:true,  fmt:'n'},
   ]);
+}
+
+function renderOnbEnriched(m) {
+  const total = (m.onbNuevas||0) + (m.onbAntiguas||0);
+  if (!total) return '';
+  const pct = (n,d) => d>0?Math.round(n/d*100):0;
+  const bar = (n,max,color) =>
+    `<div style="flex:1;height:6px;background:rgba(255,255,255,.05);border-radius:3px;overflow:hidden">
+      <div style="width:${Math.round(n/(max||1)*100)}%;height:100%;background:${color};border-radius:3px"></div>
+    </div>`;
+  const dias = (v,label) => v!==null
+    ? `<span style="font-family:'Syne',sans-serif;font-size:18px;font-weight:800;color:var(--teal)">${v}d</span> <span style="font-size:10px;color:var(--muted)">${label}</span>`
+    : `<span style="color:var(--muted);font-size:11px">—</span>`;
+
+  // Responsables
+  const respRows = (m.onbResponsables||[]).slice(0,5).map(([r,n]) =>
+    `<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+      <div style="font-size:11px;color:var(--muted);flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${r}</div>
+      ${bar(n,total,'rgba(45,212,191,.6)')}
+      <div style="font-size:11px;font-weight:700;width:24px;text-align:right">${n}</div>
+    </div>`
+  ).join('');
+
+  // Tipos
+  const tipoRows = (m.onbTipos||[]).slice(0,5).map(([t,n]) =>
+    `<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+      <div style="font-size:11px;color:var(--muted);flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${t}</div>
+      ${bar(n,total,'rgba(96,165,250,.6)')}
+      <div style="font-size:11px;font-weight:700;width:24px;text-align:right">${n}</div>
+    </div>`
+  ).join('');
+
+  return `<div style="background:rgba(255,255,255,.02);border:1px solid var(--border);border-radius:12px;padding:16px 18px;margin-top:4px">
+    <div style="font-size:10px;font-weight:700;color:var(--teal);text-transform:uppercase;letter-spacing:.08em;margin-bottom:14px">Detalle ONB — Tipo de cuenta y responsable</div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:12px;margin-bottom:16px">
+      <div style="background:rgba(45,212,191,.06);border:1px solid rgba(45,212,191,.15);border-radius:8px;padding:12px">
+        <div style="font-size:9px;text-transform:uppercase;letter-spacing:.1em;color:var(--teal);margin-bottom:4px">Cuentas nuevas (≤30d)</div>
+        <div style="font-family:'Syne',sans-serif;font-size:22px;font-weight:800;color:var(--teal)">${m.onbNuevas}</div>
+        <div style="font-size:10px;color:var(--muted);margin-top:2px">${pct(m.onbNuevas,total)}% del total ONB</div>
+      </div>
+      <div style="background:rgba(251,146,60,.06);border:1px solid rgba(251,146,60,.15);border-radius:8px;padding:12px">
+        <div style="font-size:9px;text-transform:uppercase;letter-spacing:.1em;color:var(--orange);margin-bottom:4px">Cuentas antiguas (>30d)</div>
+        <div style="font-family:'Syne',sans-serif;font-size:22px;font-weight:800;color:var(--orange)">${m.onbAntiguas}</div>
+        <div style="font-size:10px;color:var(--muted);margin-top:2px">${pct(m.onbAntiguas,total)}% del total ONB</div>
+      </div>
+      <div style="background:rgba(255,255,255,.02);border:1px solid var(--border);border-radius:8px;padding:12px">
+        <div style="font-size:9px;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);margin-bottom:4px">Días al ONB (nuevas)</div>
+        <div style="margin-top:4px">${dias(m.diasNuevas,'días promedio')}</div>
+      </div>
+      <div style="background:rgba(255,255,255,.02);border:1px solid var(--border);border-radius:8px;padding:12px">
+        <div style="font-size:9px;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);margin-bottom:4px">Días al ONB (antiguas)</div>
+        <div style="margin-top:4px">${dias(m.diasAntiguas,'días promedio')}</div>
+      </div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px">
+      <div>
+        <div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px">Por responsable</div>
+        ${respRows || '<div style="color:var(--muted);font-size:11px">Sin datos</div>'}
+      </div>
+      <div>
+        <div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px">Por tipo de ONB</div>
+        ${tipoRows || '<div style="color:var(--muted);font-size:11px">Sin datos</div>'}
+      </div>
+    </div>
+
+    ${buildOnbPlanTable(m.onbByPlan||[])}
+  </div>`;
+}
+
+function renderNoShowProfile(m) {
+  const ns  = m.noShowProfile  || { total:0, matched:0, pagas:0, trial:0, plansArr:[], nichoArr:[], segArr:[] };
+  const pnd = m.pendingProfile || { total:0, matched:0, pagas:0, trial:0, plansArr:[], nichoArr:[], segArr:[] };
+  if (!ns.total && !pnd.total) return '';
+
+  const pct = (n,d) => d>0 ? Math.round(n/d*100) : 0;
+  const planColors = {'Plan Starter':'#60a5fa','Plan Growth':'#a78bfa','Plan Advanced':'#2dd4bf','Advanced Personalizado':'#fbbf24'};
+  const segColors  = {'A':'var(--green2)','B':'var(--yellow)','C':'var(--muted)'};
+
+  function miniBar(n, max, color) {
+    return '<div style="flex:1;height:5px;background:rgba(255,255,255,.05);border-radius:3px;overflow:hidden">'
+      + '<div style="width:'+Math.round(n/(max||1)*100)+'%;height:100%;background:'+color+';border-radius:3px"></div></div>';
+  }
+  function rowList(arr, colors, total) {
+    if (!arr.length) return '<div style="color:var(--muted);font-size:10px">Sin datos cruzados</div>';
+    const max = arr[0][1];
+    return arr.map(([k,v]) => {
+      const c = colors[k] || 'rgba(148,163,184,.5)';
+      return '<div style="display:flex;align-items:center;gap:6px;margin-bottom:5px">'
+        + '<div style="font-size:10px;color:var(--muted);width:130px;flex-shrink:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="'+k+'">'+k+'</div>'
+        + miniBar(v, max, c)
+        + '<div style="font-size:10px;font-weight:700;width:22px;text-align:right">'+v+'</div>'
+        + '<div style="font-size:9px;color:var(--muted);width:28px">'+pct(v,total)+'%</div>'
+        + '</div>';
+    }).join('');
+  }
+
+  function segBadges(segArr, total) {
+    return ['A','B','C'].map(s => {
+      const n = segArr.find(([k])=>k===s)?.[1] || 0;
+      return '<div style="text-align:center;flex:1">'
+        + '<div style="font-family:Syne,sans-serif;font-size:18px;font-weight:800;color:'+(segColors[s]||'var(--muted)')+'">'+n+'</div>'
+        + '<div style="font-size:9px;color:var(--muted)">Seg '+s+'</div>'
+        + '<div style="font-size:9px;color:var(--muted)">'+pct(n,total)+'%</div>'
+        + '</div>';
+    }).join('');
+  }
+
+  function panel(title, color, icon, data) {
+    if (!data.total) return '<div style="background:var(--card);border:1px solid var(--border);border-radius:10px;padding:14px;flex:1">'
+      + '<div style="font-size:10px;font-weight:700;color:'+color+';text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px">'+icon+' '+title+'</div>'
+      + '<div style="color:var(--muted);font-size:11px">Sin registros en el período</div></div>';
+
+    return '<div style="background:var(--card);border:1px solid var(--border);border-radius:10px;padding:14px;flex:1">'
+      + '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">'
+      +   '<div style="font-size:10px;font-weight:700;color:'+color+';text-transform:uppercase;letter-spacing:.06em">'+icon+' '+title+'</div>'
+      +   '<div style="font-family:Syne,sans-serif;font-size:22px;font-weight:800;color:'+color+'">'+data.total+'</div>'
+      + '</div>'
+      // Pagas vs Trial
+      + '<div style="display:flex;gap:8px;margin-bottom:10px">'
+      +   '<div style="flex:1;background:rgba(96,165,250,.08);border:1px solid rgba(96,165,250,.15);border-radius:6px;padding:6px 8px;text-align:center">'
+      +     '<div style="font-family:Syne,sans-serif;font-size:16px;font-weight:800;color:var(--blue)">'+data.pagas+'</div>'
+      +     '<div style="font-size:9px;color:var(--muted)">Pagas</div>'
+      +   '</div>'
+      +   '<div style="flex:1;background:rgba(167,139,250,.08);border:1px solid rgba(167,139,250,.15);border-radius:6px;padding:6px 8px;text-align:center">'
+      +     '<div style="font-family:Syne,sans-serif;font-size:16px;font-weight:800;color:var(--purple)">'+data.trial+'</div>'
+      +     '<div style="font-size:9px;color:var(--muted)">Trial</div>'
+      +   '</div>'
+      +   '<div style="flex:1;background:rgba(255,255,255,.02);border:1px solid var(--border);border-radius:6px;padding:6px 8px;text-align:center">'
+      +     '<div style="font-family:Syne,sans-serif;font-size:16px;font-weight:800;color:var(--muted)">'+(data.total-data.matched)+'</div>'
+      +     '<div style="font-size:9px;color:var(--muted)">Sin cruce</div>'
+      +   '</div>'
+      + '</div>'
+      // Segmento badges
+      + '<div style="font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px">Por segmento</div>'
+      + '<div style="display:flex;gap:8px;margin-bottom:10px">'+segBadges(data.segArr, data.matched)+'</div>'
+      // Plan breakdown
+      + '<div style="font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px">Por plan</div>'
+      + rowList(data.plansArr, planColors, data.matched)
+      // Nicho breakdown
+      + '<div style="font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin:8px 0 6px">Por nicho</div>'
+      + rowList(data.nichoArr, {}, data.matched)
+      + '</div>';
+  }
+
+  return '<div style="background:rgba(255,255,255,.02);border:1px solid var(--border);border-radius:12px;padding:16px 18px;margin-top:4px">'
+    + '<div style="font-size:10px;font-weight:700;color:var(--red);text-transform:uppercase;letter-spacing:.08em;margin-bottom:12px">Perfil: No show y agendados sin asistir</div>'
+    + '<div style="display:flex;gap:14px;flex-wrap:wrap">'
+    + panel('No show / No asistió', 'var(--red)',    '✗', ns)
+    + panel('Agendados pendientes', 'var(--yellow)', '⏳', pnd)
+    + '</div>'
+    + '<div style="font-size:9px;color:var(--muted);margin-top:10px">Basado en Fecha de ONB GHL · cruce con tabla de cuentas por user_id</div>'
+    + '</div>';
+}
+
+function buildOnbPlanTable(rows) {
+  if (!rows.length) return '';
+  const planColors = {'Plan Starter':'#60a5fa','Plan Growth':'#a78bfa','Plan Advanced':'#2dd4bf','Advanced Personalizado':'#fbbf24'};
+  const maxAvg = Math.max(...rows.map(r=>r.avg||0), 1);
+  const minAvg = Math.min(...rows.filter(r=>r.avg!==null).map(r=>r.avg));
+  const trs = rows.map(r => {
+    const pct  = r.avg !== null ? Math.round(r.avg/maxAvg*100) : 0;
+    const fast = r.avg !== null && r.avg === minAvg;
+    const c    = planColors[r.plan] || 'rgba(100,116,139,.5)';
+    return '<tr style="border-bottom:1px solid var(--border)">'
+      + '<td style="padding:7px 12px;font-size:11px;font-weight:600;color:'+c+'">' + r.plan.replace('Plan ','') + '</td>'
+      + '<td style="padding:7px 10px;text-align:center;font-size:11px">' + r.n + '</td>'
+      + '<td style="padding:7px 10px;text-align:center">'
+      +   (r.avg !== null
+           ? '<span style="font-family:Syne,sans-serif;font-weight:800;font-size:15px;color:'+c+'">' + r.avg + 'd</span>'
+             + (fast ? '<span style="font-size:9px;color:var(--teal);margin-left:4px">✓ más rápido</span>' : '')
+           : '<span style="color:var(--muted)">—</span>')
+      + '</td>'
+      + '<td style="padding:7px 10px;text-align:center;font-size:11px;color:var(--muted)">' + (r.min!==null?r.min+'d':'—') + '</td>'
+      + '<td style="padding:7px 10px;text-align:center;font-size:11px;color:var(--muted)">' + (r.max!==null?r.max+'d':'—') + '</td>'
+      + '<td style="padding:7px 10px">'
+      +   (r.avg !== null
+           ? '<div style="height:6px;background:rgba(255,255,255,.05);border-radius:3px;overflow:hidden">'
+             + '<div style="width:'+pct+'%;height:100%;background:'+c+';border-radius:3px"></div></div>'
+           : '')
+      + '</td></tr>';
+  }).join('');
+  return '<div style="border-top:1px solid var(--border);padding-top:14px">'
+    + '<div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:10px">Días hasta ONB por plan — ¿los planes avanzados llegan más rápido?</div>'
+    + '<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;min-width:420px">'
+    + '<thead><tr style="background:rgba(255,255,255,.02)">'
+    + '<th style="padding:6px 12px;font-size:10px;color:var(--muted);text-align:left;border-bottom:1px solid var(--border)">Plan</th>'
+    + '<th style="padding:6px 10px;font-size:10px;color:var(--muted);text-align:center;border-bottom:1px solid var(--border)">Cuentas</th>'
+    + '<th style="padding:6px 10px;font-size:10px;color:var(--teal);text-align:center;border-bottom:1px solid var(--border)">Días promedio</th>'
+    + '<th style="padding:6px 10px;font-size:10px;color:var(--muted);text-align:center;border-bottom:1px solid var(--border)">Mín</th>'
+    + '<th style="padding:6px 10px;font-size:10px;color:var(--muted);text-align:center;border-bottom:1px solid var(--border)">Máx</th>'
+    + '<th style="padding:6px 10px;font-size:10px;color:var(--muted);text-align:left;border-bottom:1px solid var(--border)">Velocidad relativa</th>'
+    + '</tr></thead><tbody>' + trs + '</tbody></table></div>'
+    + '<div style="font-size:9px;color:var(--muted);margin-top:8px">Días = creación de cuenta → sesión ONB · barra proporcional al plan más lento</div>'
+    + '</div>';
+}
+
+function renderBaiben(m) {
+  const el = document.getElementById('baibenSection');
+  if (!el) return;
+  const b = m.baiben;
+  if (!b || b.total === 0) {
+    el.innerHTML = '<div style="color:var(--muted);font-size:12px;padding:12px 0">Sin cuentas baibén detectadas. Se requiere historial de payments suficiente.</div>';
+    return;
+  }
+
+  const planColors = {'Plan Starter':'#60a5fa','Plan Growth':'#a78bfa','Plan Advanced':'#2dd4bf','Advanced Personalizado':'#fbbf24'};
+  const fmt = (n,d) => d>0?Math.round(n/d*100):0;
+
+  function miniBar(n, max, color) {
+    return '<div style="flex:1;height:5px;background:rgba(255,255,255,.05);border-radius:3px;overflow:hidden">'
+      + '<div style="width:'+Math.round(n/(max||1)*100)+'%;height:100%;background:'+color+';border-radius:3px"></div></div>';
+  }
+
+  // KPI cards
+  const kpis = [
+    { label:'Cuentas baibén detectadas',  val:b.total,     sub:'con 2+ temporadas históricas',     color:'var(--yellow)' },
+    { label:'Cancelaron este mes',         val:b.churnN,    sub:b.pct+'% del churn del período',    color:'var(--orange)' },
+    { label:'Ciclos promedio',             val:b.avgCycles+'x', sub:'temporadas de pago detectadas', color:'var(--teal)'   },
+    { label:'Gap promedio entre temporadas', val:b.avgGapMes+'m', sub:b.avgGapDias+' días en promedio', color:'var(--blue)' },
+  ].map(k =>
+    '<div style="background:var(--card);border:1px solid var(--border);border-radius:10px;padding:14px 16px;flex:1;min-width:140px">'
+    + '<div style="font-size:9px;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);margin-bottom:4px">'+k.label+'</div>'
+    + '<div style="font-family:Syne,sans-serif;font-size:22px;font-weight:800;color:'+k.color+';line-height:1">'+k.val+'</div>'
+    + '<div style="font-size:10px;color:var(--muted);margin-top:4px">'+k.sub+'</div>'
+    + '</div>'
+  ).join('');
+
+  // Niche list
+  const maxN = b.niches[0]?.[1] || 1;
+  const nicheRows = b.niches.map(([n,v]) =>
+    '<div style="display:flex;align-items:center;gap:6px;margin-bottom:6px">'
+    + '<div style="font-size:10px;color:var(--muted);width:160px;flex-shrink:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="'+n+'">'+n+'</div>'
+    + miniBar(v, maxN, 'rgba(251,191,36,.6)')
+    + '<div style="font-size:11px;font-weight:700;width:24px;text-align:right">'+v+'</div>'
+    + '<div style="font-size:10px;color:var(--muted);width:32px">'+fmt(v,b.total)+'%</div>'
+    + '</div>'
+  ).join('');
+
+  // Plan breakdown of baibén churners this month
+  const maxP = b.plans[0]?.[1] || 1;
+  const planRows = b.plans.map(([p,v]) =>
+    '<div style="display:flex;align-items:center;gap:6px;margin-bottom:6px">'
+    + '<div style="font-size:10px;color:var(--muted);width:160px;flex-shrink:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+p.replace('Plan ','')+'</div>'
+    + miniBar(v, maxP, planColors[p]||'rgba(148,163,184,.4)')
+    + '<div style="font-size:11px;font-weight:700;width:24px;text-align:right">'+v+'</div>'
+    + '</div>'
+  ).join('') || '<div style="font-size:10px;color:var(--muted)">Sin cancelaciones baibén este mes</div>';
+
+  el.innerHTML =
+    '<div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:16px">' + kpis + '</div>'
+    + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">'
+      + '<div style="background:var(--card);border:1px solid var(--border);border-radius:10px;padding:14px">'
+        + '<div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:10px">Top nichos — cuentas baibén (todas)</div>'
+        + (nicheRows || '<div style="font-size:10px;color:var(--muted)">Sin datos de cruce</div>')
+      + '</div>'
+      + '<div style="background:var(--card);border:1px solid var(--border);border-radius:10px;padding:14px">'
+        + '<div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:10px">Por plan — cancelaciones baibén este mes</div>'
+        + planRows
+      + '</div>'
+    + '</div>'
+    + '<div style="font-size:9px;color:var(--muted);margin-top:10px;line-height:1.6">'
+    + '⚙ Metodología: cuenta baibén = usuario con 2+ temporadas de pago separadas por un gap de ≥60 días sin ningún pago · '
+    + 'temporada = pagos consecutivos con ≤45 días entre ellos · calculado desde la tabla payments completa'
+    + '</div>';
 }
 
 function renderUpgDown(m) {
@@ -2257,6 +2683,77 @@ function renderUpgDown(m) {
     Neto MRR: <strong style="color:${m.upMRR-m.downMRR>=0?'var(--green)':'var(--red)'}">${m.upMRR-m.downMRR>=0?'▲':'▼'} $${Math.abs(m.upMRR-m.downMRR).toLocaleString('es-CO')}</strong>
     · Basado en tabla payments · pagos del período comparados con el pago anterior del mismo usuario
   </div>`;
+}
+
+function renderChurnDownloadBtns(m) {
+  const el = document.getElementById('churnDownloadBtns');
+  if (!el || !m) return;
+  const plans = ['Todos','Plan Starter','Plan Growth','Plan Advanced','Advanced Personalizado'];
+  el.innerHTML = '';
+  plans.forEach(p => {
+    const btn = document.createElement('button');
+    btn.textContent = '↓ ' + (p==='Todos'?'Todos los planes':p.replace('Plan ',''));
+    btn.style.cssText = 'font-size:9px;font-weight:700;padding:3px 10px;border-radius:6px;border:1px solid rgba(96,165,250,.25);background:rgba(96,165,250,.07);color:var(--blue);cursor:pointer;font-family:DM Sans,sans-serif;white-space:nowrap';
+    btn.onclick = () => downloadChurnCSV(p);
+    el.appendChild(btn);
+  });
+}
+
+function downloadChurnCSV(planFilter) {
+  const m = window._mesMet;
+  if (!m) return;
+
+  // Get all cancelled accounts for the selected month
+  const cancelados = (m.allCancelP||[]).filter(r => {
+    const cd = cancelDate(r);
+    return cd && cd >= m.range.start && cd <= m.range.end;
+  });
+
+  const filtered = planFilter === 'Todos'
+    ? cancelados
+    : cancelados.filter(r => (r['Planes Funnelchat']||'').trim() === planFilter);
+
+  if (!filtered.length) {
+    alert('Sin cancelados' + (planFilter!=='Todos'?' para '+planFilter:'') + ' en el período seleccionado.');
+    return;
+  }
+
+  // Columns to export
+  const cols = [
+    { h:'ID',                  k: r => r['id']||'' },
+    { h:'Plan',                k: r => r['Planes Funnelchat']||'' },
+    { h:'Plan original',       k: r => r['Plan (Nombre original)']||'' },
+    { h:'Vigencia',            k: r => r['Vigencia del servicio']||'' },
+    { h:'Payment till',        k: r => r['payment_till']||'' },
+    { h:'Fecha cancelación',   k: r => { const cd=cancelDate(r); return cd?cd.toLocaleDateString('es-CO'):''; } },
+    { h:'LT (días)',           k: r => r['LT']||'' },
+    { h:'Creado',              k: r => r['created_at']||'' },
+    { h:'Tipo de negocio',     k: r => r['Tipo de negocio']||'' },
+    { h:'Objetivo',            k: r => r['Objetivo con Funnelchat']||'' },
+    { h:'Experiencia',         k: r => r['Experiencia automatizando']||'' },
+    { h:'Onboarding',          k: r => r['Onboarding']||'' },
+    { h:'Segmento',            k: r => r['Segmento de cliente (priorización de cliente)']||'' },
+    { h:'KAM',                 k: r => r['KAM']||'' },
+    { h:'Usa WA',              k: r => (r['Usa API?']||r['Usa Business?']||'')===''?'No':'Sí' },
+    { h:'Usa Flow',            k: r => { const v=(r['Usa flows']||'').toString().trim(); return (v===''||v==='0')?'No':'Sí ('+v+')'; } },
+    { h:'Usa Grupos',          k: r => { const v=(r['Usa grupos?']||r['Usa grupos']||'').toString().trim(); return (v===''||v==='0')?'No':'Sí ('+v+')'; } },
+    { h:'MRR',                 k: r => getMRR(r)||'' },
+  ];
+
+  const esc = v => '"' + String(v).replace(/"/g,'""') + '"';
+  const header = cols.map(c => esc(c.h)).join(',');
+  const rows   = filtered.map(r => cols.map(c => esc(c.k(r))).join(','));
+  const csv = '\uFEFF' + [header, ...rows].join('\n');
+
+  const blob = new Blob([csv], { type:'text/csv;charset=utf-8;' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  const planSlug = planFilter.replace(/\s+/g,'-').toLowerCase();
+  a.href     = url;
+  const mesLabel = (m&&m.range&&m.range.start) ? fmtMonth(new Date(m.range.start)).replace(/[\s\/,]/g,'-') : 'mes';
+  a.download = `cancelados_${planSlug}_${mesLabel}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
 }
 
 function destroyChart(id){const c=Chart.getChart(id);if(c)c.destroy();}
