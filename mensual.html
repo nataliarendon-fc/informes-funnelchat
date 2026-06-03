@@ -246,6 +246,11 @@ body{background:var(--navy);color:var(--text);font-family:'DM Sans',sans-serif;f
 
     <div id="hist6_s2" style="margin-top:14px;margin-bottom:28px"></div>
 
+  <!-- BLOQUE: CUENTAS VAIVÉN -->
+  <div class="sec-label"><span class="sec-num" style="background:rgba(251,191,36,.12);color:var(--yellow)">↔</span> Cuentas que van y vienen <span class="sec-desc">· Churn recurrente · infoproductores y agencias de lanzamiento</span></div>
+  <div id="baibenSection" style="margin-bottom:16px"></div>
+  <div id="noNeedSection" style="margin-bottom:28px"></div>
+
   <!-- BLOQUE 4 -->
   <div class="block">
     <div class="sec-label"><span class="sec-num">04</span> Lo que el área hizo para retener <span class="sec-desc">· Resumen mensual con impacto económico</span></div>
@@ -916,6 +921,102 @@ function calcMonth(off){
 
   const upMRR   = upgrades.reduce((s,e)=>s+e.delta, 0);
   const downMRR = downgrades.reduce((s,e)=>s+e.delta, 0);
+  // ── Cuentas vaivén (van y vienen) ──────────────────
+  const GAP_DIAS = 60;
+  const baibenMap = {};
+  Object.entries(paysByUserM).forEach(([uid, pays]) => {
+    if (pays.length < 2) return;
+    const sorted = [...pays].sort((a,b) => a.d-b.d);
+    const seasons = [];
+    let season = [sorted[0]];
+    for (let i = 1; i < sorted.length; i++) {
+      const gap = (sorted[i].d - sorted[i-1].d) / 86400000;
+      if (gap >= GAP_DIAS) { seasons.push(season); season = [sorted[i]]; }
+      else season.push(sorted[i]);
+    }
+    seasons.push(season);
+    if (seasons.length < 2) return;
+    const gaps = [];
+    for (let i = 1; i < seasons.length; i++) {
+      const lastPay  = seasons[i-1][seasons[i-1].length-1].d;
+      const firstPay = seasons[i][0].d;
+      gaps.push(Math.round((firstPay - lastPay) / 86400000));
+    }
+    baibenMap[uid] = { seasons: seasons.length, gaps, uid };
+  });
+  const baibenAll = Object.values(baibenMap);
+  const baibenChurnMes = cancelMes.filter(r => baibenMap[(r['id']||'').toString().trim()]);
+  const baibenPct  = cancelMes.length > 0 ? Math.round(baibenChurnMes.length/cancelMes.length*100) : 0;
+  const avgCycles  = baibenAll.length > 0
+    ? Math.round(baibenAll.reduce((s,b) => s+b.seasons,0)/baibenAll.length*10)/10 : 0;
+  const allGaps    = baibenAll.flatMap(b => b.gaps);
+  const avgGapDias = allGaps.length > 0
+    ? Math.round(allGaps.reduce((a,b)=>a+b,0)/allGaps.length) : 0;
+  const avgGapMes  = Math.round(avgGapDias/30*10)/10;
+  const nicheB = {}, objB = {};
+  baibenAll.forEach(b => {
+    const acct = acctById[b.uid];
+    if (!acct) return;
+    const n = (acct['Tipo de negocio']||'Sin tipo').trim();
+    nicheB[n] = (nicheB[n]||0)+1;
+    const obj = (acct['Objetivo con Funnelchat']||'Sin objetivo').trim();
+    objB[obj] = (objB[obj]||0)+1;
+  });
+  const baibenNiches = Object.entries(nicheB).sort((a,b)=>b[1]-a[1]).slice(0,6);
+  const baibenObjs   = Object.entries(objB).sort((a,b)=>b[1]-a[1]);
+  const baibenTotal  = baibenAll.filter(b=>acctById[b.uid]).length || 1;
+
+  // "No necesitan Funnelchat" segment analysis — from cancelaciones survey
+  const NO_NEED_KEYS = ['no necesito','no lo necesito','no necesita','ya no necesito','no me es necesario','sin necesidad'];
+  const noNeedRows = RAW.cancelaciones.filter(r => {
+    const reason = (r['Razón de cancelación de plan']||'').toLowerCase();
+    return NO_NEED_KEYS.some(k => reason.includes(k));
+  });
+  const noNeedSeg = { A:0, B:0, C:0, Sin:0 };
+  const noNeedNicho = {};
+  const noNeedPlan  = {};
+  noNeedRows.forEach(r => {
+    const uid  = (r['Contact ID']||r['contact_id']||r['user_id']||'').toString().trim();
+    const acct = acctById[uid];
+    if (!acct) { noNeedSeg.Sin++; return; }
+    const s = (acct['Segmento de cliente (priorización de cliente)']||'Sin').trim();
+    noNeedSeg[s] = (noNeedSeg[s]||0)+1;
+    const n = (acct['Tipo de negocio']||'Sin tipo').trim();
+    noNeedNicho[n] = (noNeedNicho[n]||0)+1;
+    const p = (acct['Planes Funnelchat']||'Sin plan').trim();
+    noNeedPlan[p]  = (noNeedPlan[p]||0)+1;
+  });
+  const noNeedNichoArr = Object.entries(noNeedNicho).sort((a,b)=>b[1]-a[1]).slice(0,6);
+  const noNeedPlanArr  = Object.entries(noNeedPlan).sort((a,b)=>b[1]-a[1]);
+  const planB = {};
+  baibenChurnMes.forEach(r => {
+    const p = (r['Planes Funnelchat']||'Sin plan').trim();
+    planB[p] = (planB[p]||0)+1;
+  });
+  const baibenPlans = Object.entries(planB).sort((a,b)=>b[1]-a[1]);
+
+  // Monthly vaivén cancellations — last 8 months for bar chart
+  const baibenTrend = (() => {
+    const months = [];
+    for (let i = -7; i <= 0; i++) {
+      const r = getMonthRange(off + i);
+      const cancelled = canP.filter(rr => {
+        const cd = cancelDate(rr);
+        if (!cd || !inRange(cd, r)) return false;
+        return !!baibenMap[(rr['id']||'').toString().trim()];
+      });
+      // Expected return window based on average gap
+      const retDate = new Date(r.start);
+      retDate.setDate(retDate.getDate() + avgGapDias);
+      months.push({
+        label: fmtMonthShort(r.start),
+        n: cancelled.length,
+        retLabel: fmtMonthShort(retDate),
+      });
+    }
+    return months;
+  })();
+
   return{
     range, off, ahaStats:ahaStatsData, ahaStatsMes,
     reposoN:reposoAll.length, reposoMRR:Math.round(reposoAll.reduce((s,r)=>s+getMRR(r),0)),
@@ -956,6 +1057,8 @@ function calcMonth(off){
     onbAsistP,onbAsistT,cobP,cobT,
     nuevosMesP_n:nuevosMesP.length,nuevosMesT_n:nuevosMesT.length,
     mrrProtOnb,pctRetCon:Math.round(retCon*100),pctRetSin:Math.round(retSin*100),
+    baiben:{ total:baibenAll.length, churnN:baibenChurnMes.length, pct:baibenPct, avgCycles, avgGapDias, avgGapMes, niches:baibenNiches, objs:baibenObjs, baibenTotal, plans:baibenPlans, trend:baibenTrend },
+    noNeed:{ n:noNeedRows.length, seg:noNeedSeg, nicho:noNeedNichoArr, plan:noNeedPlanArr },
     onbImpact,sesImpact,embImpactData,
     retDiff:Math.round(retDiff*100),
     ses6,sesMes:ses6[5]?.asist||0,sesSesiones:ses6[5]?.sesiones||0,sesPorSesion:ses6[5]?.porSesion||0,
@@ -1541,6 +1644,8 @@ function render(m){
   }
 
   renderChurnDownloadBtns(m);
+  renderBaiben(m);
+  renderNoNeed(m);
   // Histórico 6 meses — tablas comparativas
   renderHist6(m);
 
@@ -2476,6 +2581,245 @@ function buildOnbPlanTable(rows) {
     + '</tr></thead><tbody>' + trs + '</tbody></table></div>'
     + '<div style="font-size:9px;color:var(--muted);margin-top:8px">Días = creación de cuenta → sesión ONB · barra proporcional al plan más lento</div>'
     + '</div>';
+}
+
+function renderBaiben(m) {
+  const el = document.getElementById('baibenSection');
+  if (!el) return;
+  const b = m.baiben;
+  if (!b || b.total === 0) {
+    el.innerHTML = '<div style="color:var(--muted);font-size:12px;padding:12px 0">Sin cuentas vaivén detectadas. Se requiere historial de payments suficiente.</div>';
+    return;
+  }
+
+  const planColors = {'Plan Starter':'#60a5fa','Plan Growth':'#a78bfa','Plan Advanced':'#2dd4bf','Advanced Personalizado':'#fbbf24'};
+  const fmt = (n,d) => d>0?Math.round(n/d*100):0;
+
+  function miniBar(n, max, color) {
+    return '<div style="flex:1;height:5px;background:rgba(255,255,255,.05);border-radius:3px;overflow:hidden">'
+      + '<div style="width:'+Math.round(n/(max||1)*100)+'%;height:100%;background:'+color+';border-radius:3px"></div></div>';
+  }
+
+  // KPI cards
+  const kpis = [
+    { label:'Cuentas vaivén detectadas',  val:b.total,     sub:'con 2+ temporadas históricas',     color:'var(--yellow)' },
+    { label:'Cancelaron este mes',         val:b.churnN,    sub:b.pct+'% del churn del período',    color:'var(--orange)' },
+    { label:'Ciclos promedio',             val:b.avgCycles+'x', sub:'temporadas de pago detectadas', color:'var(--teal)'   },
+    { label:'Gap promedio entre temporadas', val:b.avgGapMes+'m', sub:b.avgGapDias+' días en promedio', color:'var(--blue)' },
+  ].map(k =>
+    '<div style="background:var(--card);border:1px solid var(--border);border-radius:10px;padding:14px 16px;flex:1;min-width:140px">'
+    + '<div style="font-size:9px;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);margin-bottom:4px">'+k.label+'</div>'
+    + '<div style="font-family:Syne,sans-serif;font-size:22px;font-weight:800;color:'+k.color+';line-height:1">'+k.val+'</div>'
+    + '<div style="font-size:10px;color:var(--muted);margin-top:4px">'+k.sub+'</div>'
+    + '</div>'
+  ).join('');
+
+  // Niche list
+  const maxN = b.niches[0]?.[1] || 1;
+  const nicheRows = b.niches.map(([n,v]) =>
+    '<div style="display:flex;align-items:center;gap:6px;margin-bottom:6px">'
+    + '<div style="font-size:10px;color:var(--muted);width:160px;flex-shrink:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="'+n+'">'+n+'</div>'
+    + miniBar(v, maxN, 'rgba(251,191,36,.6)')
+    + '<div style="font-size:11px;font-weight:700;width:24px;text-align:right">'+v+'</div>'
+    + '<div style="font-size:10px;color:var(--muted);width:32px">'+fmt(v,b.total)+'%</div>'
+    + '</div>'
+  ).join('');
+
+  // Plan breakdown of vaivén churners this month
+  const maxP = b.plans[0]?.[1] || 1;
+  const planRows = b.plans.map(([p,v]) =>
+    '<div style="display:flex;align-items:center;gap:6px;margin-bottom:6px">'
+    + '<div style="font-size:10px;color:var(--muted);width:160px;flex-shrink:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+p.replace('Plan ','')+'</div>'
+    + miniBar(v, maxP, planColors[p]||'rgba(148,163,184,.4)')
+    + '<div style="font-size:11px;font-weight:700;width:24px;text-align:right">'+v+'</div>'
+    + '</div>'
+  ).join('') || '<div style="font-size:10px;color:var(--muted)">Sin cancelaciones vaivén este mes</div>';
+
+  el.innerHTML =
+    '<div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:16px">' + kpis + '</div>'
+    + '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px">'
+      + '<div style="background:var(--card);border:1px solid var(--border);border-radius:10px;padding:14px">'
+        + '<div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:10px">Top nichos</div>'
+        + (nicheRows || '<div style="font-size:10px;color:var(--muted)">Sin datos de cruce</div>')
+      + '</div>'
+      + '<div style="background:var(--card);border:1px solid var(--border);border-radius:10px;padding:14px">'
+        + '<div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px">Objetivo declarado</div>'
+        + '<div style="font-size:9px;color:var(--muted);margin-bottom:8px">¿cuántos buscan gestión de grupos?</div>'
+        + '<div style="position:relative;height:160px"><canvas id="baibenObjChart"></canvas></div>'
+      + '</div>'
+      + '<div style="background:var(--card);border:1px solid var(--border);border-radius:10px;padding:14px">'
+        + '<div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:10px">Por plan — cancel. vaivén este mes</div>'
+        + planRows
+      + '</div>'
+    + '</div>'
+    + '<div style="margin-top:16px;background:var(--card);border:1px solid var(--border);border-radius:10px;padding:14px">'
+      + '<div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px">Cancelaciones vaivén por mes — y ventana de posible reactivación</div>'
+      + '<div style="font-size:10px;color:var(--muted);margin-bottom:10px">Barra = canceladas ese mes · etiqueta naranja = mes esperado de retorno (gap promedio: '+b.avgGapMes+'m)</div>'
+      + '<div style="position:relative;height:160px"><canvas id="baibenChart"></canvas></div>'
+    + '</div>'
+    + '<div style="font-size:9px;color:var(--muted);margin-top:10px;line-height:1.6">'
+    + '⚙ Metodología: cuenta vaivén = usuario con 2+ temporadas de pago separadas por un gap de ≥60 días sin ningún pago · '
+    + 'temporada = pagos consecutivos con ≤45 días entre ellos · ventana de reactivación = mes de cancelación + gap promedio · calculado desde la tabla payments completa'
+    + '</div>';
+
+  // Render chart after DOM update
+  // Objetivo doughnut chart
+  setTimeout(() => {
+    destroyChart('baibenObjChart');
+    const objCtx = document.getElementById('baibenObjChart');
+    if (objCtx && b.objs && b.objs.length) {
+      const OBJ_COLORS = ['rgba(45,212,191,.7)','rgba(96,165,250,.7)','rgba(167,139,250,.7)','rgba(251,191,36,.7)','rgba(248,113,113,.7)','rgba(251,146,60,.7)','rgba(34,197,94,.7)'];
+      new Chart(objCtx, {
+        type: 'doughnut',
+        data: {
+          labels: b.objs.map(([k])=>k),
+          datasets: [{ data: b.objs.map(([,v])=>v), backgroundColor: OBJ_COLORS, borderWidth:0 }]
+        },
+        options: {
+          responsive:true, maintainAspectRatio:false, cutout:'65%',
+          plugins: {
+            legend: { position:'right', labels:{ color:'#94a3b8', font:{size:9}, boxWidth:10, padding:6 } },
+            tooltip: { callbacks: { label: (i) => ' '+i.label+': '+i.raw+' ('+Math.round(i.raw/b.baibenTotal*100)+'%)' } }
+          },
+          animation:false
+        }
+      });
+    }
+  }, 60);
+
+  setTimeout(() => {
+    destroyChart('baibenChart');
+    const ctx = document.getElementById('baibenChart');
+    if (!ctx || !b.trend) return;
+    const T = b.trend;
+    const maxN = Math.max(...T.map(t=>t.n), 1);
+    new Chart(ctx, {
+      type: 'bar',
+      data: {
+        labels: T.map(t => t.label),
+        datasets: [{
+          label: 'Cancelaciones vaivén',
+          data:  T.map(t => t.n),
+          backgroundColor: T.map((t,i) => i===T.length-1 ? 'rgba(251,191,36,.8)' : 'rgba(251,191,36,.35)'),
+          borderColor:     T.map((t,i) => i===T.length-1 ? 'rgba(251,191,36,1)'  : 'rgba(251,191,36,.6)'),
+          borderWidth: 1.5,
+          borderRadius: 4,
+        }]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            callbacks: {
+              afterBody: (items) => {
+                const idx = items[0].dataIndex;
+                return ['→ Retorno esperado: ' + T[idx].retLabel];
+              }
+            }
+          }
+        },
+        scales: {
+          x: { grid: { color:'rgba(255,255,255,.04)' }, ticks: { color:'#64748b', font:{size:10} } },
+          y: { grid: { color:'rgba(255,255,255,.04)' }, ticks: { color:'#64748b', font:{size:10}, stepSize:1 },
+               beginAtZero:true }
+        },
+        animation: false,
+      },
+      plugins: [{
+        id: 'retLabels',
+        afterDatasetsDraw(chart) {
+          const {ctx: c, scales:{x,y}} = chart;
+          c.save();
+          T.forEach((t, i) => {
+            if (!t.n) return;
+            const xPos = x.getPixelForValue(i);
+            const yPos = y.getPixelForValue(t.n) - 22;
+            c.fillStyle = 'rgba(251,146,60,.9)';
+            c.font = 'bold 9px DM Sans, sans-serif';
+            c.textAlign = 'center';
+            c.fillText('→ ' + t.retLabel, xPos, yPos);
+          });
+          c.restore();
+        }
+      }]
+    });
+  }, 50);
+}
+
+function renderNoNeed(m) {
+  const el = document.getElementById('noNeedSection');
+  if (!el) return;
+  const nn = m.noNeed;
+  if (!nn || nn.n === 0) {
+    el.innerHTML = '';
+    return;
+  }
+  const planColors = {'Plan Starter':'#60a5fa','Plan Growth':'#a78bfa','Plan Advanced':'#2dd4bf','Advanced Personalizado':'#fbbf24'};
+  const segColors  = {'A':'var(--green2)','B':'var(--yellow)','C':'var(--muted)'};
+  const total = nn.n;
+  const pct = (n) => total>0?Math.round(n/total*100):0;
+
+  function miniBar(n,max,color){
+    return '<div style="flex:1;height:5px;background:rgba(255,255,255,.05);border-radius:3px;overflow:hidden">'
+      +'<div style="width:'+Math.round(n/(max||1)*100)+'%;height:100%;background:'+color+';border-radius:3px"></div></div>';
+  }
+
+  const segCards = ['A','B','C'].map(s => {
+    const n = nn.seg[s]||0;
+    const c = segColors[s]||'var(--muted)';
+    return '<div style="flex:1;background:var(--card);border:1px solid var(--border);border-radius:8px;padding:10px;text-align:center">'
+      +'<div style="font-size:9px;text-transform:uppercase;letter-spacing:.1em;color:'+c+';margin-bottom:4px">Segmento '+s+'</div>'
+      +'<div style="font-family:Syne,sans-serif;font-size:20px;font-weight:800;color:'+c+'">'+n+'</div>'
+      +'<div style="font-size:10px;color:var(--muted);margin-top:2px">'+pct(n)+'%</div>'
+      +'</div>';
+  }).join('');
+
+  const maxN = nn.nicho[0]?.[1]||1;
+  const nichoRows = nn.nicho.map(([n,v]) =>
+    '<div style="display:flex;align-items:center;gap:6px;margin-bottom:5px">'
+    +'<div style="font-size:10px;color:var(--muted);width:140px;flex-shrink:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="'+n+'">'+n+'</div>'
+    +miniBar(v,maxN,'rgba(248,113,113,.6)')
+    +'<div style="font-size:11px;font-weight:700;width:22px;text-align:right">'+v+'</div>'
+    +'<div style="font-size:10px;color:var(--muted);width:28px">'+pct(v)+'%</div>'
+    +'</div>'
+  ).join('');
+
+  const maxP = nn.plan[0]?.[1]||1;
+  const planRows = nn.plan.map(([p,v]) =>
+    '<div style="display:flex;align-items:center;gap:6px;margin-bottom:5px">'
+    +'<div style="font-size:10px;color:var(--muted);width:140px;flex-shrink:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+p.replace('Plan ','')+'</div>'
+    +miniBar(v,maxP,planColors[p]||'rgba(148,163,184,.4)')
+    +'<div style="font-size:11px;font-weight:700;width:22px;text-align:right">'+v+'</div>'
+    +'</div>'
+  ).join('');
+
+  el.innerHTML =
+    '<div class="sec-label"><span class="sec-num" style="background:rgba(248,113,113,.12);color:var(--red)">∅</span>'
+    +' "Ya no necesito Funnelchat" <span class="sec-desc">· Perfil del segmento que cancela por esta razón</span></div>'
+    +'<div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px 18px">'
+      +'<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:8px">'
+        +'<div>'
+          +'<div style="font-family:Syne,sans-serif;font-size:26px;font-weight:800;color:var(--red);line-height:1">'+total+'</div>'
+          +'<div style="font-size:10px;color:var(--muted);margin-top:2px">cancelaciones con esta razón (histórico) · '+(nn.seg.Sin||0)+' sin cruce con cuentas</div>'
+        +'</div>'
+      +'</div>'
+      +'<div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px">¿De qué segmento son?</div>'
+      +'<div style="display:flex;gap:8px;margin-bottom:16px">'+segCards+'</div>'
+      +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">'
+        +'<div>'
+          +'<div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px">Por nicho</div>'
+          +(nichoRows||'<div style="font-size:10px;color:var(--muted)">Sin datos</div>')
+        +'</div>'
+        +'<div>'
+          +'<div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px">Por plan</div>'
+          +(planRows||'<div style="font-size:10px;color:var(--muted)">Sin datos</div>')
+        +'</div>'
+      +'</div>'
+      +'<div style="font-size:9px;color:var(--muted);margin-top:10px;line-height:1.6">'
+        +'⚙ Detectado buscando en la razón de cancelación libre: "no necesito", "no lo necesito", "ya no necesito", "sin necesidad" · cruce por Contact ID / user_id'
+      +'</div>'
+    +'</div>';
 }
 
 function renderUpgDown(m) {
