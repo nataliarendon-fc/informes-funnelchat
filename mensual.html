@@ -967,11 +967,9 @@ function calcMonth(off){
   const baibenTotal  = baibenAll.filter(b=>acctById[b.uid]).length || 1;
 
   // "No necesitan Funnelchat" segment analysis — from cancelaciones survey
-  const NO_NEED_KEYS = ['no necesito','no lo necesito','no necesita','ya no necesito','no me es necesario','sin necesidad'];
-  const noNeedRows = RAW.cancelaciones.filter(r => {
-    const reason = (r['Razón de cancelación de plan']||'').toLowerCase();
-    return NO_NEED_KEYS.some(k => reason.includes(k));
-  });
+  const noNeedRows = RAW.cancelaciones.filter(r =>
+    (r['Razón de cancelación de plan']||'').trim() === 'Ya no la necesito'
+  );
   const noNeedSeg = { A:0, B:0, C:0, Sin:0 };
   const noNeedNicho = {};
   const noNeedPlan  = {};
@@ -2817,7 +2815,7 @@ function renderNoNeed(m) {
         +'</div>'
       +'</div>'
       +'<div style="font-size:9px;color:var(--muted);margin-top:10px;line-height:1.6">'
-        +'⚙ Detectado buscando en la razón de cancelación libre: "no necesito", "no lo necesito", "ya no necesito", "sin necesidad" · cruce por Contact ID / user_id'
+        +'⚙ Filtrado por razón de cancelación exacta: "Ya no la necesito" · cruce por Contact ID / user_id'
       +'</div>'
     +'</div>';
 }
