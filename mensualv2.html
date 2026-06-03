@@ -920,6 +920,53 @@ function calcMonth(off){
 
   const upMRR   = upgrades.reduce((s,e)=>s+e.delta, 0);
   const downMRR = downgrades.reduce((s,e)=>s+e.delta, 0);
+  // ── Cuentas baibén (van y vienen) ──────────────────
+  const GAP_DIAS = 60;
+  const baibenMap = {};
+  Object.entries(paysByUserM).forEach(([uid, pays]) => {
+    if (pays.length < 2) return;
+    const sorted = [...pays].sort((a,b) => a.d-b.d);
+    const seasons = [];
+    let season = [sorted[0]];
+    for (let i = 1; i < sorted.length; i++) {
+      const gap = (sorted[i].d - sorted[i-1].d) / 86400000;
+      if (gap >= GAP_DIAS) { seasons.push(season); season = [sorted[i]]; }
+      else season.push(sorted[i]);
+    }
+    seasons.push(season);
+    if (seasons.length < 2) return;
+    const gaps = [];
+    for (let i = 1; i < seasons.length; i++) {
+      const lastPay  = seasons[i-1][seasons[i-1].length-1].d;
+      const firstPay = seasons[i][0].d;
+      gaps.push(Math.round((firstPay - lastPay) / 86400000));
+    }
+    baibenMap[uid] = { seasons: seasons.length, gaps, uid };
+  });
+  const baibenAll = Object.values(baibenMap);
+  const baibenChurnMes = cancelMes.filter(r => baibenMap[(r['id']||'').toString().trim()]);
+  const baibenPct  = cancelMes.length > 0 ? Math.round(baibenChurnMes.length/cancelMes.length*100) : 0;
+  const avgCycles  = baibenAll.length > 0
+    ? Math.round(baibenAll.reduce((s,b) => s+b.seasons,0)/baibenAll.length*10)/10 : 0;
+  const allGaps    = baibenAll.flatMap(b => b.gaps);
+  const avgGapDias = allGaps.length > 0
+    ? Math.round(allGaps.reduce((a,b)=>a+b,0)/allGaps.length) : 0;
+  const avgGapMes  = Math.round(avgGapDias/30*10)/10;
+  const nicheB = {};
+  baibenAll.forEach(b => {
+    const acct = acctById[b.uid];
+    if (!acct) return;
+    const n = (acct['Tipo de negocio']||'Sin tipo').trim();
+    nicheB[n] = (nicheB[n]||0)+1;
+  });
+  const baibenNiches = Object.entries(nicheB).sort((a,b)=>b[1]-a[1]).slice(0,6);
+  const planB = {};
+  baibenChurnMes.forEach(r => {
+    const p = (r['Planes Funnelchat']||'Sin plan').trim();
+    planB[p] = (planB[p]||0)+1;
+  });
+  const baibenPlans = Object.entries(planB).sort((a,b)=>b[1]-a[1]);
+
   return{
     range, off, ahaStats:ahaStatsData, ahaStatsMes,
     reposoN:reposoAll.length, reposoMRR:Math.round(reposoAll.reduce((s,r)=>s+getMRR(r),0)),
@@ -1355,68 +1402,6 @@ function render(m){
       <div style="font-size:11px;color:var(--muted);margin-top:4px">${m.onbAsistT} de ${m.nuevosMesT_n} trials · ant. ${m.cobTPrev}%</div>
     </div>`;
 
-
-  // ── Cuentas baibén (van y vienen) ──────────────────
-  const GAP_DIAS = 60;   // días sin pago para considerar nueva temporada
-  const SEP_DIAS = 45;   // días máx entre pagos de la misma temporada
-
-  const baibenMap = {};
-  // Build payment timeline per user
-  Object.entries(paysByUserM).forEach(([uid, pays]) => {
-    if (pays.length < 2) return;
-    const sorted = [...pays].sort((a,b) => a.d-b.d);
-    // Detect seasons (clusters separated by GAP_DIAS)
-    const seasons = [];
-    let season = [sorted[0]];
-    for (let i = 1; i < sorted.length; i++) {
-      const gap = (sorted[i].d - sorted[i-1].d) / 86400000;
-      if (gap >= GAP_DIAS) {
-        seasons.push(season);
-        season = [sorted[i]];
-      } else {
-        season.push(sorted[i]);
-      }
-    }
-    seasons.push(season);
-    if (seasons.length < 2) return;
-    // Calculate gaps between seasons
-    const gaps = [];
-    for (let i = 1; i < seasons.length; i++) {
-      const lastPay  = seasons[i-1][seasons[i-1].length-1].d;
-      const firstPay = seasons[i][0].d;
-      gaps.push(Math.round((firstPay - lastPay) / 86400000));
-    }
-    baibenMap[uid] = { seasons: seasons.length, gaps, uid };
-  });
-
-  const baibenAll = Object.values(baibenMap);
-  // Baibén accounts that cancelled this month
-  const baibenChurnMes = cancelMes.filter(r => baibenMap[(r['id']||'').toString().trim()]);
-  const baibenPct  = cancelMes.length > 0 ? Math.round(baibenChurnMes.length/cancelMes.length*100) : 0;
-  // Average cycles
-  const avgCycles  = baibenAll.length > 0
-    ? Math.round(baibenAll.reduce((s,b) => s+b.seasons, 0) / baibenAll.length * 10)/10 : 0;
-  // Average gap (days)
-  const allGaps    = baibenAll.flatMap(b => b.gaps);
-  const avgGapDias = allGaps.length > 0
-    ? Math.round(allGaps.reduce((a,b)=>a+b,0)/allGaps.length) : 0;
-  const avgGapMes  = Math.round(avgGapDias/30*10)/10;
-  // Top niches for baibén accounts
-  const nicheB = {};
-  baibenAll.forEach(b => {
-    const acct = acctById[b.uid];
-    if (!acct) return;
-    const n = (acct['Tipo de negocio']||'Sin tipo').trim();
-    nicheB[n] = (nicheB[n]||0)+1;
-  });
-  const baibenNiches = Object.entries(nicheB).sort((a,b)=>b[1]-a[1]).slice(0,6);
-  // Plan breakdown for baibén churners this month
-  const planB = {};
-  baibenChurnMes.forEach(r => {
-    const p = (r['Planes Funnelchat']||'Sin plan').trim();
-    planB[p] = (planB[p]||0)+1;
-  });
-  const baibenPlans = Object.entries(planB).sort((a,b)=>b[1]-a[1]);
 
   // ── Embudos render ────────────────────────────────
   (()=>{
