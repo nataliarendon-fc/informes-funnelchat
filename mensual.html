@@ -723,11 +723,13 @@ function calcMonth(off){
   // Onboarding
   const onbAll=dedupeOnb(O).filter(r=>inRange(getOnbDate(r),range));
   // Enriched ONB using Fecha de ONB GHL
-  // Deduplicate: one record per contact (most recent state)
-  const onbDeduped   = dedupeOnb(O);
-  // Filter by GHL date in range — only deduplicated records
-  const onbGHL       = onbDeduped.filter(r => inRange(getOnbGHLDate(r), range));
-  const onbGHLAsist  = onbGHL.filter(r => (r['Estado del onboarding']||'').trim()==='Asistió');
+  // For attendance: filter Asistió + GHL in range FIRST, then dedup by contact_id
+  // This avoids discarding valid Asistió records because a newer non-Asistió row took priority
+  const onbAsistAll   = O.filter(r => (r['Estado del onboarding']||'').trim()==='Asistió' && inRange(getOnbGHLDate(r), range));
+  const onbGHLAsist   = dedupeOnb(onbAsistAll); // unique attendees this month
+  // For other statuses (no-show, pending): dedup all O first, then filter by any date in range
+  const onbDeduped    = dedupeOnb(O);
+  const onbGHL        = onbDeduped.filter(r => inRange(getOnbAnyDate(r), range));
   const avgDias    = arr => { const v=arr.map(getOnbDias).filter(x=>x!==null); return v.length?Math.round(v.reduce((a,b)=>a+b,0)/v.length):null; };
   const onbNuevas  = onbGHLAsist.filter(r => getOnbTipo(r)==='nuevas');
   const onbAntiguas= onbGHLAsist.filter(r => getOnbTipo(r)==='antiguo');
@@ -1002,15 +1004,7 @@ function calcMonth(off){
   const onbDiasAll = onbGHLAsist.map(getOnbDias).filter(x=>x!==null&&x>=0);
   // ── DIAG ONB ─────────────────────────────────────
   console.log('[ONB] O.length='+O.length+' onbDeduped='+dedupeOnb(O).length);
-  console.log('[ONB] onbGHL (fecha GHL en rango)='+onbGHL.length+' rango='+range.start.toISOString().slice(0,10)+'→'+range.end.toISOString().slice(0,10));
-  console.log('[ONB] onbGHLAsist='+onbGHLAsist.length+' onbDiasAll='+onbDiasAll.length);
-  if(O.length>0) console.log('[ONB] columnas row0:', Object.keys(O[0]).join(' | '));
-  if(onbGHL.length>0) console.log('[ONB] estados en onbGHL:', [...new Set(onbGHL.map(r=>r['Estado del onboarding']))]);
-  if(onbGHL.length===0 && dedupeOnb(O).length>0){
-    const sample=dedupeOnb(O).slice(0,3);
-    sample.forEach((r,i)=>console.log('[ONB] deduped['+i+'] fecha_ghl='+r['Fecha de ONB GHL']+' estado='+r['Estado del onboarding']+' dias='+r['Días para ONB']));
-  }
-  // ─────────────────────────────────────────────────
+  console.log('[ONB] onbAsistAll (Asistió+GHL en rango antes dedup)='+onbAsistAll.length+' → onbGHLAsist (dedup)='+onbGHLAsist.length+' onbDiasAll='+onbDiasAll.length);
   const onbDiasNew = onbGHLAsist.filter(r=>getOnbTipo(r)==='nuevas').map(getOnbDias).filter(x=>x!==null&&x>=0);
   const onbDiasOld = onbGHLAsist.filter(r=>getOnbTipo(r)==='antiguo').map(getOnbDias).filter(x=>x!==null&&x>=0);
   const diasStats  = arr => {
@@ -1233,7 +1227,9 @@ function calcMonth(off){
 
       // ONB GHL enriched — per month
       const onbGHLM      = dedupeOnb(O).filter(r => inRange(getOnbGHLDate(r), mRange));
-      const onbGHLAsistM = onbGHLM.filter(r => r['Estado del onboarding']==='Asistió');
+      // Attendance: filter Asistió+GHL in range first, then dedup
+      const onbAsistAllM  = O.filter(r => (r['Estado del onboarding']||'').trim()==='Asistió' && inRange(getOnbGHLDate(r), mRange));
+      const onbGHLAsistM  = dedupeOnb(onbAsistAllM);
       const onbRangeM    = dedupeOnb(O).filter(r => inRange(getOnbAnyDate(r), mRange));
       const onbNSM   = onbRangeM.filter(r=>{const s=(r['Estado del onboarding']||'').trim();return s==='No show'||s==='No asistió'||s==='No Asistió';}).length;
       const onbPendM = onbRangeM.filter(r=>{const s=(r['Estado del onboarding']||'').trim();return s==='Agendó'||s==='Agendo'||s==='Agendado';}).length;
