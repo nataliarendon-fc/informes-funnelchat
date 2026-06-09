@@ -421,7 +421,19 @@ function dedupeOnb(rows) {
   });
   return Object.values(map);
 }
-function getOnbDias(r){const v=parseInt(r['Días para ONB']||'');return isNaN(v)?null:v;}
+function getOnbDias(r) {
+  // First try the explicit column
+  const v = parseInt((r['Días para ONB']||'').toString().replace(/[^0-9]/g,''));
+  if (!isNaN(v) && v >= 0) return v;
+  // Fallback: calculate from Fecha de creación → Fecha de ONB GHL
+  const ghl     = getOnbGHLDate(r);
+  const created = parseSpDate(r['Fecha de creación']) || parseISO(r['Fecha de creación']);
+  if (ghl && created) {
+    const days = Math.round((ghl - created) / 86400000);
+    return days >= 0 ? days : null;
+  }
+  return null;
+}
 function getOnbTipo(r){const t=(r['Tipo de usuario']||r['Tipo de cuenta']||'').trim();return t==='Cuenta antiguo'||t==='antiguo'?'antiguo':t==='Cuentas nuevas'||t==='nueva'||t==='nuevas'?'nuevas':null;}
 function parseEmbDate(s){
   if(!s)return null;
@@ -966,8 +978,8 @@ function calcMonth(off){
   const upMRR   = upgrades.reduce((s,e)=>s+e.delta, 0);
   const downMRR = downgrades.reduce((s,e)=>s+e.delta, 0);
   // ── Activación de cuentas nuevas ─────────────────
-  const last4w = new Date(range.end); last4w.setDate(last4w.getDate()-28);
-  const newLast4w = C.filter(r => { const ca=getCA(r); return ca&&ca>=last4w&&ca<=range.end&&isPaga(r); });
+  // Use full selected month (not just last 4 weeks) for activation
+  const newLast4w = C.filter(r => { const ca=getCA(r); return ca&&inRange(ca,range)&&isPaga(r); });
   const niveles  = newLast4w.map(r=>parseNivel(r)).filter(x=>x!==null);
   const avgNivel = niveles.length ? Math.round(niveles.reduce((a,b)=>a+b,0)/niveles.length*10)/10 : null;
   const nivelBuckets = [
@@ -988,6 +1000,17 @@ function calcMonth(off){
 
   // ── Tiempo al ONB ───────────────────────────────────
   const onbDiasAll = onbGHLAsist.map(getOnbDias).filter(x=>x!==null&&x>=0);
+  // ── DIAG ONB ─────────────────────────────────────
+  console.log('[ONB] O.length='+O.length+' onbDeduped='+dedupeOnb(O).length);
+  console.log('[ONB] onbGHL (fecha GHL en rango)='+onbGHL.length+' rango='+range.start.toISOString().slice(0,10)+'→'+range.end.toISOString().slice(0,10));
+  console.log('[ONB] onbGHLAsist='+onbGHLAsist.length+' onbDiasAll='+onbDiasAll.length);
+  if(O.length>0) console.log('[ONB] columnas row0:', Object.keys(O[0]).join(' | '));
+  if(onbGHL.length>0) console.log('[ONB] estados en onbGHL:', [...new Set(onbGHL.map(r=>r['Estado del onboarding']))]);
+  if(onbGHL.length===0 && dedupeOnb(O).length>0){
+    const sample=dedupeOnb(O).slice(0,3);
+    sample.forEach((r,i)=>console.log('[ONB] deduped['+i+'] fecha_ghl='+r['Fecha de ONB GHL']+' estado='+r['Estado del onboarding']+' dias='+r['Días para ONB']));
+  }
+  // ─────────────────────────────────────────────────
   const onbDiasNew = onbGHLAsist.filter(r=>getOnbTipo(r)==='nuevas').map(getOnbDias).filter(x=>x!==null&&x>=0);
   const onbDiasOld = onbGHLAsist.filter(r=>getOnbTipo(r)==='antiguo').map(getOnbDias).filter(x=>x!==null&&x>=0);
   const diasStats  = arr => {
@@ -2932,7 +2955,7 @@ function renderActivacion(m) {
 
   return '<div style="background:rgba(255,255,255,.02);border:1px solid var(--border);border-radius:12px;padding:16px 18px;margin-top:4px">'
     + '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:8px">'
-    +   '<div><div style="font-size:10px;font-weight:700;color:var(--green2);text-transform:uppercase;letter-spacing:.08em">📊 Activación de cuentas nuevas — últimas 4 semanas</div>'
+    +   '<div><div style="font-size:10px;font-weight:700;color:var(--green2);text-transform:uppercase;letter-spacing:.08em">📊 Activación de cuentas nuevas — mes seleccionado</div>'
     +     '<div style="font-size:10px;color:var(--muted);margin-top:2px">' + a.n + ' cuentas pagas creadas · ' + a.withData + ' con datos de implementación (' + pct(a.withData,a.n) + '%)</div></div>'
     +   '<div style="text-align:center">'
     +     '<div style="font-family:Syne,sans-serif;font-size:32px;font-weight:800;color:' + gaugeColor + ';line-height:1">' + (a.avg!==null?a.avg+'%':'—') + '</div>'
@@ -2943,7 +2966,7 @@ function renderActivacion(m) {
     +   '<div><div style="font-size:9px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px">Distribución por nivel</div>' + bucketBars + '</div>'
     +   '<div><div style="font-size:9px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px">Promedio por plan</div>' + planRows + '</div>'
     + '</div>'
-    + '<div style="font-size:9px;color:var(--muted);margin-top:10px">Fuente: columna % Nivel de implementación · cuentas pagas creadas en las últimas 4 semanas desde el fin del período</div>'
+    + '<div style="font-size:9px;color:var(--muted);margin-top:10px">Fuente: columna % Nivel de implementación · cuentas pagas creadas durante el mes seleccionado</div>'
     + '</div>';
 }
 
