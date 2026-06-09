@@ -1011,6 +1011,14 @@ function calcMonth(off){
     return { seg, n:rows.length, withData:vals.length, avg };
   }).filter(s=>s.n>0);
 
+  // Feature usage: Usa flows + Usa grupos?
+  const parseUsage = (r, col) => { const v=parseInt((r[col]||'').toString().replace(/[^0-9]/g,'')); return isNaN(v)?0:v; };
+  const flowDist  = [0,1,2,3].map(n => ({ n, count: newLast4w.filter(r=>parseUsage(r,'Usa flows')===n).length }));
+  const gruposDist= [0,1,2].map(n  => ({ n, count: newLast4w.filter(r=>parseUsage(r,'Usa grupos?')===n).length }));
+  const flowsActivos  = newLast4w.filter(r=>parseUsage(r,'Usa flows')>0).length;
+  const gruposActivos = newLast4w.filter(r=>parseUsage(r,'Usa grupos?')>0).length;
+  const totalBase = newLast4w.length || 1;
+
   // By objetivo
   const objNivelMap = {};
   newLast4w.forEach(r => {
@@ -1051,21 +1059,29 @@ function calcMonth(off){
     antiguas: onbDiasOld.filter(d=>d>=b.min&&d<=b.max).length,
   }));
 
-  // By plan
+  // By plan — with new/old split
   const PLANES4 = ['Plan Starter','Plan Growth','Plan Advanced','Advanced Personalizado'];
   const onbByPlanStats = PLANES4.map(plan => {
-    const dias = onbGHLAsist
-      .filter(r => { const uid=getOnbUserId(r); const a=acctById[uid]; return a&&(a['Planes Funnelchat']||'').trim()===plan; })
-      .map(getOnbDias).filter(x=>x!==null&&x>=0);
-    return { plan, stats: diasStats(dias) };
+    const rows = onbGHLAsist.filter(r => {
+      const uid=getOnbUserId(r); const a=acctById[uid];
+      return a&&(a['Planes Funnelchat']||'').trim()===plan;
+    });
+    const diasAll    = rows.map(getOnbDias).filter(x=>x!==null&&x>=0);
+    const diasNuevas = rows.filter(r=>getOnbTipo(r)==='nuevas').map(getOnbDias).filter(x=>x!==null&&x>=0);
+    const diasAntig  = rows.filter(r=>getOnbTipo(r)==='antiguo').map(getOnbDias).filter(x=>x!==null&&x>=0);
+    return { plan, stats:diasStats(diasAll), nuevas:diasStats(diasNuevas), antiguas:diasStats(diasAntig) };
   }).filter(p=>p.stats);
 
-  // By segment
+  // By segment — with new/old split
   const onbBySegStats = ['A','B','C'].map(seg => {
-    const dias = onbGHLAsist
-      .filter(r => { const uid=getOnbUserId(r); const a=acctById[uid]; return a&&(a['Segmento de cliente (priorización de cliente)']||'').trim()===seg; })
-      .map(getOnbDias).filter(x=>x!==null&&x>=0);
-    return { seg, stats: diasStats(dias) };
+    const rows = onbGHLAsist.filter(r => {
+      const uid=getOnbUserId(r); const a=acctById[uid];
+      return a&&(a['Segmento de cliente (priorización de cliente)']||'').trim()===seg;
+    });
+    const diasAll    = rows.map(getOnbDias).filter(x=>x!==null&&x>=0);
+    const diasNuevas = rows.filter(r=>getOnbTipo(r)==='nuevas').map(getOnbDias).filter(x=>x!==null&&x>=0);
+    const diasAntig  = rows.filter(r=>getOnbTipo(r)==='antiguo').map(getOnbDias).filter(x=>x!==null&&x>=0);
+    return { seg, stats:diasStats(diasAll), nuevas:diasStats(diasNuevas), antiguas:diasStats(diasAntig) };
   }).filter(s=>s.stats);
 
   // ── Cuentas vaivén (van y vienen) ──────────────────
@@ -1212,7 +1228,7 @@ function calcMonth(off){
     nuevosMesP_n:nuevosMesP.length,nuevosMesT_n:nuevosMesT.length,
     mrrProtOnb,pctRetCon:Math.round(retCon*100),pctRetSin:Math.round(retSin*100),
     baiben:{ total:baibenAll.length, churnN:baibenChurnMes.length, pct:baibenPct, avgCycles, avgGapDias, avgGapMes, niches:baibenNiches, nichesMes:baibenNichesMes, objs:baibenObjs, objsMes:baibenObjsMes, baibenTotal, plans:baibenPlans, trend:baibenTrend },
-    activacion:{ n:newLast4w.length, withData:niveles.length, avg:avgNivel, buckets:nivelBuckets, byPlan:nivelByPlan, bySeg:nivelBySeg, byObj:nivelByObj },
+    activacion:{ n:newLast4w.length, withData:niveles.length, avg:avgNivel, buckets:nivelBuckets, byPlan:nivelByPlan, bySeg:nivelBySeg, byObj:nivelByObj, flowDist, gruposDist, flowsActivos, gruposActivos, totalBase },
     tiempoOnb:{ all:diasStats(onbDiasAll), nuevas:diasStats(onbDiasNew), antiguas:diasStats(onbDiasOld), histo:onbHisto, byPlan:onbByPlanStats, bySeg:onbBySegStats },
     noNeed:{ n:noNeedRows.length, seg:noNeedSeg, nicho:noNeedNichoArr, plan:noNeedPlanArr },
     onbImpact,sesImpact,embImpactData,
@@ -3011,33 +3027,44 @@ function renderTiempoOnb(m) {
       + '</div>';
   }).join('');
 
-  // ── By plan rows ──────────────────────────────────
-  const maxPlan = Math.max(...(t.byPlan||[]).map(p=>p.stats?p.stats.max:0), 1);
+  // ── By plan rows (with new/old sub-rows) ─────────────
+  const maxPlan = Math.max(...(t.byPlan||[]).map(p => Math.max(p.stats?.max||0, p.nuevas?.max||0, p.antiguas?.max||0)), 1);
+  function subRow(label, st, c) {
+    if (!st) return '';
+    return '<div style="display:flex;align-items:center;gap:4px;margin-bottom:2px">'
+      + '<div style="font-size:8px;color:'+c+';width:48px;flex-shrink:0;opacity:.9">'+label+'</div>'
+      + '<div style="flex:1">' + rangeBar(st, c, maxPlan) + '</div>'
+      + '</div>';
+  }
   const planRows = (t.byPlan||[]).map(p => {
     const c = planColors[p.plan] || 'rgba(148,163,184,.5)';
-    const st = p.stats;
-    return '<div style="margin-bottom:10px">'
+    return '<div style="margin-bottom:10px;padding-bottom:6px;border-bottom:1px solid var(--border)">'
       + '<div style="display:flex;justify-content:space-between;margin-bottom:3px">'
       +   '<span style="font-size:10px;font-weight:700;color:'+c+'">' + p.plan.replace('Plan ','') + '</span>'
-      +   '<span style="font-size:9px;color:var(--muted)">n='+st.n+'</span>'
+      +   '<span style="font-size:9px;color:var(--muted)">n='+p.stats.n+'</span>'
       + '</div>'
-      + rangeBar(st, c, maxPlan)
+      + subRow('todas', p.stats, c)
+      + subRow('nuevas ≤ 30d', p.nuevas, 'var(--teal)')
+      + subRow('antiguas > 30d', p.antiguas, 'var(--orange)')
+      + '</div>';
+  }).join('') || '<div style="font-size:10px;color:var(--muted)">Sin cruce con tabla de cuentas</div>';
+
+  // ── By segment rows (with new/old sub-rows) ────────
+  const maxSeg = Math.max(...(t.bySeg||[]).map(s => Math.max(s.stats?.max||0, s.nuevas?.max||0, s.antiguas?.max||0)), 1);
+  const segRows = (t.bySeg||[]).map(s => {
+    const c = segColors[s.seg] || 'var(--muted)';
+    return '<div style="margin-bottom:10px;padding-bottom:6px;border-bottom:1px solid var(--border)">'
+      + '<div style="display:flex;justify-content:space-between;margin-bottom:3px">'
+      +   '<span style="font-size:11px;font-weight:800;color:'+c+'">Seg '+s.seg+'</span>'
+      +   '<span style="font-size:9px;color:var(--muted)">n='+s.stats.n+'</span>'
+      + '</div>'
+      + subRow('todas', s.stats, c)
+      + subRow('nuevas ≤ 30d', s.nuevas, 'var(--teal)')
+      + subRow('antiguas > 30d', s.antiguas, 'var(--orange)')
       + '</div>';
   }).join('') || '<div style="font-size:10px;color:var(--muted)">Sin cruce con tabla de cuentas</div>';
 
   // ── By segment rows ───────────────────────────────
-  const maxSeg = Math.max(...(t.bySeg||[]).map(s=>s.stats?s.stats.max:0), 1);
-  const segRows = (t.bySeg||[]).map(s => {
-    const c = segColors[s.seg] || 'var(--muted)';
-    const st = s.stats;
-    return '<div style="margin-bottom:10px">'
-      + '<div style="display:flex;justify-content:space-between;margin-bottom:3px">'
-      +   '<span style="font-size:11px;font-weight:800;color:'+c+'">Segmento '+s.seg+'</span>'
-      +   '<span style="font-size:9px;color:var(--muted)">n='+st.n+'</span>'
-      + '</div>'
-      + rangeBar(st, c, maxSeg)
-      + '</div>';
-  }).join('') || '<div style="font-size:10px;color:var(--muted)">Sin cruce con tabla de cuentas</div>';
 
   return '<div style="background:rgba(255,255,255,.02);border:1px solid var(--border);border-radius:12px;padding:16px 18px;margin-top:4px">'
     + '<div style="font-size:10px;font-weight:700;color:var(--teal);text-transform:uppercase;letter-spacing:.08em;margin-bottom:14px">⏱ Tiempo entre alta de cuenta y sesión de ONB</div>'
@@ -3162,8 +3189,46 @@ function renderActivacion(m) {
     +   '<div><div style="font-size:9px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px">Por objetivo declarado</div>' + objRows + '</div>'
     + '</div>'
     + '<div style="font-size:9px;color:var(--muted);margin-top:10px">Fuente: columna % Nivel de implementación · cuentas pagas creadas durante el mes seleccionado</div>'
+
+    // Feature usage section
+    + '<div style="border-top:1px solid var(--border);margin-top:14px;padding-top:14px">'
+    +   '<div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:12px">⚙ Adopción por funcionalidad</div>'
+    +   '<div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">'
+    +   featurePanel('Usa flows', a.flowDist, a.flowsActivos, a.totalBase, 3, 'var(--blue)')
+    +   featurePanel('Usa grupos', a.gruposDist, a.gruposActivos, a.totalBase, 2, 'var(--teal)')
+    +   '</div>'
+    +   '<div style="font-size:9px;color:var(--muted);margin-top:8px">Flows: máx 3 · Grupos: máx 2 · Se considera "activo" cualquier valor > 0</div>'
+    + '</div>'
     + '</div>';
 }
+
+function featurePanel(label, dist, activos, total, maxVal, color) {
+  const pctAct = total > 0 ? Math.round(activos/total*100) : 0;
+  const bars = dist.map(d => {
+    const pct = total > 0 ? Math.round(d.count/total*100) : 0;
+    const isEmpty = d.n === 0;
+    return '<div style="display:flex;align-items:center;gap:6px;margin-bottom:5px">'
+      + '<div style="font-size:10px;color:var(--muted);width:16px;text-align:center">'+(isEmpty?'0':d.n)+'</div>'
+      + '<div style="flex:1;height:7px;background:rgba(255,255,255,.05);border-radius:3px;overflow:hidden">'
+      +   '<div style="width:'+pct+'%;height:100%;background:'+(isEmpty?'rgba(148,163,184,.2)':color)+';border-radius:3px"></div>'
+      + '</div>'
+      + '<div style="font-size:10px;font-weight:'+(isEmpty?'400':'700')+';color:'+(isEmpty?'var(--muted)':color)+';width:24px;text-align:right">'+d.count+'</div>'
+      + '<div style="font-size:9px;color:var(--muted);width:28px">'+pct+'%</div>'
+      + '</div>';
+  }).join('');
+  return '<div style="background:var(--card);border:1px solid var(--border);border-radius:8px;padding:12px">'
+    + '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">'
+    +   '<div style="font-size:10px;font-weight:700;color:'+color+'">' + label + '</div>'
+    +   '<div style="text-align:right">'
+    +     '<div style="font-family:Syne,sans-serif;font-size:18px;font-weight:800;color:'+color+'">' + pctAct + '%</div>'
+    +     '<div style="font-size:8px;color:var(--muted)">con uso activo</div>'
+    +   '</div>'
+    + '</div>'
+    + '<div style="font-size:8px;color:var(--muted);margin-bottom:5px">distribución de nivel (0–'+maxVal+')</div>'
+    + bars
+    + '</div>';
+}
+
 
 function renderNoNeed(m) {
   const el = document.getElementById('noNeedSection');
