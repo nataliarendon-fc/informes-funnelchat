@@ -489,6 +489,18 @@ function calcMonth(off){
   const nuevosMesP=C.filter(r=>inRange(getCA(r),range)&&isPaga(r));
   const nuevosMesT=C.filter(r=>inRange(getCA(r),range)&&isTrial(r));
   const cancelMes=canP.filter(r=>inRange(cancelDate(r),range));
+  // ── DIAGNOSTIC ──────────────────────────────────────
+  console.log('[DIAG] off='+off+' range='+range.start.toISOString().slice(0,10)+' → '+range.end.toISOString().slice(0,10));
+  console.log('[DIAG] C.length='+C.length+' canP.length='+canP.length+' cancelMes.length='+cancelMes.length);
+  if(canP.length>0){
+    const s=canP[0];
+    console.log('[DIAG] canP[0] vigencia='+JSON.stringify(s['Vigencia del servicio'])+' payment_till='+JSON.stringify(s['payment_till'])+' cancelDate='+cancelDate(s));
+  }
+  if(C.length>0){
+    const vigencias=[...new Set(C.slice(0,50).map(r=>(r['Vigencia del servicio']||'').trim()))];
+    console.log('[DIAG] vigencias únicas (primeras 50):', vigencias);
+  }
+  // ────────────────────────────────────────────────────
 
   const PD={0:30,1:90,2:180,3:365,4:3};
   const getConvD=r=>{const ca=getCA(r);if(!ca)return null;const d=new Date(ca);d.setDate(d.getDate()+3);return d;};
@@ -544,17 +556,7 @@ function calcMonth(off){
     data:Array.from({length:6},(_,i)=>{
       const r=getMonthRange(off-5+i);
       const base=C.filter(rr=>rr['Planes Funnelchat']===plan&&isPaga(rr));
-      // Activos al inicio del mes r: pagas del plan creadas antes del mes que
-      // no habían cancelado aún al iniciar (incluye las que cancelan dentro del mes).
-      const act=base.filter(rr=>{
-        const ca=getCA(rr);
-        if(!ca||ca>=r.start)return false; // no existía al inicio del mes
-        if((rr['Vigencia del servicio']||'').trim()==='Cancelado'){
-          const cd=cancelDate(rr);
-          return cd&&cd>=r.start; // canceló durante o después → estaba activa al inicio
-        }
-        return true; // Vigente o Atrasado = activa al inicio
-      }).length;
+      const act=base.filter(rr=>(rr['Vigencia del servicio']||'').trim()!=='Cancelado').length;
       const can=base.filter(rr=>(rr['Vigencia del servicio']||'').trim()==='Cancelado'&&inRange(cancelDate(rr),r)).length;
       return act>0?Math.round(can/act*1000)/10:0;
     })
@@ -976,33 +978,16 @@ function calcMonth(off){
   const baibenObjs   = Object.entries(objB).sort((a,b)=>b[1]-a[1]);
   const baibenTotal  = baibenAll.filter(b=>acctById[b.uid]).length || 1;
 
-  // "No necesitan Funnelchat" segment analysis
-  // El motivo "Ya no la necesito" puede venir de DOS fuentes:
-  //   1) tabla principal de cuentas → columna "Motivo Cancelación"
-  //   2) tabla de cancelaciones (encuesta) → columna "Macromotivo"
-  // Se cruza por id de cuenta y se deduplica para no contar dos veces.
-  const NO_NEED = 'Ya no la necesito';
-  const noNeedIds = new Set();     // ids de cuenta que califican
-  let noNeedUnmatched = 0;         // filas de encuesta sin cuenta asociada
-  // 1) desde la tabla de cuentas (Motivo Cancelación)
-  C.forEach(r => {
-    if ((r['Motivo Cancelación']||'').toString().trim() === NO_NEED) {
-      const id = (r['id']||'').toString().trim();
-      if (id) noNeedIds.add(id);
-    }
-  });
-  // 2) desde la tabla de cancelaciones (Macromotivo), cruce por Contact ID / user_id
-  RAW.cancelaciones.forEach(r => {
-    if ((r['Macromotivo']||'').toString().trim() !== NO_NEED) return;
-    const uid = (r['Contact ID']||r['contact_id']||r['user_id']||'').toString().trim();
-    if (uid && acctById[uid]) noNeedIds.add(uid);
-    else noNeedUnmatched++;
-  });
+  // "No necesitan Funnelchat" segment analysis — from cancelaciones survey
+  const noNeedRows = RAW.cancelaciones.filter(r =>
+    (r['Motivo Cancelación']||'').trim() === 'Ya no la necesito'
+  );
   const noNeedSeg = { A:0, B:0, C:0, Sin:0 };
   const noNeedNicho = {};
   const noNeedPlan  = {};
-  noNeedIds.forEach(id => {
-    const acct = acctById[id];
+  noNeedRows.forEach(r => {
+    const uid  = (r['Contact ID']||r['contact_id']||r['user_id']||'').toString().trim();
+    const acct = acctById[uid];
     if (!acct) { noNeedSeg.Sin++; return; }
     const s = (acct['Segmento de cliente (priorización de cliente)']||'Sin').trim();
     noNeedSeg[s] = (noNeedSeg[s]||0)+1;
@@ -1011,8 +996,6 @@ function calcMonth(off){
     const p = (acct['Planes Funnelchat']||'Sin plan').trim();
     noNeedPlan[p]  = (noNeedPlan[p]||0)+1;
   });
-  noNeedSeg.Sin += noNeedUnmatched;
-  const noNeedN = noNeedIds.size + noNeedUnmatched;
   const noNeedNichoArr = Object.entries(noNeedNicho).sort((a,b)=>b[1]-a[1]).slice(0,6);
   const noNeedPlanArr  = Object.entries(noNeedPlan).sort((a,b)=>b[1]-a[1]);
   const planB = {};
@@ -1045,7 +1028,7 @@ function calcMonth(off){
   })();
 
   return{
-    range, off, label:fmtMonth(range.start), ahaStats:ahaStatsData, ahaStatsMes,
+    range, off, ahaStats:ahaStatsData, ahaStatsMes,
     reposoN:reposoAll.length, reposoMRR:Math.round(reposoAll.reduce((s,r)=>s+getMRR(r),0)),
     upgrades, downgrades, upMRR:Math.round(upMRR), downMRR:Math.round(downMRR),
     vigP:vigP.length,vigT:vigT.length,activasInicioMes,
@@ -1085,7 +1068,7 @@ function calcMonth(off){
     nuevosMesP_n:nuevosMesP.length,nuevosMesT_n:nuevosMesT.length,
     mrrProtOnb,pctRetCon:Math.round(retCon*100),pctRetSin:Math.round(retSin*100),
     baiben:{ total:baibenAll.length, churnN:baibenChurnMes.length, pct:baibenPct, avgCycles, avgGapDias, avgGapMes, niches:baibenNiches, objs:baibenObjs, baibenTotal, plans:baibenPlans, trend:baibenTrend },
-    noNeed:{ n:noNeedN, seg:noNeedSeg, nicho:noNeedNichoArr, plan:noNeedPlanArr },
+    noNeed:{ n:noNeedRows.length, seg:noNeedSeg, nicho:noNeedNichoArr, plan:noNeedPlanArr },
     onbImpact,sesImpact,embImpactData,
     retDiff:Math.round(retDiff*100),
     ses6,sesMes:ses6[5]?.asist||0,sesSesiones:ses6[5]?.sesiones||0,sesPorSesion:ses6[5]?.porSesion||0,
@@ -3010,8 +2993,20 @@ function buildMonthNav(){
     await loadAll();
     document.getElementById('loadingState').style.display='none';
     document.getElementById('mainContent').style.display='block';
+    // Auto-detect most recent month with data
+    for(let _off=0;_off>=-23;_off--){
+      const _r=getMonthRange(_off);
+      const _hasData=RAW.cuentas.some(r=>{
+        const cd=cancelDate(r);
+        return cd&&cd>=_r.start&&cd<=_r.end&&(r['Vigencia del servicio']||'').trim()==='Cancelado';
+      })||RAW.cuentas.some(r=>{
+        const ca=getCA(r);
+        return ca&&ca>=_r.start&&ca<=_r.end;
+      });
+      if(_hasData){currentMonthOffset=_off;break;}
+    }
     buildMonthNav();
-    render(calcMonth(currentMonthOffset));
+    try{const _m=calcMonth(currentMonthOffset);render(_m);}catch(_e){const _d=document.getElementById('_errBox')||document.createElement('div');_d.id='_errBox';_d.style.cssText='position:fixed;top:60px;left:50%;transform:translateX(-50%);background:#7f1d1d;color:#fca5a5;padding:12px 18px;border-radius:8px;font-size:11px;font-family:monospace;max-width:640px;z-index:9999;white-space:pre-wrap';_d.textContent='Error: '+_e.message+'\n'+(_e.stack||'').split('\n').slice(0,5).join('\n');document.body.appendChild(_d);}
   }catch(err){
     document.getElementById('loadingState').innerHTML=`
       <div style="max-width:500px;margin:0 auto;background:rgba(248,113,113,.08);border:1px solid rgba(248,113,113,.25);border-radius:12px;padding:24px 28px">
