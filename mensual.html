@@ -389,8 +389,33 @@ function isTrial(r){return!isPaga(r);}
 function getCA(r){return parseISO(r['created_at'])||parseISO(r['Fecha creación']);}
 function getOnbDate(r){return parseISO(r['Fecha registro'])||parseISO(r['Fecha estado onboarding'])||null;}
 function getOnbGHLDate(r){return parseSpDate(r['Fecha de ONB GHL'])||parseISO(r['Fecha de ONB GHL'])||null;}
+function getContactId(r){return (r['contact_id']||r['id_unico']||'').toString().trim();}
+function getOnbAnyDate(r){
+  // Best available date: GHL date > registro > asignación etiqueta > actualización
+  return getOnbGHLDate(r)
+    || parseSpDate(r['Fecha registro'])    || parseISO(r['Fecha registro'])
+    || parseSpDate(r['Fecha asignación etiqueta']) || parseISO(r['Fecha asignación etiqueta'])
+    || parseSpDate(r['Fecha actualización etiqueta']) || parseISO(r['Fecha actualización etiqueta'])
+    || null;
+}
+function getOnbUserId(r){return (r['user_id']||'').toString().trim();}
+
+// Deduplicate onboarding rows: per contact_id keep the most recent record
+// "Most recent" = latest Fecha de ONB GHL, else Fecha registro, else Fecha actualización etiqueta
+function dedupeOnb(rows) {
+  const map = {};
+  rows.forEach(r => {
+    const cid = getContactId(r);
+    if (!cid) return;
+    const d = getOnbGHLDate(r) || parseISO(r['Fecha registro']) || parseISO(r['Fecha actualización etiqueta']) || new Date(0);
+    const prev = map[cid];
+    const prevD = prev ? (getOnbGHLDate(prev) || parseISO(prev['Fecha registro']) || parseISO(prev['Fecha actualización etiqueta']) || new Date(0)) : new Date(0);
+    if (!prev || d > prevD) map[cid] = r;
+  });
+  return Object.values(map);
+}
 function getOnbDias(r){const v=parseInt(r['Días para ONB']||'');return isNaN(v)?null:v;}
-function getOnbTipo(r){const t=(r['Tipo de cuenta']||'').trim();return t==='Cuenta antiguo'?'antiguo':t==='Cuentas nuevas'?'nuevas':null;}
+function getOnbTipo(r){const t=(r['Tipo de usuario']||r['Tipo de cuenta']||'').trim();return t==='Cuenta antiguo'||t==='antiguo'?'antiguo':t==='Cuentas nuevas'||t==='nueva'||t==='nuevas'?'nuevas':null;}
 function parseEmbDate(s){
   if(!s)return null;
   const str=s.toString().trim();
@@ -677,10 +702,13 @@ function calcMonth(off){
   });
 
   // Onboarding
-  const onbAll=O.filter(r=>inRange(getOnbDate(r),range));
+  const onbAll=dedupeOnb(O).filter(r=>inRange(getOnbDate(r),range));
   // Enriched ONB using Fecha de ONB GHL
-  const onbGHL     = O.filter(r => inRange(getOnbGHLDate(r), range));
-  const onbGHLAsist= onbGHL.filter(r => r['Estado del onboarding']==='Asistió');
+  // Deduplicate: one record per contact (most recent state)
+  const onbDeduped   = dedupeOnb(O);
+  // Filter by GHL date in range — only deduplicated records
+  const onbGHL       = onbDeduped.filter(r => inRange(getOnbGHLDate(r), range));
+  const onbGHLAsist  = onbGHL.filter(r => (r['Estado del onboarding']||'').trim()==='Asistió');
   const avgDias    = arr => { const v=arr.map(getOnbDias).filter(x=>x!==null); return v.length?Math.round(v.reduce((a,b)=>a+b,0)/v.length):null; };
   const onbNuevas  = onbGHLAsist.filter(r => getOnbTipo(r)==='nuevas');
   const onbAntiguas= onbGHLAsist.filter(r => getOnbTipo(r)==='antiguo');
@@ -692,12 +720,15 @@ function calcMonth(off){
   const onbResponsables=Object.entries(respMap).sort((a,b)=>b[1]-a[1]);
 
   // No-show + Agendados sin asistir profile
-  const onbNoShowRows  = onbGHL.filter(r => ['No show','No asistió'].includes(r['Estado del onboarding']));
-  const onbPendingRows = onbGHL.filter(r => r['Estado del onboarding']==='Agendó');
+  // No-show and pending: use ALL deduped records filtered by any available date
+  const onbDeduped_range = dedupeOnb(O).filter(r => inRange(getOnbAnyDate(r), range));
+  const _normEst = r => (r['Estado del onboarding']||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim();
+  const onbNoShowRows  = onbDeduped_range.filter(r => { const s=_normEst(r); return s==='no show'||s==='no asistio'; });
+  const onbPendingRows = onbDeduped_range.filter(r => { const s=_normEst(r); return s==='agendo'||s==='agendado'; });
   const profileSegment = (rows) => {
     const result = { pagas:0, trial:0, plans:{}, nicho:{}, seg:{} };
     rows.forEach(r => {
-      const uid  = (r['user_id']||'').toString().trim();
+      const uid  = getOnbUserId(r);
       const acct = acctById[uid];
       if (!acct) return;
       if (isPaga(acct)) result.pagas++; else result.trial++;
@@ -727,7 +758,7 @@ function calcMonth(off){
     // Only 'Cuentas nuevas' to avoid skew from legacy accounts
     const rows=onbGHLAsist.filter(r=>{
       if(getOnbTipo(r)!=='nuevas') return false;
-      const uid=(r['user_id']||'').toString().trim();
+      const uid=getOnbUserId(r);
       const acct=acctById[uid];
       return acct&&(acct['Planes Funnelchat']||'').trim()===plan;
     });
@@ -1123,13 +1154,14 @@ function calcMonth(off){
       const onbM    = RAW.onboarding.filter(r=>inRange(getOnbDate(r),mRange));
       const onbAsistM = onbM.filter(r=>r['Estado del onboarding']==='Asistió').length;
       const onbAgenM  = onbM.filter(r=>['Agendó','Asistió','No show','No asistió'].includes(r['Estado del onboarding'])).length;
-      const onbNSM    = onbM.filter(r=>['No show','No asistió'].includes(r['Estado del onboarding'])).length;
       const cobM      = newP.length>0?Math.round(onbAsistM/newP.length*100):0;
       const asistTasaM= onbAgenM>0?Math.round(onbAsistM/onbAgenM*100):0;
 
       // ONB GHL enriched — per month
-      const onbGHLM      = O.filter(r => inRange(getOnbGHLDate(r), mRange));
+      const onbGHLM      = dedupeOnb(O).filter(r => inRange(getOnbGHLDate(r), mRange));
       const onbGHLAsistM = onbGHLM.filter(r => r['Estado del onboarding']==='Asistió');
+      const onbNSM   = onbRangeM.filter(r=>{const s=(r['Estado del onboarding']||'').trim();return s==='No show'||s==='No asistió'||s==='No Asistió';}).length;
+      const onbPendM = onbRangeM.filter(r=>{const s=(r['Estado del onboarding']||'').trim();return s==='Agendó'||s==='Agendo'||s==='Agendado';}).length;
       const onbGHLNuevasM  = onbGHLAsistM.filter(r => getOnbTipo(r)==='nuevas');
       const onbGHLAntiguasM= onbGHLAsistM.filter(r => getOnbTipo(r)==='antiguo');
       const avgDiasM     = arr => { const v=arr.map(getOnbDias).filter(x=>x!==null); return v.length?Math.round(v.reduce((a,b)=>a+b,0)/v.length):null; };
