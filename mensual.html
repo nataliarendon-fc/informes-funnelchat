@@ -1100,18 +1100,27 @@ function calcMonth(off){
   const avgGapDias = allGaps.length > 0
     ? Math.round(allGaps.reduce((a,b)=>a+b,0)/allGaps.length) : 0;
   const avgGapMes  = Math.round(avgGapDias/30*10)/10;
-  const nicheB = {}, objB = {};
+  const nicheB = {}, objB = {}, nicheBMes = {}, objBMes = {};
   baibenAll.forEach(b => {
     const acct = acctById[b.uid];
     if (!acct) return;
-    const n = (acct['Tipo de negocio']||'Sin tipo').trim();
-    nicheB[n] = (nicheB[n]||0)+1;
+    const n   = (acct['Tipo de negocio']||'Sin tipo').trim();
     const obj = (acct['Objetivo con Funnelchat']||'Sin objetivo').trim();
-    objB[obj] = (objB[obj]||0)+1;
+    nicheB[n]   = (nicheB[n]||0)+1;
+    objB[obj]   = (objB[obj]||0)+1;
   });
-  const baibenNiches = Object.entries(nicheB).sort((a,b)=>b[1]-a[1]).slice(0,6);
-  const baibenObjs   = Object.entries(objB).sort((a,b)=>b[1]-a[1]);
-  const baibenTotal  = baibenAll.filter(b=>acctById[b.uid]).length || 1;
+  // Period-specific: vaivén accounts that cancelled THIS month
+  baibenChurnMes.forEach(r => {
+    const n   = (r['Tipo de negocio']||'Sin tipo').trim();
+    const obj = (r['Objetivo con Funnelchat']||'Sin objetivo').trim();
+    nicheBMes[n]   = (nicheBMes[n]||0)+1;
+    objBMes[obj]   = (objBMes[obj]||0)+1;
+  });
+  const baibenNiches    = Object.entries(nicheB).sort((a,b)=>b[1]-a[1]).slice(0,6);
+  const baibenNichesMes = Object.entries(nicheBMes).sort((a,b)=>b[1]-a[1]).slice(0,6);
+  const baibenObjs      = Object.entries(objB).sort((a,b)=>b[1]-a[1]);
+  const baibenObjsMes   = Object.entries(objBMes).sort((a,b)=>b[1]-a[1]);
+  const baibenTotal     = baibenAll.filter(b=>acctById[b.uid]).length || 1;
 
   // "No necesitan Funnelchat" segment analysis — from cancelaciones survey
   const noNeedRows = RAW.cancelaciones.filter(r =>
@@ -1202,7 +1211,7 @@ function calcMonth(off){
     onbAsistP,onbAsistT,cobP,cobT,
     nuevosMesP_n:nuevosMesP.length,nuevosMesT_n:nuevosMesT.length,
     mrrProtOnb,pctRetCon:Math.round(retCon*100),pctRetSin:Math.round(retSin*100),
-    baiben:{ total:baibenAll.length, churnN:baibenChurnMes.length, pct:baibenPct, avgCycles, avgGapDias, avgGapMes, niches:baibenNiches, objs:baibenObjs, baibenTotal, plans:baibenPlans, trend:baibenTrend },
+    baiben:{ total:baibenAll.length, churnN:baibenChurnMes.length, pct:baibenPct, avgCycles, avgGapDias, avgGapMes, niches:baibenNiches, nichesMes:baibenNichesMes, objs:baibenObjs, objsMes:baibenObjsMes, baibenTotal, plans:baibenPlans, trend:baibenTrend },
     activacion:{ n:newLast4w.length, withData:niveles.length, avg:avgNivel, buckets:nivelBuckets, byPlan:nivelByPlan, bySeg:nivelBySeg, byObj:nivelByObj },
     tiempoOnb:{ all:diasStats(onbDiasAll), nuevas:diasStats(onbDiasNew), antiguas:diasStats(onbDiasOld), histo:onbHisto, byPlan:onbByPlanStats, bySeg:onbBySegStats },
     noNeed:{ n:noNeedRows.length, seg:noNeedSeg, nicho:noNeedNichoArr, plan:noNeedPlanArr },
@@ -2364,39 +2373,33 @@ function ahaTable(statsMes, stats6m) {
 function impactTable(title, labelA, labelB, data, color) {
   if (!data || (!data.conN && !data.sinN)) return '';
   const metrics = [
-    { label: 'Retención', a: data.conRet+'%', b: data.sinRet+'%',
-      better: data.conRet >= data.sinRet, diff: data.conRet - data.sinRet, unit: 'pp' },
-    { label: 'LT promedio', a: data.conLT+'d', b: data.sinLT+'d',
-      better: data.conLT >= data.sinLT, diff: data.conLT - data.sinLT, unit: 'd' },
-    { label: 'LTV promedio', a: '$'+data.conLTV.toLocaleString('es-CO'), b: '$'+data.sinLTV.toLocaleString('es-CO'),
-      better: data.conLTV >= data.sinLTV, diff: data.conLTV - data.sinLTV, unit: '' },
+    { label:'Retención', a:data.conRet+'%', b:data.sinRet+'%', better:data.conRet>=data.sinRet, diff:data.conRet-data.sinRet, unit:'pp' },
+    { label:'LT prom.',  a:data.conLT+'d',  b:data.sinLT+'d',  better:data.conLT>=data.sinLT,  diff:data.conLT-data.sinLT,   unit:'d'  },
+    { label:'MRR',       a:'$'+data.conMRR, b:'$'+data.sinMRR, better:data.conMRR>=data.sinMRR, diff:data.conMRR-data.sinMRR, unit:''   },
   ];
-  return `<div style="background:rgba(255,255,255,.02);border:1px solid var(--border);border-radius:10px;padding:12px 14px">
-    <div style="font-size:10px;font-weight:700;color:var(--muted);letter-spacing:.08em;text-transform:uppercase;margin-bottom:10px">
-      Impacto de ${title} en retención y valor
-    </div>
-    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px">
-      ${metrics.map(mt => `<div>
-        <div style="font-size:10px;color:var(--muted);margin-bottom:4px">${mt.label}</div>
-        <div style="display:flex;align-items:baseline;gap:6px;flex-wrap:wrap">
-          <span style="font-family:'Syne',sans-serif;font-size:16px;font-weight:800;color:${color}">${mt.a}</span>
-          <span style="font-size:10px;color:var(--muted)">${labelA}</span>
-        </div>
-        <div style="display:flex;align-items:baseline;gap:6px;margin-top:3px;flex-wrap:wrap">
-          <span style="font-family:'Syne',sans-serif;font-size:14px;font-weight:700;color:var(--muted)">${mt.b}</span>
-          <span style="font-size:10px;color:var(--muted)">${labelB}</span>
-        </div>
-        <div style="font-size:10px;margin-top:4px;font-weight:600;color:${mt.better?'var(--green2)':'var(--red)'}">
-          ${mt.diff===0?'= igual':mt.better?`▲ +${Math.abs(mt.diff)}${mt.unit}`:`▼ -${Math.abs(mt.diff)}${mt.unit}`}
-        </div>
-      </div>`).join('')}
-    </div>
-    <div style="font-size:9px;color:var(--muted);margin-top:8px">
-      Base: últimos 12 meses · ${labelA}: ${data.conN} · ${labelB}: ${data.sinN}
-      ${data.histConN?` · (histórico total — con: ${data.histConN}, sin: ${data.histSinN})`:''}
-    </div>
-  </div>`;
+  const rows = metrics.map(m =>
+    '<div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid var(--border)">'
+    + '<div style="font-size:10px;color:var(--muted);width:70px;flex-shrink:0">'+m.label+'</div>'
+    + '<div style="flex:1;text-align:center;font-size:11px;font-weight:700;color:'+color+'">'+m.a+'</div>'
+    + '<div style="flex:1;text-align:center;font-size:11px;color:var(--muted)">'+m.b+'</div>'
+    + '<div style="width:52px;text-align:right;font-size:10px;font-weight:700;color:'+(m.diff>0?color:m.diff<0?'var(--red)':'var(--muted)')+';">'
+    +   (m.diff>0?'↑':m.diff<0?'↓':'=')+Math.abs(m.diff)+m.unit
+    + '</div>'
+    + '</div>'
+  ).join('');
+  return '<div style="background:var(--card);border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:10px">'
+    + '<div style="font-size:10px;font-weight:700;color:'+color+';margin-bottom:8px">'+title+'</div>'
+    + '<div style="display:flex;align-items:center;gap:8px;padding-bottom:5px;border-bottom:2px solid var(--border);margin-bottom:2px">'
+    +   '<div style="width:70px"></div>'
+    +   '<div style="flex:1;text-align:center;font-size:9px;font-weight:700;color:'+color+'">'+labelA+' ('+data.conN+')</div>'
+    +   '<div style="flex:1;text-align:center;font-size:9px;color:var(--muted)">'+labelB+' ('+data.sinN+')</div>'
+    +   '<div style="width:52px;text-align:right;font-size:9px;color:var(--muted)">Δ</div>'
+    + '</div>'
+    + rows
+    + (data.histConN?'<div style="font-size:9px;color:var(--muted);margin-top:6px">Histórico — con: '+data.histConN+' · sin: '+data.histSinN+'</div>':'')
+    + '</div>';
 }
+
 
 // ══════════════════════════════════════════════════════
 // HISTÓRICO 6 MESES
@@ -2770,15 +2773,29 @@ function renderBaiben(m) {
   ).join('');
 
   // Niche list
-  const maxN = b.niches[0]?.[1] || 1;
-  const nicheRows = b.niches.map(([n,v]) =>
-    '<div style="display:flex;align-items:center;gap:6px;margin-bottom:6px">'
-    + '<div style="font-size:10px;color:var(--muted);width:160px;flex-shrink:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="'+n+'">'+n+'</div>'
-    + miniBar(v, maxN, 'rgba(251,191,36,.6)')
-    + '<div style="font-size:11px;font-weight:700;width:24px;text-align:right">'+v+'</div>'
-    + '<div style="font-size:10px;color:var(--muted);width:32px">'+fmt(v,b.total)+'%</div>'
-    + '</div>'
-  ).join('');
+  const maxN    = b.niches[0]?.[1] || 1;
+  const maxNMes = b.nichesMes && b.nichesMes[0]?.[1] || 1;
+  function nicheRowDual(n, vHist, vMes) {
+    return '<div style="display:flex;align-items:center;gap:5px;margin-bottom:5px">'
+      + '<div style="font-size:10px;color:var(--muted);width:140px;flex-shrink:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="'+n+'">'+n+'</div>'
+      + '<div style="flex:1">'
+      +   '<div style="display:flex;align-items:center;gap:3px;margin-bottom:1px">'
+      +     '<div style="width:10px;font-size:8px;color:var(--muted)">H</div>'
+      +     miniBar(vHist, maxN, 'rgba(251,191,36,.4)')
+      +     '<div style="font-size:9px;font-weight:700;width:20px;text-align:right">'+vHist+'</div>'
+      +   '</div>'
+      +   '<div style="display:flex;align-items:center;gap:3px">'
+      +     '<div style="width:10px;font-size:8px;color:var(--yellow)">P</div>'
+      +     miniBar(vMes, maxNMes, 'rgba(251,191,36,.85)')
+      +     '<div style="font-size:9px;font-weight:700;width:20px;text-align:right;color:var(--yellow)">'+vMes+'</div>'
+      +   '</div>'
+      + '</div></div>';
+  }
+  // Merge niches from both lists
+  const allNiches = [...new Set([...b.niches.map(([n])=>n), ...(b.nichesMes||[]).map(([n])=>n)])].slice(0,7);
+  const nicheMap    = Object.fromEntries(b.niches);
+  const nicheMapMes = Object.fromEntries(b.nichesMes||[]);
+  const nicheRows = allNiches.map(n => nicheRowDual(n, nicheMap[n]||0, nicheMapMes[n]||0)).join('');
 
   // Plan breakdown of vaivén churners this month
   const maxP = b.plans[0]?.[1] || 1;
@@ -2824,17 +2841,28 @@ function renderBaiben(m) {
     const objCtx = document.getElementById('baibenObjChart');
     if (objCtx && b.objs && b.objs.length) {
       const OBJ_COLORS = ['rgba(45,212,191,.7)','rgba(96,165,250,.7)','rgba(167,139,250,.7)','rgba(251,191,36,.7)','rgba(248,113,113,.7)','rgba(251,146,60,.7)','rgba(34,197,94,.7)'];
+      // Dual datasets: historical + period
+      const objAllKeys = [...new Set([...b.objs.map(([k])=>k), ...(b.objsMes||[]).map(([k])=>k)])].slice(0,7);
+      const objMapMes  = Object.fromEntries(b.objsMes||[]);
+      const objMapAll  = Object.fromEntries(b.objs);
       new Chart(objCtx, {
-        type: 'doughnut',
+        type: 'bar',
         data: {
-          labels: b.objs.map(([k])=>k),
-          datasets: [{ data: b.objs.map(([,v])=>v), backgroundColor: OBJ_COLORS, borderWidth:0 }]
+          labels: objAllKeys.map(k => k.length>22?k.slice(0,20)+'…':k),
+          datasets: [
+            { label:'Histórico', data: objAllKeys.map(k=>objMapAll[k]||0), backgroundColor:'rgba(251,191,36,.35)', borderWidth:0, borderRadius:3 },
+            { label:'Período',   data: objAllKeys.map(k=>objMapMes[k]||0), backgroundColor:'rgba(251,191,36,.9)',  borderWidth:0, borderRadius:3 },
+          ]
         },
         options: {
-          responsive:true, maintainAspectRatio:false, cutout:'65%',
+          responsive:true, maintainAspectRatio:false, indexAxis:'y',
           plugins: {
-            legend: { position:'right', labels:{ color:'#94a3b8', font:{size:9}, boxWidth:10, padding:6 } },
-            tooltip: { callbacks: { label: (i) => ' '+i.label+': '+i.raw+' ('+Math.round(i.raw/b.baibenTotal*100)+'%)' } }
+            legend: { position:'top', labels:{ color:'#94a3b8', font:{size:9}, boxWidth:10, padding:6 } },
+            tooltip: { callbacks: { label: (i) => ' '+i.dataset.label+': '+i.raw } }
+          },
+          scales: {
+            x: { grid:{ color:'rgba(255,255,255,.04)' }, ticks:{ color:'#64748b', font:{size:9} } },
+            y: { grid:{ display:false }, ticks:{ color:'#94a3b8', font:{size:9} } }
           },
           animation:false
         }
@@ -3024,7 +3052,7 @@ function renderTiempoOnb(m) {
     + segRows + '</div>'
 
     + '</div>'
-    + '<div style="font-size:9px;color:var(--muted);margin-top:10px">Barra: rango mín→máx · línea vertical = mediana (p50) · cruce con cuentas por user_id</div>'
+    + '<div style="font-size:9px;color:var(--muted);margin-top:10px">Barra: rango mín→máx · línea vertical = mediana · p50 = percentil 50: el valor donde la mitad tardó menos y la otra mitad más (resistente a valores extremos) · cruce con cuentas por user_id</div>'
     + '</div>';
 }
 
