@@ -252,7 +252,7 @@ body{background:var(--navy);color:var(--text);font-family:'DM Sans',sans-serif;f
           <button id="quienesToggleTrial" class="wn-btn" onclick="renderQuienes('trial')">Trial</button>
         </div>
       </div>
-      <div class="three-col" id="quienesGrid"></div>
+      <div class="three-col" id="quienesGrid" style="grid-template-columns:repeat(4,1fr)"></div>
     </div>
   </div>
 
@@ -362,11 +362,24 @@ let charts = {};
 // ══════════════════════════════════════════════════════
 // DATE HELPERS
 // ══════════════════════════════════════════════════════
+function parseSpanishLong(s) {
+  if (!s||!s.trim()) return null;
+  const mo={enero:0,febrero:1,marzo:2,abril:3,mayo:4,junio:5,julio:6,agosto:7,septiembre:8,octubre:9,noviembre:10,diciembre:11};
+  const m=s.toString().toLowerCase().match(/([a-záéíóúü]+)\s+(\d{1,2}),\s+(\d{4})/);
+  if(m){const mv=mo[m[1]];if(mv!==undefined)return new Date(parseInt(m[3]),mv,parseInt(m[2]));}
+  return null;
+}
+function parseSpDate(str) {
+  if (!str || str.trim() === '') return null;
+  const m = str.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+  if (m) return new Date(parseInt(m[3]), parseInt(m[2])-1, parseInt(m[1]));
+  const d = new Date(str.trim()); return isNaN(d) ? null : d;
+}
 function parseSpanishDate(str) {
   if (!str || str.trim() === '') return null;
   const m = str.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
-  if (!m) return null;
-  return new Date(parseInt(m[3]), parseInt(m[2])-1, parseInt(m[1]));
+  if (m) return new Date(parseInt(m[3]), parseInt(m[2])-1, parseInt(m[1]));
+  const d = new Date(str.trim()); return isNaN(d) ? null : d;
 }
 function parseISO(str) {
   // Handles multiple formats that come from Apps Script getDisplayValues()
@@ -422,7 +435,7 @@ function fmtDate(d) {
   return d.toLocaleDateString('es-CO', { day:'numeric', month:'short' });
 }
 function cancelDate(row) {
-  const pt = parseSpanishDate(row['payment_till']);
+  const pt = parseSpanishDate(row['payment till']) || parseISO(row['payment till']);
   if (!pt) return null;
   const cd = new Date(pt); cd.setDate(cd.getDate() + 21); return cd;
 }
@@ -479,11 +492,28 @@ async function loadAll() {
 // CALCULATIONS
 // ══════════════════════════════════════════════════════
 // ── HELPERS ──────────────────────────────────────────────────────────────
+function getCA(r) {
+  return parseISO(r['created_at']) || parseSpanishDate(r['created_at']) || parseISO(r['Fecha creación']) || parseSpanishDate(r['Fecha creación']) || null;
+}
 function isPaga(r) {
   const t = (r['trial']||'').toString().trim().toUpperCase();
   return t !== 'TRUE' && t !== '1' && t !== 'SI' && t !== 'SÍ';
 }
 function isTrial(r) { return !isPaga(r); }
+// ── AHA / TTV helpers ────────────────────────────────
+function getTTV(r, ahaCol) {
+  const ca  = parseISO(r['created_at']) || parseISO(r['Fecha creación']);
+  const aha = parseISO(r[ahaCol]);
+  if (!ca || !aha || aha < ca) return null;
+  return Math.round((aha - ca) / 86400000);
+}
+function ahaStats(arr, ahaCol) {
+  const vals = arr.map(r => getTTV(r, ahaCol)).filter(v => v !== null && v >= 0);
+  if (!vals.length) return { avg: null, n: 0, pct: 0, total: arr.length };
+  const avg = Math.round(vals.reduce((a,b) => a+b, 0) / vals.length);
+  return { avg, n: vals.length, pct: Math.round(vals.length/arr.length*100), total: arr.length };
+}
+
 function getMonthlyMRR(r) {
   const rawAmt = (r['payment_amount'] !== undefined && r['payment_amount'] !== null)
     ? r['payment_amount'].toString().trim() : '0';
@@ -517,17 +547,17 @@ function calc(weekOffset) {
   const S = RAW.sesiones;
 
   // Base segmentation
-  const vigentes        = C.filter(r => r['Vigencia del servicio'] === 'Vigente');
+  const vigentes        = C.filter(r => (r['Vigencia del servicio']||'').trim() === 'Vigente');
   const vigentes_pagas  = vigentes.filter(isPaga);
   const vigentes_trial  = vigentes.filter(isTrial);
-  const cancelados      = C.filter(r => r['Vigencia del servicio'] === 'Cancelado');
+  const cancelados      = C.filter(r => (r['Vigencia del servicio']||'').trim() === 'Cancelado');
   const cancel_pagas    = cancelados.filter(isPaga);
   const cancel_trial    = cancelados.filter(isTrial);
-  const atrasados       = C.filter(r => r['Vigencia del servicio'] === 'Atrasado');
+  const atrasados       = C.filter(r => (r['Vigencia del servicio']||'').trim() === 'Atrasado');
   const atrasados_pagas = atrasados.filter(isPaga);
   // Atrasadas de la semana: payment_till cae dentro del rango
   const atr_sem = atrasados_pagas.filter(r => {
-    const pt = parseSpanishDate(r['payment_till']) || parseISO(r['payment_till']);
+    const pt = parseSpanishDate(r['payment till']) || parseISO(r['payment till']);
     return pt && inRange(pt, range);
   });
   const mrr_atr_sem = Math.round(atr_sem.reduce((s,r)=>s+getMonthlyMRR(r),0));
@@ -558,7 +588,7 @@ function calc(weekOffset) {
     // Must be a paying account now
     if (!isPaga(r)) return false;
     const ca = getCreatedAt(r);
-    const pt = parseSpanishDate(r['payment_till']) || parseISO(r['payment_till']);
+    const pt = parseSpanishDate(r['payment till']) || parseISO(r['payment till']);
     if (!ca || !pt) return false;
     const diffDays = (pt - ca) / 86400000;
     // Get expected period in days based on payment type
@@ -577,8 +607,8 @@ function calc(weekOffset) {
   const mrr_riesgo = atrasados_pagas.reduce((s,r) => s + getMonthlyMRR(r), 0);
 
   // Risk signals (vigentes pagas only) — total acumulado
-  const sin_flow    = vigentes_pagas.filter(r => r['Usa flows']==='0' || r['Usa flows']===0);
-  const sin_grupos  = vigentes_pagas.filter(r => r['Usa grupos?']==='0' || r['Usa grupos?']===0);
+  const sin_flow    = vigentes_pagas.filter(r => (v=>v===''||v==='0')((r['Usa flows']||'').toString().trim()));
+  const sin_grupos  = vigentes_pagas.filter(r => (v=>v===''||v==='0')((r['Usa grupos?']||'').toString().trim()));
   const sin_wa      = vigentes_pagas.filter(r => (r['Usa API?']||'')!=='Sí'&&(r['Usa Business?']||'')!=='Sí');
   const sin_login   = vigentes_pagas.filter(r => { const ll=parseISO(r['last_login_at']); return !ll || (new Date()-ll)/86400000>14; });
   const sin_onb_vig = vigentes_pagas.filter(r => r['Onboarding']==='Sin onboarding');
@@ -604,8 +634,8 @@ function calc(weekOffset) {
   // Risk signals — SEMANA (cuentas creadas esta semana con señal de riesgo)
   const nuevos_vig_sem = vigentes_pagas.filter(r => inRange(getCreatedAt(r), range));
   const sin_wa_sem     = nuevos_vig_sem.filter(r => (r['Usa API?']||'')!=='Sí'&&(r['Usa Business?']||'')!=='Sí');
-  const sin_flow_sem   = nuevos_vig_sem.filter(r => r['Usa flows']==='0' || r['Usa flows']===0);
-  const sin_grupos_sem = nuevos_vig_sem.filter(r => r['Usa grupos?']==='0' || r['Usa grupos?']===0);
+  const sin_flow_sem   = nuevos_vig_sem.filter(r => (v=>v===''||v==='0')((r['Usa flows']||'').toString().trim()));
+  const sin_grupos_sem = nuevos_vig_sem.filter(r => (v=>v===''||v==='0')((r['Usa grupos?']||'').toString().trim()));
   // sin_login semanal: cuentas cuyo last_login cayó en la ventana de 14-21 días (se volvieron inactivas esta semana)
   const sin_login_sem  = vigentes_pagas.filter(r => {
     const ll = parseISO(r['last_login_at']);
@@ -621,18 +651,18 @@ function calc(weekOffset) {
   // Hallazgos pagas
   const canP = cancel_pagas.length || 1;
   const cp_sin_onb    = cancel_pagas.filter(r => r['Onboarding']==='Sin onboarding').length;
-  const cp_sin_flow   = cancel_pagas.filter(r => r['Usa flows']==='0'||r['Usa flows']===0).length;
+  const cp_sin_flow   = cancel_pagas.filter(r => (v=>v===''||v==='0')((r['Usa flows']||'').toString().trim())).length;
   const cp_sin_wa     = cancel_pagas.filter(r => (r['Usa API?']||'')!=='Sí'&&(r['Usa Business?']||'')!=='Sí').length;
   const cp_sin_ses    = cancel_pagas.filter(r => r['Sesiones en vivo']==='No asistió').length;
   const cp_sin_trial  = cancel_pagas.filter(r => (r['flow trial']||'').includes('No pasó')).length;
-  const cp_sin_grupos = cancel_pagas.filter(r => r['Usa grupos?']==='0'||r['Usa grupos?']===0).length;
+  const cp_sin_grupos = cancel_pagas.filter(r => (v=>v===''||v==='0')((r['Usa grupos?']||'').toString().trim())).length;
 
   // Hallazgos trial
   const canT = cancel_trial.length || 1;
   const ct_sin_onb    = cancel_trial.filter(r => r['Onboarding']==='Sin onboarding').length;
-  const ct_sin_flow   = cancel_trial.filter(r => r['Usa flows']==='0'||r['Usa flows']===0).length;
+  const ct_sin_flow   = cancel_trial.filter(r => (v=>v===''||v==='0')((r['Usa flows']||'').toString().trim())).length;
   const ct_sin_wa     = cancel_trial.filter(r => (r['Usa API?']||'')!=='Sí'&&(r['Usa Business?']||'')!=='Sí').length;
-  const ct_sin_grupos = cancel_trial.filter(r => r['Usa grupos?']==='0'||r['Usa grupos?']===0).length;
+  const ct_sin_grupos = cancel_trial.filter(r => (v=>v===''||v==='0')((r['Usa grupos?']||'').toString().trim())).length;
 
   // LT (días) — pagas only
   const parseLT = r => { const v = parseFloat((r['LT']||'0').toString()); return isNaN(v) ? 0 : v; };
@@ -684,6 +714,10 @@ function calc(weekOffset) {
   const onb_asistio    = onb_sem.filter(r => r['Estado del onboarding']==='Asistió').length;
   const onb_noshow     = onb_sem.filter(r =>
     ['No show','No asistió'].includes(r['Estado del onboarding'])
+  ).length;
+  // No show real: agendaron pero último estado NO es Asistió
+  const onb_noshow_real = onb_sem.filter(r =>
+    ['Agendó','No show','No asistió'].includes(r['Estado del onboarding'])
   ).length;
   const onb_mes_all     = O.filter(r => inRange(getOnbDate(r),{start:monthStart,end:monthEnd}));
   const onb_asistio_mes = onb_mes_all.filter(r => r['Estado del onboarding']==='Asistió').length;
@@ -768,7 +802,7 @@ function calc(weekOffset) {
     if (!inRange(convDate, prevRange)) return false;
     if (!isPaga(r)) return false;
     const ca = getCreatedAt(r);
-    const pt = parseSpanishDate(r['payment_till']) || parseISO(r['payment_till']);
+    const pt = parseSpanishDate(r['payment till']) || parseISO(r['payment till']);
     if (!ca || !pt) return false;
     const diffDays = (pt - ca) / 86400000;
     const ptType = parseInt((r['payment_type']||'0').toString()) || 0;
@@ -792,18 +826,18 @@ function calc(weekOffset) {
   // Week hallazgos (pagas)
   const canSP = cancel_sem_pagas.length || 1;
   const wcp_sin_onb    = cancel_sem_pagas.filter(r => r['Onboarding']==='Sin onboarding').length;
-  const wcp_sin_flow   = cancel_sem_pagas.filter(r => r['Usa flows']==='0'||r['Usa flows']===0).length;
+  const wcp_sin_flow   = cancel_sem_pagas.filter(r => (v=>v===''||v==='0')((r['Usa flows']||'').toString().trim())).length;
   const wcp_sin_wa     = cancel_sem_pagas.filter(r => (r['Usa API?']||'')!=='Sí'&&(r['Usa Business?']||'')!=='Sí').length;
   const wcp_sin_ses    = cancel_sem_pagas.filter(r => r['Sesiones en vivo']==='No asistió').length;
   const wcp_sin_trial  = cancel_sem_pagas.filter(r => (r['flow trial']||'').includes('No pasó')).length;
-  const wcp_sin_grupos = cancel_sem_pagas.filter(r => r['Usa grupos?']==='0'||r['Usa grupos?']===0).length;
+  const wcp_sin_grupos = cancel_sem_pagas.filter(r => (v=>v===''||v==='0')((r['Usa grupos?']||'').toString().trim())).length;
 
   // Week hallazgos (trial)
   const canST = cancel_sem_trial.length || 1;
   const wct_sin_onb    = cancel_sem_trial.filter(r => r['Onboarding']==='Sin onboarding').length;
-  const wct_sin_flow   = cancel_sem_trial.filter(r => r['Usa flows']==='0'||r['Usa flows']===0).length;
+  const wct_sin_flow   = cancel_sem_trial.filter(r => (v=>v===''||v==='0')((r['Usa flows']||'').toString().trim())).length;
   const wct_sin_wa     = cancel_sem_trial.filter(r => (r['Usa API?']||'')!=='Sí'&&(r['Usa Business?']||'')!=='Sí').length;
-  const wct_sin_grupos = cancel_sem_trial.filter(r => r['Usa grupos?']==='0'||r['Usa grupos?']===0).length;
+  const wct_sin_grupos = cancel_sem_trial.filter(r => (v=>v===''||v==='0')((r['Usa grupos?']||'').toString().trim())).length;
 
   // Nicho / objetivo / experiencia — semana vs promedio 6 meses
   const nicho_cancel_pagas    = topN(cancel_sem_pagas, 'Tipo de negocio');
@@ -812,12 +846,56 @@ function calc(weekOffset) {
   const objetivo_avg6m        = topN(cancel_6m_pagas,  'Objetivo con Funnelchat');
   const exp_cancel            = topN(cancel_sem_pagas, 'Experiencia automatizando');
   const exp_avg6m             = topN(cancel_6m_pagas,  'Experiencia automatizando');
+  const fact_cancel           = topN(cancel_sem_pagas, 'Facturación promedio mensual');
+  const fact_avg6m            = topN(cancel_6m_pagas,  'Facturación promedio mensual');
   const nicho_cancel_trial    = topN(cancel_sem_trial, 'Tipo de negocio');
   const nicho_avg6m_trial     = topN(cancel_6m_trial,  'Tipo de negocio');
   const objetivo_cancel_trial = topN(cancel_sem_trial, 'Objetivo con Funnelchat');
   const objetivo_avg6m_trial  = topN(cancel_6m_trial,  'Objetivo con Funnelchat');
   const exp_cancel_trial      = topN(cancel_sem_trial, 'Experiencia automatizando');
   const exp_avg6m_trial       = topN(cancel_6m_trial,  'Experiencia automatizando');
+  const fact_cancel_trial     = topN(cancel_sem_trial, 'Facturación promedio mensual');
+  const fact_avg6m_trial      = topN(cancel_6m_trial,  'Facturación promedio mensual');
+
+  // Nuevas del período por segmento — para comparar llegadas vs salidas
+  const nuevas_sem_all = C.filter(r => inRange(getCreatedAt(r), range) && isPaga(r));
+  const nuevas_nicho   = topN(nuevas_sem_all, 'Tipo de negocio', 8);
+  const nuevas_obj     = topN(nuevas_sem_all, 'Objetivo con Funnelchat', 8);
+  const nuevas_exp     = topN(nuevas_sem_all, 'Experiencia automatizando', 8);
+  const nuevas_fact    = topN(nuevas_sem_all, 'Facturación promedio mensual', 8);
+  const nuevas_sem_trial_all = C.filter(r => inRange(getCreatedAt(r), range) && isTrial(r));
+  const nuevas_nicho_t = topN(nuevas_sem_trial_all, 'Tipo de negocio', 8);
+  const nuevas_obj_t   = topN(nuevas_sem_trial_all, 'Objetivo con Funnelchat', 8);
+  const nuevas_exp_t   = topN(nuevas_sem_trial_all, 'Experiencia automatizando', 8);
+  const nuevas_fact_t  = topN(nuevas_sem_trial_all, 'Facturación promedio mensual', 8);
+
+  // Ranking trend — posición de cada segmento en las últimas 3 semanas
+  const buildRankHistory = (key, isTrialMode) => {
+    const history = [];
+    for (let i = -2; i <= 0; i++) {
+      const r = getWeekRange(weekOffset + i);
+      const base = isTrialMode
+        ? cancel_trial.filter(rr => inRange(cancelDate(rr), r))
+        : cancel_pagas.filter(rr => inRange(cancelDate(rr), r));
+      const ranked = topN(base, key, 10);
+      const posMap = {};
+      ranked.forEach((d, idx) => { posMap[d.label] = idx + 1; });
+      history.push(posMap);
+    }
+    return history; // [2w ago, 1w ago, this week]
+  };
+  const rankHistP = {
+    nicho: buildRankHistory('Tipo de negocio', false),
+    obj:   buildRankHistory('Objetivo con Funnelchat', false),
+    exp:   buildRankHistory('Experiencia automatizando', false),
+    fact:  buildRankHistory('Facturación promedio mensual', false),
+  };
+  const rankHistT = {
+    nicho: buildRankHistory('Tipo de negocio', true),
+    obj:   buildRankHistory('Objetivo con Funnelchat', true),
+    exp:   buildRankHistory('Experiencia automatizando', true),
+    fact:  buildRankHistory('Facturación promedio mensual', true),
+  };
 
   // Historical for bars comparison (keep for context)
   const nicho_vig_pagas  = topN(vigentes_pagas, 'Tipo de negocio');
@@ -947,7 +1025,16 @@ function calc(weekOffset) {
     trend, mrr_activo: Math.round(mrr_activo), mrr_riesgo: Math.round(mrr_riesgo),
     mrr_protegido_sem, pct_ret_con_onb, pct_ret_sin_onb, ret_diff: Math.round(ret_diff*100),
     onbImpact12, onbImpact_ses12, embImpact12,
-    onb_propuestas, onb_agendados, onb_asistio, onb_noshow,
+    ahaStats: (() => {
+      const conOnb12 = C12.filter(r => r['Onboarding']==='Con onboarding' && isPaga(r));
+      const sinOnb12 = C12.filter(r => r['Onboarding']==='Sin onboarding' && isPaga(r));
+      return {
+        wa:     { con: ahaStats(conOnb12,'AHA WA'),     sin: ahaStats(sinOnb12,'AHA WA')     },
+        flows:  { con: ahaStats(conOnb12,'AHA flows'),  sin: ahaStats(sinOnb12,'AHA flows')  },
+        grupos: { con: ahaStats(conOnb12,'AHA grupos'), sin: ahaStats(sinOnb12,'AHA grupos') },
+      };
+    })(),
+    onb_propuestas, onb_agendados, onb_asistio, onb_noshow, onb_noshow_real,
     // 4-week trend for acciones table
     trend4: (() => {
       const weeks = [];
@@ -1019,13 +1106,13 @@ function calc(weekOffset) {
         // Atrasadas de la semana: payment_till cae en este rango
         const atrP = C.filter(rr => {
           if (rr['Vigencia del servicio']!=='Atrasado' || !isPaga(rr)) return false;
-          const pt = parseSpanishDate(rr['payment_till']) || parseISO(rr['payment_till']);
+          const pt = parseSpanishDate(rr['payment till']) || parseISO(rr['payment till']);
           return pt && inRange(pt, r);
         }).length;
         const convW    = C.filter(rr => {
           const convD = (() => { const ca=getCreatedAt(rr); if(!ca)return null; const d=new Date(ca);d.setDate(d.getDate()+3);return d; })();
           if(!inRange(convD,r)||!isPaga(rr))return false;
-          const ca=getCreatedAt(rr), pt=parseSpanishDate(rr['payment_till'])||parseISO(rr['payment_till']);
+          const ca=getCreatedAt(rr), pt=parseSpanishDate(rr['payment till'])||parseISO(rr['payment till']);
           if(!ca||!pt)return false;
           const diff=(pt-ca)/86400000, period=({0:30,1:90,2:180,3:365,4:3}[parseInt((rr['payment_type']||'0').toString())||0]||30);
           return diff-period>=1.5&&diff-period<=8;
@@ -1036,15 +1123,15 @@ function calc(weekOffset) {
         const canW = cancel_pagas.filter(rr => inRange(cancelDate(rr),r));
         const canWN = canW.length || 1;
         const pSinOnb   = Math.round(canW.filter(rr=>rr['Onboarding']==='Sin onboarding').length/canWN*100);
-        const pSinFlow  = Math.round(canW.filter(rr=>rr['Usa flows']==='0'||rr['Usa flows']===0).length/canWN*100);
+        const pSinFlow  = Math.round(canW.filter(rr=>(v=>v===''||v==='0')((rr['Usa flows']||'').toString().trim())).length/canWN*100);
         const pSinWA    = Math.round(canW.filter(rr=>(rr['Usa API?']||'')!=='Sí'&&(rr['Usa Business?']||'')!=='Sí').length/canWN*100);
-        const pSinGrupo = Math.round(canW.filter(rr=>rr['Usa grupos?']==='0'||rr['Usa grupos?']===0).length/canWN*100);
+        const pSinGrupo = Math.round(canW.filter(rr=>(v=>v===''||v==='0')((rr['Usa grupos?']||'').toString().trim())).length/canWN*100);
 
         // Section 3 — Riesgo: nuevas cuentas de la semana con señal de riesgo
         const newVP = C.filter(rr => inRange(getCreatedAt(rr),r) && isPaga(rr) && rr['Vigencia del servicio']==='Vigente');
         const rSinWA    = newVP.filter(rr=>(rr['Usa API?']||'')!=='Sí'&&(rr['Usa Business?']||'')!=='Sí').length;
-        const rSinFlow  = newVP.filter(rr=>rr['Usa flows']==='0'||rr['Usa flows']===0).length;
-        const rSinGrp   = newVP.filter(rr=>rr['Usa grupos?']==='0'||rr['Usa grupos?']===0).length;
+        const rSinFlow  = newVP.filter(rr=>(v=>v===''||v==='0')((rr['Usa flows']||'').toString().trim())).length;
+        const rSinGrp   = newVP.filter(rr=>(v=>v===''||v==='0')((rr['Usa grupos?']||'').toString().trim())).length;
         const rSinLogin = newVP.filter(rr=>{const ll=parseISO(rr['last_login_at']);return!ll||(new Date()-ll)/86400000>14;}).length;
         const rSinOnb   = newVP.filter(rr=>rr['Onboarding']==='Sin onboarding').length;
         const rNewTotal = newVP.length;
@@ -1081,6 +1168,10 @@ function calc(weekOffset) {
     wct_pct_sin_onb: pct(wct_sin_onb,canST), wct_pct_sin_flow: pct(wct_sin_flow,canST),
     wct_pct_sin_wa:  pct(wct_sin_wa,canST),  wct_pct_sin_grupos: pct(wct_sin_grupos,canST),
     motivosSem, motivosPrev, motivosSemN: cancelSurveySem.length,
+    fact_cancel, fact_avg6m, fact_cancel_trial, fact_avg6m_trial,
+    nuevas_nicho, nuevas_obj, nuevas_exp, nuevas_fact,
+    nuevas_nicho_t, nuevas_obj_t, nuevas_exp_t, nuevas_fact_t,
+    rankHistP, rankHistT,
     nicho_cancel_pagas, nicho_avg6m_pagas, objetivo_cancel, objetivo_avg6m,
     exp_cancel, exp_avg6m, nicho_cancel_trial, nicho_avg6m_trial,
     objetivo_cancel_trial, objetivo_avg6m_trial, exp_cancel_trial, exp_avg6m_trial,
@@ -1092,8 +1183,8 @@ function calc(weekOffset) {
 function calcChurnPlan(plan, range) {
   // Solo cuentas pagas
   const base = RAW.cuentas.filter(r => r['Planes Funnelchat'] === plan && isPaga(r));
-  const activos_inicio = base.filter(r => r['Vigencia del servicio'] !== 'Cancelado').length;
-  const cancels = base.filter(r => r['Vigencia del servicio'] === 'Cancelado' && inRange(cancelDate(r), range)).length;
+  const activos_inicio = base.filter(r => (r['Vigencia del servicio']||'').trim() !== 'Cancelado').length;
+  const cancels = base.filter(r => (r['Vigencia del servicio']||'').trim() === 'Cancelado' && inRange(cancelDate(r), range)).length;
   if (!activos_inicio) return 0;
   return Math.round((cancels / activos_inicio) * 100 * 10) / 10;
 }
@@ -1101,6 +1192,7 @@ function calcChurnPlan(plan, range) {
 // ══════════════════════════════════════════════════════
 // RENDER
 // ══════════════════════════════════════════════════════
+  const fmt$ = n => '$' + (n||0).toLocaleString('es-CO');
 function render(m) {
   // Header period
   document.getElementById('hdrPeriod').textContent =
@@ -1120,8 +1212,6 @@ function render(m) {
   const dTrial   = delta(m.nuevos_sem_trial, m.prev_trial);
   const dCancel  = delta(m.cancel_sem, m.prev_cancel, true);
   const dConv    = delta(m.convertidos_sem, m.prev_convertidos);
-
-  const fmt$ = n => '$' + (n||0).toLocaleString('es-CO');
 
   document.getElementById('pulsoGrid').innerHTML = `
     <div class="p-card c-green">
@@ -1201,7 +1291,6 @@ function render(m) {
 
   // ── Bloque 3: Riesgo ─────────────────────────────
   // Helper: MRR label using real MRR / total vigentes ratio as proxy
-  
   const riskCards = [
     {icon:'📵', key:'sinWa',     sem:m.sin_wa_sem,     tot:m.sin_wa,      mrrS:m.mrr_sin_wa_sem,     mrrT:m.mrr_sin_wa_tot,     label:'Sin WA conectado',   sub:'sin API ni Business',   cls:''},
     {icon:'⚡', key:'sinFlow',   sem:m.sin_flow_sem,   tot:m.sin_flow,    mrrS:m.mrr_sin_flow_sem,   mrrT:m.mrr_sin_flow_tot,   label:'Sin flow activo',    sub:'sin automatización',    cls:''},
@@ -1298,6 +1387,9 @@ function render(m) {
           <div style="background:rgba(248,113,113,.08);border-radius:6px;padding:5px 8px;font-size:10px">
             <div style="color:var(--muted)">No show</div>
             <div style="font-weight:700;font-size:13px;color:var(--red)">${m.onb_noshow}</div>
+            ${m.onb_noshow_real > m.onb_noshow
+              ? `<div style="font-size:9px;color:var(--muted);margin-top:2px">Real: ${m.onb_noshow_real} · ${Math.round(m.onb_noshow_real/(m.onb_agendados||1)*100)}% de agendados</div>`
+              : ''}
           </div>
         </div>
       </td>
@@ -1319,7 +1411,7 @@ function render(m) {
           <div style="font-size:9px;color:var(--muted);margin-top:2px">Propuestas mes: ${m.onb_propuestas_mes}</div>
         </div>
       </td>
-      <td style="color:var(--muted);font-size:11px">${ltv_note}<br>Conversión agenda→asistencia: ${onb_conv_rate}%${onbImpHtml}</td>
+      <td style="color:var(--muted);font-size:11px">${ltv_note}<br>Conversión agenda→asistencia: ${onb_conv_rate}%${onbImpHtml}${ahaTable(m.ahaStats)}</td>
     </tr>
     <tr>
       <td><span class="tag t-ses">Sesión vivo</span></td>
@@ -1432,6 +1524,49 @@ function render(m) {
 // ══════════════════════════════════════════════════════
 // IMPACT TABLE HELPER
 // ══════════════════════════════════════════════════════
+function ahaTable(stats) {
+  if (!stats) return '';
+  const hitos = [
+    { key:'wa',     label:'Conectar WhatsApp',   color:'var(--green2)' },
+    { key:'flows',  label:'Activar primer flow',  color:'var(--blue)'   },
+    { key:'grupos', label:'Crear primer grupo',   color:'var(--purple)' },
+  ];
+  const rows = hitos.map(h => {
+    const con = stats[h.key]?.con;
+    const sin = stats[h.key]?.sin;
+    const conAvg = con?.avg ?? null;
+    const sinAvg = sin?.avg ?? null;
+    const diff = (conAvg !== null && sinAvg !== null) ? sinAvg - conAvg : null;
+    const faster = diff !== null && diff > 0;
+    return `<tr>
+      <td style="padding:5px 10px;font-size:11px;color:var(--muted);border-bottom:1px solid var(--border);white-space:nowrap">${h.label}</td>
+      <td style="padding:5px 8px;text-align:center;border-bottom:1px solid var(--border)">
+        ${conAvg!==null?`<span style="font-weight:700;font-size:12px;color:${h.color}">${conAvg}d</span> <span style="font-size:9px;color:var(--muted)">${con.pct}%</span>`:'<span style="color:var(--muted);font-size:10px">—</span>'}
+      </td>
+      <td style="padding:5px 8px;text-align:center;border-bottom:1px solid var(--border)">
+        ${sinAvg!==null?`<span style="font-weight:700;font-size:12px;color:var(--muted)">${sinAvg}d</span> <span style="font-size:9px;color:var(--muted)">${sin.pct}%</span>`:'<span style="color:var(--muted);font-size:10px">—</span>'}
+      </td>
+      <td style="padding:5px 8px;text-align:center;border-bottom:1px solid var(--border)">
+        ${diff!==null?`<span style="font-size:11px;font-weight:700;color:${faster?'var(--green2)':'var(--red)'}">${faster?'▲':'▼'}${Math.abs(diff)}d</span>`:'—'}
+      </td>
+    </tr>`;
+  }).join('');
+  return `<div style="background:rgba(255,255,255,.02);border:1px solid var(--border);border-radius:8px;overflow:hidden;margin-top:8px">
+    <div style="background:rgba(74,222,128,.06);border-bottom:1px solid var(--border);padding:6px 10px">
+      <span style="font-size:9px;font-weight:700;color:var(--muted);letter-spacing:.06em;text-transform:uppercase">Tiempo al hito (AHA) · con ONB vs sin ONB · últimos 12m</span>
+    </div>
+    <table style="width:100%;border-collapse:collapse">
+      <thead><tr>
+        <th style="padding:5px 10px;font-size:9px;color:var(--muted);text-align:left;border-bottom:1px solid var(--border)">Hito</th>
+        <th style="padding:5px 8px;font-size:9px;color:var(--green2);text-align:center;border-bottom:1px solid var(--border)">Con ONB</th>
+        <th style="padding:5px 8px;font-size:9px;color:var(--muted);text-align:center;border-bottom:1px solid var(--border)">Sin ONB</th>
+        <th style="padding:5px 8px;font-size:9px;color:var(--muted);text-align:center;border-bottom:1px solid var(--border)">Dif.</th>
+      </tr></thead>
+      <tbody>${rows}</tbody>
+    </table>
+  </div>`;
+}
+
 function impactTable(title, labelA, labelB, data, color) {
   if (!data || (!data.conN && !data.sinN)) return '';
   const metrics = [
@@ -1793,60 +1928,105 @@ function renderQuienes(mode) {
   if (togP) togP.className = 'wn-btn' + (isP ? ' active' : '');
   if (togT) togT.className = 'wn-btn' + (!isP ? ' active' : '');
 
-  const nicho  = isP ? m.nicho_cancel_pagas    : m.nicho_cancel_trial;
-  const obj    = isP ? m.objetivo_cancel        : m.objetivo_cancel_trial;
-  const exp    = isP ? m.exp_cancel             : m.exp_cancel_trial;
-  const nicho6 = isP ? m.nicho_avg6m_pagas      : m.nicho_avg6m_trial;
-  const obj6   = isP ? m.objetivo_avg6m         : m.objetivo_avg6m_trial;
-  const exp6   = isP ? m.exp_avg6m              : m.exp_avg6m_trial;
+  const dims = isP
+    ? [ {title:'Tipo de negocio',     week:m.nicho_cancel_pagas,  avg6:m.nicho_avg6m_pagas,  nuevas:m.nuevas_nicho,  rank:m.rankHistP?.nicho, color:'var(--red)'},
+        {title:'Objetivo declarado',  week:m.objetivo_cancel,      avg6:m.objetivo_avg6m,     nuevas:m.nuevas_obj,    rank:m.rankHistP?.obj,   color:'var(--orange)'},
+        {title:'Experiencia autom.',  week:m.exp_cancel,           avg6:m.exp_avg6m,          nuevas:m.nuevas_exp,    rank:m.rankHistP?.exp,   color:'var(--purple)'},
+        {title:'Facturación mensual', week:m.fact_cancel,          avg6:m.fact_avg6m,         nuevas:m.nuevas_fact,   rank:m.rankHistP?.fact,  color:'var(--blue)'} ]
+    : [ {title:'Tipo de negocio',     week:m.nicho_cancel_trial,   avg6:m.nicho_avg6m_trial,  nuevas:m.nuevas_nicho_t,rank:m.rankHistT?.nicho, color:'var(--red)'},
+        {title:'Objetivo declarado',  week:m.objetivo_cancel_trial,avg6:m.objetivo_avg6m_trial,nuevas:m.nuevas_obj_t, rank:m.rankHistT?.obj,   color:'var(--orange)'},
+        {title:'Experiencia autom.',  week:m.exp_cancel_trial,     avg6:m.exp_avg6m_trial,    nuevas:m.nuevas_exp_t,  rank:m.rankHistT?.exp,   color:'var(--purple)'},
+        {title:'Facturación mensual', week:m.fact_cancel_trial,    avg6:m.fact_avg6m_trial,   nuevas:m.nuevas_fact_t, rank:m.rankHistT?.fact,  color:'var(--blue)'} ];
+
   const semTotal = isP ? (m.cancel_sem_pagas_total||0) : (m.cancel_sem_trial_total||0);
-  const avg6total= isP ? (m.cancel_6m_pagas_total||1)  : 1;
+  const avg6total= isP ? (m.cancel_6m_pagas_total||1) : 1;
+  const nuevasTotal = isP ? (m.nuevos_sem_pagas||0) : (m.nuevos_sem_trial||0);
 
   if (semTotal === 0) {
     grid.innerHTML = '<div class="card" style="grid-column:1/-1"><div style="color:var(--muted);font-size:12px;padding:8px">Sin cancelaciones ' + (isP?'pagas':'trial') + ' en la semana seleccionada.</div></div>';
     return;
   }
 
-  function barGroup(title, weekData, avg6Data, colorVar, weekTotal, avg6Tot) {
-    const allLabels = [...new Set([...weekData.map(d=>d.label),...avg6Data.map(d=>d.label)])].slice(0,5);
+  function trendBadge(lbl, rankHist) {
+    if (!rankHist || rankHist.length < 2) return '';
+    const pos2 = rankHist[0]?.[lbl];
+    const pos1 = rankHist[1]?.[lbl];
+    const pos0 = rankHist[2]?.[lbl];
+    if (!pos0) return '';
+    let txt = '', color = 'var(--muted)', title = '';
+    if (!pos1 && !pos2) {
+      txt = '★ nuevo'; color = 'var(--yellow)'; title = 'No aparecía en las 2 semanas anteriores';
+    } else if (pos1 && pos0 < pos1) {
+      const mv = pos1 - pos0;
+      txt = '↑'+mv+'pos'; color = 'var(--red)'; title = 'Subió '+mv+' posición(es) — viene escalando';
+    } else if (pos1 && pos0 > pos1) {
+      const mv = pos0 - pos1;
+      txt = '↓'+mv+'pos'; color = 'var(--green2)'; title = 'Bajó '+mv+' posición(es)';
+    } else if (pos0 === pos1 && pos1 === pos2) {
+      txt = '=#'+pos0+' 3s'; color = 'var(--orange)'; title = 'Lleva 3 semanas en posición #'+pos0;
+    } else {
+      txt = '#'+pos0; color = 'var(--muted)'; title = 'Posición #'+pos0+' esta semana';
+    }
+    return ' <span style="font-size:9px;font-weight:700;color:'+color+';cursor:help" title="'+title+'">'+txt+'</span>';
+  }
+
+  function barGroup(dim) {
+    const { title, week, avg6, nuevas, rank, color } = dim;
+    const allLabels = [...new Set([...(week||[]).map(d=>d.label),...(avg6||[]).map(d=>d.label)])].slice(0,5);
     const rows = allLabels.map(lbl => {
-      const w = weekData.find(d=>d.label===lbl);
-      const a = avg6Data.find(d=>d.label===lbl);
-      return {
-        lbl,
-        wp: w ? Math.round(w.count/(weekTotal||1)*100) : 0,
-        ap: a ? Math.round(a.count/(avg6Tot||1)*100) : 0
-      };
+      const w = (week||[]).find(d=>d.label===lbl);
+      const a = (avg6||[]).find(d=>d.label===lbl);
+      const n = (nuevas||[]).find(d=>d.label===lbl);
+      const wp = w ? Math.round(w.count/(semTotal||1)*100) : 0;
+      const ap = a ? Math.round(a.count/(avg6total||1)*100) : 0;
+      const np = n ? Math.round(n.count/(nuevasTotal||1)*100) : 0;
+      const signal = wp > 0 && np > 0
+        ? (wp - np > 10 ? '<span style="font-size:9px;color:var(--red)">⚠ más cancel. que llegadas</span>'
+          : wp - np < -10 ? '<span style="font-size:9px;color:var(--green2)">✓ llegan más</span>'
+          : '<span style="font-size:9px;color:var(--muted)">≈ equilibrio</span>') : '';
+      return { lbl, wp, ap, np, signal, rank };
     }).filter(r => r.wp > 0 || r.ap > 0);
 
     return '<div class="card">' +
       '<div class="chart-title" style="margin-bottom:6px">' + title + '</div>' +
-      '<div style="display:flex;gap:12px;margin-bottom:10px;font-size:10px;color:var(--muted)">' +
-      '<span style="display:inline-flex;align-items:center;gap:4px"><span style="width:10px;height:6px;border-radius:2px;background:' + colorVar + ';display:inline-block"></span>Esta semana</span>' +
-      '<span style="display:inline-flex;align-items:center;gap:4px"><span style="width:10px;height:4px;border-radius:2px;background:rgba(148,163,184,.4);display:inline-block"></span>Prom. 6 meses</span>' +
+      '<div style="display:flex;gap:10px;margin-bottom:10px;font-size:10px;color:var(--muted);flex-wrap:wrap">' +
+      '<span style="display:inline-flex;align-items:center;gap:4px"><span style="width:10px;height:6px;border-radius:2px;background:'+color+';display:inline-block"></span>Esta semana</span>' +
+      '<span style="display:inline-flex;align-items:center;gap:4px"><span style="width:10px;height:4px;border-radius:2px;background:rgba(148,163,184,.4);display:inline-block"></span>Prom. 6m</span>' +
+      '<span style="display:inline-flex;align-items:center;gap:4px"><span style="width:10px;height:4px;border-radius:2px;background:rgba(45,212,191,.4);display:inline-block"></span>Nuevas sem.</span>' +
       '</div>' +
       (rows.length === 0 ? '<div style="color:var(--muted);font-size:11px">Sin datos suficientes</div>' :
       rows.map(r =>
-        '<div style="margin-bottom:10px">' +
-        '<div style="font-size:11px;color:var(--muted);margin-bottom:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="' + r.lbl + '">' + r.lbl + '</div>' +
+        '<div style="margin-bottom:12px">' +
+        '<div style="display:flex;justify-content:space-between;margin-bottom:3px;align-items:center">' +
+        '<span style="font-size:11px;color:var(--muted);flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0" title="'+r.lbl+'">'+r.lbl+'</span>' +
+        '<span style="display:flex;align-items:center;gap:4px;flex-shrink:0">' +
+        '<span style="font-size:11px;font-weight:700;color:'+color+'">'+r.wp+'%</span>' +
+        trendBadge(r.lbl, rank) +
+        '</span></div>' +
+        // cancel bar
         '<div style="display:flex;align-items:center;gap:6px">' +
         '<div style="flex:1;height:7px;background:rgba(255,255,255,.05);border-radius:4px;overflow:hidden">' +
-        '<div style="width:' + r.wp + '%;height:100%;background:' + colorVar + ';border-radius:4px"></div></div>' +
-        '<span style="font-size:11px;font-weight:700;color:' + colorVar + ';width:32px;text-align:right">' + r.wp + '%</span></div>' +
-        (r.ap > 0 ?
-        '<div style="display:flex;align-items:center;gap:6px;margin-top:2px">' +
+        '<div style="width:'+r.wp+'%;height:100%;background:'+color+';border-radius:4px"></div></div></div>' +
+        // 6m avg bar
+        (r.ap > 0 ? '<div style="display:flex;align-items:center;gap:6px;margin-top:2px">' +
         '<div style="flex:1;height:4px;background:rgba(255,255,255,.05);border-radius:4px;overflow:hidden">' +
-        '<div style="width:' + r.ap + '%;height:100%;background:rgba(148,163,184,.35);border-radius:4px"></div></div>' +
-        '<span style="font-size:10px;color:var(--muted);width:32px;text-align:right">' + r.ap + '%</span></div>' : '') +
+        '<div style="width:'+r.ap+'%;height:100%;background:rgba(148,163,184,.35);border-radius:4px"></div></div>' +
+        '<span style="font-size:10px;color:var(--muted);width:28px;text-align:right">'+r.ap+'%</span></div>' : '') +
+        // nuevas bar
+        (r.np > 0 ? '<div style="display:flex;align-items:center;gap:6px;margin-top:2px">' +
+        '<div style="flex:1;height:4px;background:rgba(255,255,255,.05);border-radius:4px;overflow:hidden">' +
+        '<div style="width:'+r.np+'%;height:100%;background:rgba(45,212,191,.4);border-radius:4px"></div></div>' +
+        '<span style="font-size:10px;color:var(--muted);width:28px;text-align:right">'+r.np+'%</span></div>' : '') +
+        // signal
+        (r.signal ? '<div style="margin-top:3px">'+r.signal+'</div>' : '') +
         '</div>'
       ).join('')) +
       '</div>';
   }
 
-  grid.innerHTML =
-    barGroup('Tipo de negocio', nicho, nicho6, 'var(--red)',    semTotal, avg6total) +
-    barGroup('Objetivo declarado', obj,  obj6,  'var(--orange)', semTotal, avg6total) +
-    barGroup('Experiencia autom.', exp,  exp6,  'var(--purple)', semTotal, avg6total);
+  // 4 columns grid
+  grid.style.gridTemplateColumns = 'repeat(4,1fr)';
+  grid.innerHTML = dims.map(d => barGroup(d)).join('');
 }
 
 // ══════════════════════════════════════════════════════
