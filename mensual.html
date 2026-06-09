@@ -723,8 +723,8 @@ function calcMonth(off){
   // No-show and pending: use ALL deduped records filtered by any available date
   const onbDeduped_range = dedupeOnb(O).filter(r => inRange(getOnbAnyDate(r), range));
   const _normEst = r => (r['Estado del onboarding']||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim();
-  const onbNoShowRows  = onbDeduped_range.filter(r => { const s=_normEst(r); return s==='no show'||s==='no asistio'; });
-  const onbPendingRows = onbDeduped_range.filter(r => { const s=_normEst(r); return s==='agendo'||s==='agendado'; });
+  const onbNoShowRows  = onbDeduped_range.filter(r => { const s=(r['Estado del onboarding']||'').trim(); return s==='No show'||s==='No asistió'||s==='No Asistió'; });
+  const onbPendingRows = onbDeduped_range.filter(r => { const s=(r['Estado del onboarding']||'').trim(); return s==='Agendó'||s==='Agendo'||s==='Agendado'; });
   const profileSegment = (rows) => {
     const result = { pagas:0, trial:0, plans:{}, nicho:{}, seg:{} };
     rows.forEach(r => {
@@ -1160,6 +1160,7 @@ function calcMonth(off){
       // ONB GHL enriched — per month
       const onbGHLM      = dedupeOnb(O).filter(r => inRange(getOnbGHLDate(r), mRange));
       const onbGHLAsistM = onbGHLM.filter(r => r['Estado del onboarding']==='Asistió');
+      const onbRangeM    = dedupeOnb(O).filter(r => inRange(getOnbAnyDate(r), mRange));
       const onbNSM   = onbRangeM.filter(r=>{const s=(r['Estado del onboarding']||'').trim();return s==='No show'||s==='No asistió'||s==='No Asistió';}).length;
       const onbPendM = onbRangeM.filter(r=>{const s=(r['Estado del onboarding']||'').trim();return s==='Agendó'||s==='Agendo'||s==='Agendado';}).length;
       const onbGHLNuevasM  = onbGHLAsistM.filter(r => getOnbTipo(r)==='nuevas');
