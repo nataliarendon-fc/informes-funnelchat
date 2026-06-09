@@ -3067,6 +3067,34 @@ function renderActivacion(m) {
       + '</div>';
   }).join('') || '<div style="font-size:10px;color:var(--muted)">Sin datos por plan</div>';
 
+  // Segment breakdown
+  const segColors2 = {'A':'var(--green2)','B':'var(--yellow)','C':'var(--muted)'};
+  const segActRows = (a.bySeg||[]).map(s => {
+    const c = segColors2[s.seg] || 'var(--muted)';
+    return '<div style="display:flex;align-items:center;gap:8px;margin-bottom:7px">'
+      + '<div style="font-size:11px;font-weight:800;color:'+c+';width:90px;flex-shrink:0">Seg '+s.seg+' <span style="font-size:9px;font-weight:400;color:var(--muted)">('+s.n+')</span></div>'
+      + '<div style="flex:1;height:7px;background:rgba(255,255,255,.05);border-radius:3px;overflow:hidden">'
+      +   '<div style="width:'+(s.avg||0)+'%;height:100%;background:'+c+';border-radius:3px"></div>'
+      + '</div>'
+      + '<div style="font-size:11px;font-weight:700;width:36px;text-align:right;color:'+c+'">'+(s.avg!==null?s.avg+'%':'--')+'</div>'
+      + '</div>';
+  }).join('') || '<div style="font-size:10px;color:var(--muted)">Sin datos por segmento</div>';
+
+  // Objetivo breakdown
+  const objRows = (a.byObj||[]).slice(0,8).map(o => {
+    const pctW = Math.round((o.avg||0)/100*100);
+    return '<div style="margin-bottom:7px">'
+      + '<div style="display:flex;justify-content:space-between;margin-bottom:2px">'
+      +   '<div style="font-size:10px;color:var(--muted);flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:200px" title="'+o.obj+'">'+o.obj+'</div>'
+      +   '<div style="font-size:10px;font-weight:700;color:var(--text);margin-left:8px">'+(o.avg!==null?o.avg+'%':'--')+'</div>'
+      +   '<div style="font-size:9px;color:var(--muted);width:24px;text-align:right;margin-left:4px">'+o.n+'</div>'
+      + '</div>'
+      + '<div style="height:5px;background:rgba(255,255,255,.05);border-radius:3px;overflow:hidden">'
+      +   '<div style="width:'+pctW+'%;height:100%;background:rgba(96,165,250,.6);border-radius:3px"></div>'
+      + '</div></div>';
+  }).join('') || '<div style="font-size:10px;color:var(--muted)">Sin datos por objetivo</div>';
+
+
   return '<div style="background:rgba(255,255,255,.02);border:1px solid var(--border);border-radius:12px;padding:16px 18px;margin-top:4px">'
     + '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:8px">'
     +   '<div><div style="font-size:10px;font-weight:700;color:var(--green2);text-transform:uppercase;letter-spacing:.08em">📊 Activación de cuentas nuevas — mes seleccionado</div>'
