@@ -1003,6 +1003,30 @@ function calcMonth(off){
     return { plan, n:rows.length, withData:vals.length, avg };
   }).filter(p=>p.n>0);
 
+  // By segment
+  const nivelBySeg = ['A','B','C'].map(seg => {
+    const rows = newLast4w.filter(r=>(r['Segmento de cliente (priorización de cliente)']||'').trim()===seg);
+    const vals = rows.map(r=>parseNivel(r)).filter(x=>x!==null);
+    const avg  = vals.length ? Math.round(vals.reduce((a,b)=>a+b,0)/vals.length*10)/10 : null;
+    return { seg, n:rows.length, withData:vals.length, avg };
+  }).filter(s=>s.n>0);
+
+  // By objetivo
+  const objNivelMap = {};
+  newLast4w.forEach(r => {
+    const obj = (r['Objetivo con Funnelchat']||'Sin objetivo').trim();
+    const val = parseNivel(r);
+    if (!objNivelMap[obj]) objNivelMap[obj] = { n:0, vals:[] };
+    objNivelMap[obj].n++;
+    if (val !== null) objNivelMap[obj].vals.push(val);
+  });
+  const nivelByObj = Object.entries(objNivelMap)
+    .map(([obj, d]) => ({
+      obj, n:d.n, withData:d.vals.length,
+      avg: d.vals.length ? Math.round(d.vals.reduce((a,b)=>a+b,0)/d.vals.length*10)/10 : null,
+    }))
+    .sort((a,b) => (b.avg||0)-(a.avg||0));
+
   // ── Tiempo al ONB ───────────────────────────────────
   const onbDiasAll = onbGHLAsist.map(getOnbDias).filter(x=>x!==null&&x>=0);
   // ── DIAG ONB ─────────────────────────────────────
@@ -1179,7 +1203,7 @@ function calcMonth(off){
     nuevosMesP_n:nuevosMesP.length,nuevosMesT_n:nuevosMesT.length,
     mrrProtOnb,pctRetCon:Math.round(retCon*100),pctRetSin:Math.round(retSin*100),
     baiben:{ total:baibenAll.length, churnN:baibenChurnMes.length, pct:baibenPct, avgCycles, avgGapDias, avgGapMes, niches:baibenNiches, objs:baibenObjs, baibenTotal, plans:baibenPlans, trend:baibenTrend },
-    activacion:{ n:newLast4w.length, withData:niveles.length, avg:avgNivel, buckets:nivelBuckets, byPlan:nivelByPlan },
+    activacion:{ n:newLast4w.length, withData:niveles.length, avg:avgNivel, buckets:nivelBuckets, byPlan:nivelByPlan, bySeg:nivelBySeg, byObj:nivelByObj },
     tiempoOnb:{ all:diasStats(onbDiasAll), nuevas:diasStats(onbDiasNew), antiguas:diasStats(onbDiasOld), histo:onbHisto, byPlan:onbByPlanStats, bySeg:onbBySegStats },
     noNeed:{ n:noNeedRows.length, seg:noNeedSeg, nicho:noNeedNichoArr, plan:noNeedPlanArr },
     onbImpact,sesImpact,embImpactData,
@@ -3052,9 +3076,13 @@ function renderActivacion(m) {
     +     '<div style="font-size:9px;color:var(--muted)">implementación promedio</div>'
     +   '</div>'
     + '</div>'
-    + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">'
+    + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:14px">'
     +   '<div><div style="font-size:9px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px">Distribución por nivel</div>' + bucketBars + '</div>'
     +   '<div><div style="font-size:9px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px">Promedio por plan</div>' + planRows + '</div>'
+    + '</div>'
+    + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">'
+    +   '<div><div style="font-size:9px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px">Por segmento</div>' + segActRows + '</div>'
+    +   '<div><div style="font-size:9px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px">Por objetivo declarado</div>' + objRows + '</div>'
     + '</div>'
     + '<div style="font-size:9px;color:var(--muted);margin-top:10px">Fuente: columna % Nivel de implementación · cuentas pagas creadas durante el mes seleccionado</div>'
     + '</div>';
