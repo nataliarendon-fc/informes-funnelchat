@@ -2779,24 +2779,31 @@ function renderBaiben(m) {
   const totalMes  = b.churnN || 1;
   const fpct = (v,t) => t>0 ? Math.round(v/t*100) : 0;
   function nicheRowDual(n, vHist, vMes) {
+    const histPct = fpct(vHist, totalHist);
+    const mesPct  = fpct(vMes,  totalMes);
+    const barH    = miniBar(vHist, maxN,    'rgba(251,191,36,.4)');
+    const barP    = vMes > 0 ? miniBar(vMes, maxNMes, 'rgba(251,191,36,.85)') : '';
+    const rowP    = vMes > 0
+      ? ('<div style="display:flex;align-items:center;gap:3px">'
+        + '<div style="width:10px;font-size:7px;color:var(--yellow)">P</div>'
+        + barP
+        + '<div style="font-size:9px;font-weight:700;width:18px;text-align:right;color:var(--yellow)">' + vMes + '</div>'
+        + '<div style="font-size:8px;color:var(--yellow);width:28px;text-align:right">' + mesPct + '%</div>'
+        + '</div>')
+      : '<div style="font-size:8px;color:rgba(148,163,184,.3);padding-left:13px">sin cancelaciones en período</div>';
     return '<div style="display:flex;align-items:center;gap:5px;margin-bottom:6px">'
-      + '<div style="font-size:10px;color:var(--muted);width:130px;flex-shrink:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="'+n+'">'+n+'</div>'
+      + '<div style="font-size:10px;color:var(--muted);width:130px;flex-shrink:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="' + n + '">' + n + '</div>'
       + '<div style="flex:1">'
       +   '<div style="display:flex;align-items:center;gap:3px;margin-bottom:2px">'
       +     '<div style="width:10px;font-size:7px;color:var(--muted)">H</div>'
-      +     miniBar(vHist, maxN, 'rgba(251,191,36,.4)')
-      +     '<div style="font-size:9px;font-weight:700;width:18px;text-align:right">'+vHist+'</div>'
-      +     '<div style="font-size:8px;color:var(--muted);width:28px;text-align:right">'+fpct(vHist,totalHist)+'%</div>'
+      +     barH
+      +     '<div style="font-size:9px;font-weight:700;width:18px;text-align:right">' + vHist + '</div>'
+      +     '<div style="font-size:8px;color:var(--muted);width:28px;text-align:right">' + histPct + '%</div>'
       +   '</div>'
-      +   (vMes>0 ? '<div style="display:flex;align-items:center;gap:3px">'
-      +     '<div style="width:10px;font-size:7px;color:var(--yellow)">P</div>'
-      +     + miniBar(vMes, maxNMes, 'rgba(251,191,36,.85)')
-      +     + '<div style="font-size:9px;font-weight:700;width:18px;text-align:right;color:var(--yellow)">'+vMes+'</div>'
-      +     + '<div style="font-size:8px;color:var(--yellow);width:28px;text-align:right">'+fpct(vMes,totalMes)+'%</div>'
-      +   '</div>' : '<div style="font-size:8px;color:rgba(148,163,184,.3);padding-left:13px">sin cancelaciones en período</div>')
+      +   rowP
       + '</div></div>';
   }
-  // Merge niches from both lists
+    // Merge niches from both lists
   const allNiches = [...new Set([...b.niches.map(([n])=>n), ...(b.nichesMes||[]).map(([n])=>n)])].slice(0,7);
   const nicheMap    = Object.fromEntries(b.niches);
   const nicheMapMes = Object.fromEntries(b.nichesMes||[]);
