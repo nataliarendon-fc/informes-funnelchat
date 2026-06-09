@@ -380,7 +380,7 @@ function inRange(d,r){return d&&d>=r.start&&d<=r.end;}
 function fmtMonth(d){return d.toLocaleDateString('es-CO',{month:'long',year:'numeric'});}
 function fmtMonthShort(d){return d.toLocaleDateString('es-CO',{month:'short',year:'2-digit'});}
 function cancelDate(r){
-  const pt=parseSpDate(r['payment_till']);
+  const pt=parseSpDate(r['payment till']);
   if(!pt)return null;
   const d=new Date(pt);d.setDate(d.getDate()+21);return d;
 }
@@ -489,24 +489,18 @@ function calcMonth(off){
   const nuevosMesP=C.filter(r=>inRange(getCA(r),range)&&isPaga(r));
   const nuevosMesT=C.filter(r=>inRange(getCA(r),range)&&isTrial(r));
   const cancelMes=canP.filter(r=>inRange(cancelDate(r),range));
-  // ── DIAGNOSTIC ──────────────────────────────────────
-  console.log('[DIAG] off='+off+' range='+range.start.toISOString().slice(0,10)+' → '+range.end.toISOString().slice(0,10));
-  console.log('[DIAG] C.length='+C.length+' canP.length='+canP.length+' cancelMes.length='+cancelMes.length);
   if(canP.length>0){
     const s=canP[0];
-    console.log('[DIAG] canP[0] vigencia='+JSON.stringify(s['Vigencia del servicio'])+' payment_till='+JSON.stringify(s['payment_till'])+' cancelDate='+cancelDate(s));
-  }
+        }
   if(C.length>0){
     const vigencias=[...new Set(C.slice(0,50).map(r=>(r['Vigencia del servicio']||'').trim()))];
-    console.log('[DIAG] vigencias únicas (primeras 50):', vigencias);
-  }
-  // ────────────────────────────────────────────────────
+    }
 
   const PD={0:30,1:90,2:180,3:365,4:3};
   const getConvD=r=>{const ca=getCA(r);if(!ca)return null;const d=new Date(ca);d.setDate(d.getDate()+3);return d;};
   const convMes=C.filter(r=>{
     if(!inRange(getConvD(r),range)||!isPaga(r))return false;
-    const ca=getCA(r),pt=parseSpDate(r['payment_till'])||parseISO(r['payment_till']);
+    const ca=getCA(r),pt=parseSpDate(r['payment till'])||parseISO(r['payment till']);
     if(!ca||!pt)return false;
     const diff=(pt-ca)/86400000,period=PD[parseInt((r['payment_type']||'0').toString())||0]||30;
     return diff-period>=1.5&&diff-period<=8;
@@ -524,7 +518,7 @@ function calcMonth(off){
   const prevCancel=canP.filter(r=>inRange(cancelDate(r),prevR)).length;
   const prevConv=C.filter(r=>{
     if(!inRange(getConvD(r),prevR)||!isPaga(r))return false;
-    const ca=getCA(r),pt=parseSpDate(r['payment_till'])||parseISO(r['payment_till']);
+    const ca=getCA(r),pt=parseSpDate(r['payment till'])||parseISO(r['payment till']);
     if(!ca||!pt)return false;
     const diff=(pt-ca)/86400000,period=PD[parseInt((r['payment_type']||'0').toString())||0]||30;
     return diff-period>=1.5&&diff-period<=8;
@@ -1107,7 +1101,7 @@ function calcMonth(off){
       const canM  = canP.filter(r=>inRange(cancelDate(r),mRange));
       const atrM  = C.filter(r=>{
         if((r['Vigencia del servicio']||'').trim()!=='Atrasado'||!isPaga(r))return false;
-        const pt=parseISO(r['payment_till'])||parseSpDate(r['payment_till']);
+        const pt=parseISO(r['payment till'])||parseSpDate(r['payment till']);
         return pt&&inRange(pt,mRange);
       });
       const vigIni = C.filter(r=>{
@@ -2940,7 +2934,7 @@ function downloadChurnCSV(planFilter) {
     { h:'Plan',                k: r => r['Planes Funnelchat']||'' },
     { h:'Plan original',       k: r => r['Plan (Nombre original)']||'' },
     { h:'Vigencia',            k: r => r['Vigencia del servicio']||'' },
-    { h:'Payment till',        k: r => r['payment_till']||'' },
+    { h:'Payment till',        k: r => r['payment till']||'' },
     { h:'Fecha cancelación',   k: r => { const cd=cancelDate(r); return cd?cd.toLocaleDateString('es-CO'):''; } },
     { h:'LT (días)',           k: r => r['LT']||'' },
     { h:'Creado',              k: r => r['created_at']||'' },
