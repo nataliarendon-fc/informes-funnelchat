@@ -398,11 +398,12 @@ function parseNivel(r) {
   return isNaN(n) ? null : Math.min(100, Math.max(0, n));
 }
 function getOnbAnyDate(r){
-  // Best available date: GHL date > registro > asignación etiqueta > actualización
+  // Best available date: GHL date > registro > extraida > asignación etiqueta > actualización
   return getOnbGHLDate(r)
-    || parseSpDate(r['Fecha registro'])    || parseISO(r['Fecha registro'])
-    || parseSpDate(r['Fecha asignación etiqueta']) || parseISO(r['Fecha asignación etiqueta'])
-    || parseSpDate(r['Fecha actualización etiqueta']) || parseISO(r['Fecha actualización etiqueta'])
+    || parseSpDate(r['Fecha registro'])              || parseISO(r['Fecha registro'])
+    || parseSpDate(r['Fecha extraida'])              || parseISO(r['Fecha extraida'])
+    || parseSpDate(r['Fecha asignación etiqueta'])   || parseISO(r['Fecha asignación etiqueta'])
+    || parseSpDate(r['Fecha actualización etiqueta'])|| parseISO(r['Fecha actualización etiqueta'])
     || null;
 }
 function getOnbUserId(r){return (r['user_id']||'').toString().trim();}
@@ -728,7 +729,7 @@ function calcMonth(off){
   // Enriched ONB using Fecha de ONB GHL
   // For attendance: filter Asistió + GHL in range FIRST, then dedup by contact_id
   // This avoids discarding valid Asistió records because a newer non-Asistió row took priority
-  const onbAsistAll   = O.filter(r => (r['Estado del onboarding']||'').trim()==='Asistió' && inRange(getOnbGHLDate(r), range));
+  const onbAsistAll   = O.filter(r => (r['Estado del onboarding']||'').trim().toLowerCase().replace(/ó/g,'o').replace(/í/g,'i')==='asistio' && inRange(getOnbGHLDate(r), range));
   const onbGHLAsist   = dedupeOnb(onbAsistAll); // unique attendees this month
   // For other statuses (no-show, pending): dedup all O first, then filter by any date in range
   const onbDeduped    = dedupeOnb(O);
@@ -748,7 +749,7 @@ function calcMonth(off){
   const onbDeduped_range = dedupeOnb(O).filter(r => inRange(getOnbAnyDate(r), range));
   const _normEst = r => (r['Estado del onboarding']||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim();
   const onbNoShowRows  = onbDeduped_range.filter(r => { const s=(r['Estado del onboarding']||'').trim(); return s==='No show'||s==='No asistió'||s==='No Asistió'; });
-  const onbPendingRows = onbDeduped_range.filter(r => { const s=(r['Estado del onboarding']||'').trim(); return s==='Agendó'||s==='Agendo'||s==='Agendado'; });
+  const onbPendingRows = onbDeduped_range.filter(r => { const s=(r['Estado del onboarding']||'').toLowerCase().replace(/ó/g,'o').trim(); return s==='agendo'||s==='agendado'||s==='agendar reunion'; });
   const profileSegment = (rows) => {
     const result = { pagas:0, trial:0, plans:{}, nicho:{}, seg:{} };
     rows.forEach(r => {
@@ -1292,18 +1293,18 @@ function calcMonth(off){
       // Onboarding
       const onbM    = RAW.onboarding.filter(r=>inRange(getOnbDate(r),mRange));
       const onbAsistM = onbM.filter(r=>r['Estado del onboarding']==='Asistió').length;
-      const onbAgenM  = onbM.filter(r=>['Agendó','Asistió','No show','No asistió'].includes(r['Estado del onboarding'])).length;
+      const onbAgenM  = onbM.filter(r=>{const _s=(r['Estado del onboarding']||'').toLowerCase().replace(/ó/g,'o').replace(/í/g,'i').trim();return _s==='agendo'||_s==='agendado'||_s==='agendar reunion'||_s==='asistio'||_s==='no show'||_s==='no asistio';}).length;
       const cobM      = newP.length>0?Math.round(onbAsistM/newP.length*100):0;
       const asistTasaM= onbAgenM>0?Math.round(onbAsistM/onbAgenM*100):0;
 
       // ONB GHL enriched — per month
       const onbGHLM      = dedupeOnb(O).filter(r => inRange(getOnbGHLDate(r), mRange));
       // Attendance: filter Asistió+GHL in range first, then dedup
-      const onbAsistAllM  = O.filter(r => (r['Estado del onboarding']||'').trim()==='Asistió' && inRange(getOnbGHLDate(r), mRange));
+      const onbAsistAllM  = O.filter(r => (r['Estado del onboarding']||'').trim().toLowerCase().replace(/ó/g,'o').replace(/í/g,'i')==='asistio' && inRange(getOnbGHLDate(r), mRange));
       const onbGHLAsistM  = dedupeOnb(onbAsistAllM);
       const onbRangeM    = dedupeOnb(O).filter(r => inRange(getOnbAnyDate(r), mRange));
-      const onbNSM   = onbRangeM.filter(r=>{const s=(r['Estado del onboarding']||'').trim();return s==='No show'||s==='No asistió'||s==='No Asistió';}).length;
-      const onbPendM = onbRangeM.filter(r=>{const s=(r['Estado del onboarding']||'').trim();return s==='Agendó'||s==='Agendo'||s==='Agendado';}).length;
+      const onbNSM   = onbRangeM.filter(r=>{const s=(r['Estado del onboarding']||'').trim().toLowerCase().replace(/ó/g,'o');return s==='no show'||s==='no asistio';}).length;
+      const onbPendM = onbRangeM.filter(r=>{const s=(r['Estado del onboarding']||'').toLowerCase().replace(/ó/g,'o').trim();return s==='agendo'||s==='agendado'||s==='agendar reunion';}).length;
       const onbGHLNuevasM  = onbGHLAsistM.filter(r => getOnbTipo(r)==='nuevas');
       const onbGHLAntiguasM= onbGHLAsistM.filter(r => getOnbTipo(r)==='antiguo');
       const avgDiasM     = arr => { const v=arr.map(getOnbDias).filter(x=>x!==null); return v.length?Math.round(v.reduce((a,b)=>a+b,0)/v.length):null; };
