@@ -1012,12 +1012,38 @@ function calcMonth(off){
     return { plan, n:rows.length, withData:vals.length, avg };
   }).filter(p=>p.n>0);
 
-  // By segment
+  // ONB and sessions sets for new accounts
+  const onbAsistIds = new Set(
+    O.filter(r=>(r['Estado del onboarding']||'').toLowerCase().replace(/ó/g,'o').replace(/í/g,'i').trim()==='asistio')
+     .map(r=>getOnbUserId(r)).filter(Boolean)
+  );
+  const hasSes = r => parseInt((r['Sesiones en vivo']||'0').toString()) > 0;
+  const avgNiv = arr => { const v=arr.map(r=>parseNivel(r)).filter(x=>x!==null); return v.length?Math.round(v.reduce((a,b)=>a+b,0)/v.length*10)/10:null; };
+
+  // Global ONB comparison
+  const newConOnb = newLast4w.filter(r=>onbAsistIds.has((r['id']||'').toString().trim()));
+  const newSinOnb = newLast4w.filter(r=>!onbAsistIds.has((r['id']||'').toString().trim()));
+  const newConSes = newLast4w.filter(r=>hasSes(r));
+  const newSinSes = newLast4w.filter(r=>!hasSes(r));
+  const avgConOnb = avgNiv(newConOnb);
+  const avgSinOnb = avgNiv(newSinOnb);
+  const avgConSes = avgNiv(newConSes);
+  const avgSinSes = avgNiv(newSinSes);
+
+  // By segment with onb/ses split
   const nivelBySeg = ['A','B','C'].map(seg => {
-    const rows = newLast4w.filter(r=>(r['Segmento de cliente (priorización de cliente)']||'').trim()===seg);
-    const vals = rows.map(r=>parseNivel(r)).filter(x=>x!==null);
-    const avg  = vals.length ? Math.round(vals.reduce((a,b)=>a+b,0)/vals.length*10)/10 : null;
-    return { seg, n:rows.length, withData:vals.length, avg };
+    const rows    = newLast4w.filter(r=>(r['Segmento de cliente (priorización de cliente)']||'').trim()===seg);
+    const vals    = rows.map(r=>parseNivel(r)).filter(x=>x!==null);
+    const avg     = vals.length ? Math.round(vals.reduce((a,b)=>a+b,0)/vals.length*10)/10 : null;
+    const rowsOnb = rows.filter(r=>onbAsistIds.has((r['id']||'').toString().trim()));
+    const rowsSin = rows.filter(r=>!onbAsistIds.has((r['id']||'').toString().trim()));
+    const rowsSes = rows.filter(r=>hasSes(r));
+    const rowsSinSes = rows.filter(r=>!hasSes(r));
+    return { seg, n:rows.length, withData:vals.length, avg,
+      avgConOnb: avgNiv(rowsOnb), nConOnb: rowsOnb.length,
+      avgSinOnb: avgNiv(rowsSin), nSinOnb: rowsSin.length,
+      avgConSes: avgNiv(rowsSes), nConSes: rowsSes.length,
+      avgSinSes: avgNiv(rowsSinSes), nSinSes: rowsSinSes.length };
   }).filter(s=>s.n>0);
 
   // Feature usage: Usa flows + Usa grupos?
@@ -1029,24 +1055,6 @@ function calcMonth(off){
   const flowsActivos  = newLast4w.filter(r=>parseUsage(r,'Usa flows')>0).length;
   const gruposActivos = newLast4w.filter(r=>parseUsage(r,'Usa grupos?')>0).length;
   const totalBase = newLast4w.length || 1;
-
-  // Engagement groups: ONB attended vs Sessions vs Neither
-  const onbAsistIds = new Set(
-    O.filter(r => (r['Estado del onboarding']||'').toLowerCase().replace(/ó/g,'o').replace(/í/g,'i').trim()==='asistio')
-     .map(r => getOnbUserId(r)).filter(Boolean)
-  );
-  const hasSesion = r => { const v=parseInt((r['Sesiones en vivo']||'0').toString()); return !isNaN(v)&&v>0; };
-  const engGroups = (() => {
-    const g = { both:[], onb_only:[], ses_only:[], neither:[] };
-    newLast4w.forEach(r => {
-      const uid=(r['id']||'').toString().trim();
-      const hO=onbAsistIds.has(uid), hS=hasSesion(r);
-      g[hO&&hS?'both':hO?'onb_only':hS?'ses_only':'neither'].push(r);
-    });
-    const avgNiv = arr => { const v=arr.map(r=>parseNivel(r)).filter(x=>x!==null); return v.length?Math.round(v.reduce((a,b)=>a+b,0)/v.length*10)/10:null; };
-    const labels = {both:'Con ONB + Sesiones', onb_only:'Solo ONB', ses_only:'Solo Sesiones', neither:'Sin ninguno'};
-    return Object.entries(g).map(([key,arr])=>({key, n:arr.length, avg:avgNiv(arr), label:labels[key]}));
-  })();
 
   // By objetivo
   const objNivelMap = {};
@@ -1258,7 +1266,7 @@ function calcMonth(off){
     nuevosMesP_n:nuevosMesP.length,nuevosMesT_n:nuevosMesT.length,
     mrrProtOnb,pctRetCon:Math.round(retCon*100),pctRetSin:Math.round(retSin*100),
     baiben:{ total:baibenAll.length, churnN:baibenChurnMes.length, pct:baibenPct, avgCycles, avgGapDias, avgGapMes, niches:baibenNiches, nichesMes:baibenNichesMes, objs:baibenObjs, objsMes:baibenObjsMes, baibenTotal, plans:baibenPlans, trend:baibenTrend },
-    activacion:{ n:newLast4w.length, withData:niveles.length, avg:avgNivel, buckets:nivelBuckets, byPlan:nivelByPlan, bySeg:nivelBySeg, byObj:nivelByObj, flowDist, gruposDist, flowsActivos, gruposActivos, totalBase, apiSi, businessSi, engGroups },
+    activacion:{ n:newLast4w.length, withData:niveles.length, avg:avgNivel, buckets:nivelBuckets, byPlan:nivelByPlan, bySeg:nivelBySeg, byObj:nivelByObj, flowDist, gruposDist, flowsActivos, gruposActivos, totalBase, apiSi, businessSi, avgConOnb, avgSinOnb, avgConSes, avgSinSes, nConOnb:newConOnb.length, nSinOnb:newSinOnb.length },
     tiempoOnb:{ all:diasStats(onbDiasAll), nuevas:diasStats(onbDiasNew), antiguas:diasStats(onbDiasOld), histo:onbHisto, byPlan:onbByPlanStats, bySeg:onbBySegStats },
     noNeed:{ n:noNeedRows.length, seg:noNeedSeg, nicho:noNeedNichoArr, plan:noNeedPlanArr },
     onbImpact,sesImpact,embImpactData,
@@ -3177,14 +3185,29 @@ function renderActivacion(m) {
 
   // Segment breakdown
   const segColors2 = {'A':'var(--green2)','B':'var(--yellow)','C':'var(--muted)'};
+  function segSubBar(label, avg, n, color, maxW) {
+    if (avg === null) return '';
+    return '<div style="display:flex;align-items:center;gap:5px;margin-bottom:2px">'
+      + '<div style="font-size:8px;color:'+color+';width:52px;flex-shrink:0;opacity:.9">'+label+'</div>'
+      + '<div style="flex:1;height:5px;background:rgba(255,255,255,.05);border-radius:3px;overflow:hidden">'
+      +   '<div style="width:'+Math.round(avg/(maxW||100)*100)+'%;height:100%;background:'+color+';border-radius:3px"></div>'
+      + '</div>'
+      + '<div style="font-size:9px;font-weight:700;color:'+color+';width:30px;text-align:right">'+avg+'%</div>'
+      + '<div style="font-size:8px;color:var(--muted);width:20px">'+n+'</div>'
+      + '</div>';
+  }
+  const maxSegAvg = Math.max(...(a.bySeg||[]).map(s=>s.avg||0), 1);
   const segActRows = (a.bySeg||[]).map(s => {
     const c = segColors2[s.seg] || 'var(--muted)';
-    return '<div style="display:flex;align-items:center;gap:8px;margin-bottom:7px">'
-      + '<div style="font-size:11px;font-weight:800;color:'+c+';width:90px;flex-shrink:0">Seg '+s.seg+' <span style="font-size:9px;font-weight:400;color:var(--muted)">('+s.n+')</span></div>'
-      + '<div style="flex:1;height:7px;background:rgba(255,255,255,.05);border-radius:3px;overflow:hidden">'
-      +   '<div style="width:'+(s.avg||0)+'%;height:100%;background:'+c+';border-radius:3px"></div>'
+    return '<div style="margin-bottom:10px;padding-bottom:6px;border-bottom:1px solid var(--border)">'
+      + '<div style="display:flex;justify-content:space-between;margin-bottom:4px">'
+      +   '<span style="font-size:10px;font-weight:800;color:'+c+'">Seg '+s.seg+'</span>'
+      +   '<span style="font-size:9px;color:var(--muted)">'+s.n+' cuentas · prom: '+(s.avg!==null?s.avg+'%':'--')+'</span>'
       + '</div>'
-      + '<div style="font-size:11px;font-weight:700;width:36px;text-align:right;color:'+c+'">'+(s.avg!==null?s.avg+'%':'--')+'</div>'
+      + segSubBar('Con ONB', s.avgConOnb, s.nConOnb, 'var(--teal)', maxSegAvg)
+      + segSubBar('Sin ONB', s.avgSinOnb, s.nSinOnb, c, maxSegAvg)
+      + segSubBar('Con Ses.', s.avgConSes, s.nConSes, 'var(--purple)', maxSegAvg)
+      + segSubBar('Sin Ses.', s.avgSinSes, s.nSinSes, 'rgba(148,163,184,.4)', maxSegAvg)
       + '</div>';
   }).join('') || '<div style="font-size:10px;color:var(--muted)">Sin datos por segmento</div>';
 
@@ -3212,6 +3235,8 @@ function renderActivacion(m) {
     +     '<div style="font-size:9px;color:var(--muted)">implementación promedio</div>'
     +   '</div>'
     + '</div>'
+    // General ONB/Sessions comparison indicator
+    + onbVsSinPanel(a)
     + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:14px">'
     +   '<div><div style="font-size:9px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px">Distribución por nivel</div>' + bucketBars + '</div>'
     +   '<div><div style="font-size:9px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px">Promedio por plan</div>' + planRows + '</div>'
@@ -3233,40 +3258,37 @@ function renderActivacion(m) {
     +   '</div>'
     +   '<div style="font-size:9px;color:var(--muted);margin-top:8px">Flows: máx 3 · Grupos: máx 2 · Se considera "activo" cualquier valor > 0</div>'
     + '</div>'
-    + engGroupsPanel(a.engGroups||[], a.totalBase)
     + '</div>';
 }
 
-function engGroupsPanel(groups, total) {
-  if (!groups || groups.every(g=>g.n===0)) return '';
-  const colors = {'Con ONB + Sesiones':'var(--teal)','Solo ONB':'var(--blue)','Solo Sesiones':'var(--purple)','Sin ninguno':'rgba(148,163,184,.4)'};
-  const sorted = [...groups].sort((a,b)=>(b.avg||0)-(a.avg||0));
-  const bars = sorted.map(g => {
-    const c=colors[g.label]||'var(--muted)';
-    const pct=g.avg!==null?Math.round(g.avg/100*100):0;
-    const pctN=total>0?Math.round(g.n/total*100):0;
-    return '<div style="margin-bottom:10px">'
-      +'<div style="display:flex;justify-content:space-between;margin-bottom:3px">'
-      +'<div style="font-size:10px;font-weight:700;color:'+c+'">'+g.label+'</div>'
-      +'<div style="font-size:9px;color:var(--muted)">'+g.n+' ('+pctN+'%)</div>'
-      +'</div>'
-      +'<div style="display:flex;align-items:center;gap:8px">'
-      +'<div style="flex:1;height:10px;background:rgba(255,255,255,.05);border-radius:4px;overflow:hidden">'
-      +'<div style="width:'+pct+'%;height:100%;background:'+c+';border-radius:4px"></div>'
-      +'</div>'
-      +'<div style="font-family:Syne,sans-serif;font-size:16px;font-weight:800;color:'+c+';width:48px;text-align:right">'+(g.avg!==null?g.avg+'%':'--')+'</div>'
-      +'</div></div>';
+
+function onbVsSinPanel(a) {
+  const pairs = [
+    { label1:'Con ONB', v1:a.avgConOnb, n1:a.nConOnb, label2:'Sin ONB', v2:a.avgSinOnb, n2:a.nSinOnb, color:'var(--teal)' },
+    { label1:'Con sesiones', v1:a.avgConSes, n1:null, label2:'Sin sesiones', v2:a.avgSinSes, n2:null, color:'var(--purple)' },
+  ];
+  const cards = pairs.map(p => {
+    if (p.v1===null && p.v2===null) return '';
+    const diff = (p.v1!==null && p.v2!==null) ? Math.round((p.v1-p.v2)*10)/10 : null;
+    const arrow = diff!==null ? (diff>0?'<span style="color:var(--teal)">+'+diff+'pp</span>':'<span style="color:var(--red)">'+diff+'pp</span>') : '';
+    return '<div style="flex:1;background:var(--card);border:1px solid var(--border);border-radius:8px;padding:10px 12px">'
+      + '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">'
+      +   '<div style="font-size:9px;font-weight:700;color:'+p.color+';text-transform:uppercase;letter-spacing:.06em">'+p.label1+' vs '+p.label2+'</div>'
+      +   '<div style="font-size:10px">'+arrow+'</div>'
+      + '</div>'
+      + '<div style="display:flex;gap:12px">'
+      +   '<div style="flex:1;text-align:center">'
+      +     '<div style="font-family:Syne,sans-serif;font-size:20px;font-weight:800;color:'+p.color+'">'+(p.v1!==null?p.v1+'%':'--')+'</div>'
+      +     '<div style="font-size:9px;color:var(--muted)">'+p.label1+(p.n1!==null?' ('+p.n1+')':'')+'</div>'
+      +   '</div>'
+      +   '<div style="width:1px;background:var(--border)"></div>'
+      +   '<div style="flex:1;text-align:center">'
+      +     '<div style="font-family:Syne,sans-serif;font-size:20px;font-weight:800;color:var(--muted)">'+(p.v2!==null?p.v2+'%':'--')+'</div>'
+      +     '<div style="font-size:9px;color:var(--muted)">'+p.label2+(p.n2!==null?' ('+p.n2+')':'')+'</div>'
+      +   '</div>'
+      + '</div></div>';
   }).join('');
-  const sinN=groups.find(g=>g.key==='neither');
-  const conOnb=groups.find(g=>g.key==='onb_only');
-  const diff=(conOnb&&conOnb.avg!=null&&sinN&&sinN.avg!=null)?Math.round(conOnb.avg-sinN.avg):null;
-  const insight=diff!==null?(diff>5?'Las cuentas con ONB registran '+diff+'pp mas de activacion que las que no conectaron con ningun espacio.':diff>0?'Diferencia leve de '+diff+'pp a favor del ONB.':'Las cuentas sin ONB tienen activacion similar -- revisar si hay otro factor.'):'';
-  return '<div style="border-top:1px solid var(--border);margin-top:14px;padding-top:14px">'
-    +'<div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:10px">El ONB y las sesiones en vivo impactan la activacion?</div>'
-    +bars
-    +(insight?'<div style="background:rgba(45,212,191,.06);border:1px solid rgba(45,212,191,.15);border-radius:7px;padding:9px 12px;font-size:11px;color:var(--teal);line-height:1.6;margin-top:4px">'+insight+'</div>':'')
-    +'<div style="font-size:9px;color:var(--muted);margin-top:8px">ONB = asistencia confirmada en tabla onboarding por user_id · Sesiones = columna Sesiones en vivo en tabla cuentas</div>'
-    +'</div>';
+  return '<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px">' + cards + '</div>';
 }
 
 function boolPanel(label, siCount, total, color) {
