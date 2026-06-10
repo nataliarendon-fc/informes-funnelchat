@@ -1030,6 +1030,24 @@ function calcMonth(off){
   const gruposActivos = newLast4w.filter(r=>parseUsage(r,'Usa grupos?')>0).length;
   const totalBase = newLast4w.length || 1;
 
+  // Engagement groups: ONB attended vs Sessions vs Neither
+  const onbAsistIds = new Set(
+    O.filter(r => (r['Estado del onboarding']||'').toLowerCase().replace(/ó/g,'o').replace(/í/g,'i').trim()==='asistio')
+     .map(r => getOnbUserId(r)).filter(Boolean)
+  );
+  const hasSesion = r => { const v=parseInt((r['Sesiones en vivo']||'0').toString()); return !isNaN(v)&&v>0; };
+  const engGroups = (() => {
+    const g = { both:[], onb_only:[], ses_only:[], neither:[] };
+    newLast4w.forEach(r => {
+      const uid=(r['id']||'').toString().trim();
+      const hO=onbAsistIds.has(uid), hS=hasSesion(r);
+      g[hO&&hS?'both':hO?'onb_only':hS?'ses_only':'neither'].push(r);
+    });
+    const avgNiv = arr => { const v=arr.map(r=>parseNivel(r)).filter(x=>x!==null); return v.length?Math.round(v.reduce((a,b)=>a+b,0)/v.length*10)/10:null; };
+    const labels = {both:'Con ONB + Sesiones', onb_only:'Solo ONB', ses_only:'Solo Sesiones', neither:'Sin ninguno'};
+    return Object.entries(g).map(([key,arr])=>({key, n:arr.length, avg:avgNiv(arr), label:labels[key]}));
+  })();
+
   // By objetivo
   const objNivelMap = {};
   newLast4w.forEach(r => {
@@ -1240,7 +1258,7 @@ function calcMonth(off){
     nuevosMesP_n:nuevosMesP.length,nuevosMesT_n:nuevosMesT.length,
     mrrProtOnb,pctRetCon:Math.round(retCon*100),pctRetSin:Math.round(retSin*100),
     baiben:{ total:baibenAll.length, churnN:baibenChurnMes.length, pct:baibenPct, avgCycles, avgGapDias, avgGapMes, niches:baibenNiches, nichesMes:baibenNichesMes, objs:baibenObjs, objsMes:baibenObjsMes, baibenTotal, plans:baibenPlans, trend:baibenTrend },
-    activacion:{ n:newLast4w.length, withData:niveles.length, avg:avgNivel, buckets:nivelBuckets, byPlan:nivelByPlan, bySeg:nivelBySeg, byObj:nivelByObj, flowDist, gruposDist, flowsActivos, gruposActivos, totalBase, apiSi, businessSi },
+    activacion:{ n:newLast4w.length, withData:niveles.length, avg:avgNivel, buckets:nivelBuckets, byPlan:nivelByPlan, bySeg:nivelBySeg, byObj:nivelByObj, flowDist, gruposDist, flowsActivos, gruposActivos, totalBase, apiSi, businessSi, engGroups },
     tiempoOnb:{ all:diasStats(onbDiasAll), nuevas:diasStats(onbDiasNew), antiguas:diasStats(onbDiasOld), histo:onbHisto, byPlan:onbByPlanStats, bySeg:onbBySegStats },
     noNeed:{ n:noNeedRows.length, seg:noNeedSeg, nicho:noNeedNichoArr, plan:noNeedPlanArr },
     onbImpact,sesImpact,embImpactData,
@@ -3215,7 +3233,40 @@ function renderActivacion(m) {
     +   '</div>'
     +   '<div style="font-size:9px;color:var(--muted);margin-top:8px">Flows: máx 3 · Grupos: máx 2 · Se considera "activo" cualquier valor > 0</div>'
     + '</div>'
+    + engGroupsPanel(a.engGroups||[], a.totalBase)
     + '</div>';
+}
+
+function engGroupsPanel(groups, total) {
+  if (!groups || groups.every(g=>g.n===0)) return '';
+  const colors = {'Con ONB + Sesiones':'var(--teal)','Solo ONB':'var(--blue)','Solo Sesiones':'var(--purple)','Sin ninguno':'rgba(148,163,184,.4)'};
+  const sorted = [...groups].sort((a,b)=>(b.avg||0)-(a.avg||0));
+  const bars = sorted.map(g => {
+    const c=colors[g.label]||'var(--muted)';
+    const pct=g.avg!==null?Math.round(g.avg/100*100):0;
+    const pctN=total>0?Math.round(g.n/total*100):0;
+    return '<div style="margin-bottom:10px">'
+      +'<div style="display:flex;justify-content:space-between;margin-bottom:3px">'
+      +'<div style="font-size:10px;font-weight:700;color:'+c+'">'+g.label+'</div>'
+      +'<div style="font-size:9px;color:var(--muted)">'+g.n+' ('+pctN+'%)</div>'
+      +'</div>'
+      +'<div style="display:flex;align-items:center;gap:8px">'
+      +'<div style="flex:1;height:10px;background:rgba(255,255,255,.05);border-radius:4px;overflow:hidden">'
+      +'<div style="width:'+pct+'%;height:100%;background:'+c+';border-radius:4px"></div>'
+      +'</div>'
+      +'<div style="font-family:Syne,sans-serif;font-size:16px;font-weight:800;color:'+c+';width:48px;text-align:right">'+(g.avg!==null?g.avg+'%':'--')+'</div>'
+      +'</div></div>';
+  }).join('');
+  const sinN=groups.find(g=>g.key==='neither');
+  const conOnb=groups.find(g=>g.key==='onb_only');
+  const diff=(conOnb&&conOnb.avg!=null&&sinN&&sinN.avg!=null)?Math.round(conOnb.avg-sinN.avg):null;
+  const insight=diff!==null?(diff>5?'Las cuentas con ONB registran '+diff+'pp mas de activacion que las que no conectaron con ningun espacio.':diff>0?'Diferencia leve de '+diff+'pp a favor del ONB.':'Las cuentas sin ONB tienen activacion similar -- revisar si hay otro factor.'):'';
+  return '<div style="border-top:1px solid var(--border);margin-top:14px;padding-top:14px">'
+    +'<div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:10px">El ONB y las sesiones en vivo impactan la activacion?</div>'
+    +bars
+    +(insight?'<div style="background:rgba(45,212,191,.06);border:1px solid rgba(45,212,191,.15);border-radius:7px;padding:9px 12px;font-size:11px;color:var(--teal);line-height:1.6;margin-top:4px">'+insight+'</div>':'')
+    +'<div style="font-size:9px;color:var(--muted);margin-top:8px">ONB = asistencia confirmada en tabla onboarding por user_id · Sesiones = columna Sesiones en vivo en tabla cuentas</div>'
+    +'</div>';
 }
 
 function boolPanel(label, siCount, total, color) {
