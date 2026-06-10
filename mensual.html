@@ -1040,6 +1040,14 @@ function calcMonth(off){
 
   // ── Tiempo al ONB ───────────────────────────────────
   const onbDiasAll = onbGHLAsist.map(getOnbDias).filter(x=>x!==null&&x>=0);
+  console.log('[DIAS] onbGHLAsist='+onbGHLAsist.length+' onbDiasAll='+onbDiasAll.length);
+  if(onbGHLAsist.length>0){
+    const s=onbGHLAsist[0];
+    console.log('[DIAS] row0 DiasParaONB='+JSON.stringify(s['Días para ONB'])+' FechaONBGHL='+JSON.stringify(s['Fecha de ONB GHL'])+' FechaCreacion='+JSON.stringify(s['Fecha de creación']));
+    console.log('[DIAS] getOnbDias(row0)='+getOnbDias(s)+' tipo='+getOnbTipo(s));
+  }
+  console.log('[DIAS] onbDiasNew='+onbDiasNew.length+' onbDiasOld='+onbDiasOld.length);
+  console.log('[DIAS] histo='+JSON.stringify(onbHisto.map(b=>b.label+':'+b.nuevas+'+'+b.antiguas)));
   // ── DIAG ONB ─────────────────────────────────────
   console.log('[ONB] O.length='+O.length+' onbDeduped='+dedupeOnb(O).length);
 
