@@ -1082,9 +1082,7 @@ function calcMonth(off){
 
   // ── Tiempo al ONB ───────────────────────────────────
   const onbDiasAll = onbGHLAsist.map(getOnbDias).filter(x=>x!==null&&x>=0);
-  console.log('[PLAN] onbGHLAsist='+onbGHLAsist.length+' onbDiasAll='+onbDiasAll.length);
-  const _sampleUID = onbGHLAsist.slice(0,3).map(r=>({uid:r['user_id'],cid:r['contact_id'],found:!!acctById[(r['user_id']||'').toString().trim()]}));
-  console.log('[PLAN] sample user_ids:', JSON.stringify(_sampleUID));
+
 
   // ── DIAG ONB ─────────────────────────────────────
   console.log('[ONB] O.length='+O.length+' onbDeduped='+dedupeOnb(O).length);
@@ -1108,19 +1106,29 @@ function calcMonth(off){
     antiguas: onbDiasOld.filter(d=>d>=b.min&&d<=b.max).length,
   }));
 
-  // By plan — with new/old split
+  // By plan — ALL accounts, with new/old split
   const PLANES4 = ['Plan Starter','Plan Growth','Plan Advanced','Advanced Personalizado'];
-  const onbByPlanStats = PLANES4.map(plan => {
-    const rows = onbGHLAsist.filter(r => {
-      const uid=getOnbUserId(r); const a=acctById[uid];
-      return a&&(a['Planes Funnelchat']||'').trim()===plan;
+  const onbByPlanStats = (() => {
+    const result = [];
+    PLANES4.forEach(plan => {
+      const rows = onbGHLAsist.filter(r => {
+        const uid=getOnbUserId(r); const a=acctById[uid];
+        return a&&(a['Planes Funnelchat']||'').trim()===plan;
+      });
+      const diasAll = rows.map(getOnbDias).filter(x=>x!==null&&x>=0);
+      const diasN   = rows.filter(r=>getOnbTipo(r)==='nuevas').map(getOnbDias).filter(x=>x!==null&&x>=0);
+      const diasA   = rows.filter(r=>getOnbTipo(r)==='antiguo').map(getOnbDias).filter(x=>x!==null&&x>=0);
+      if(diasAll.length) result.push({plan, stats:diasStats(diasAll), nuevas:diasStats(diasN), antiguas:diasStats(diasA)});
     });
-    const diasAll    = rows.map(getOnbDias).filter(x=>x!==null&&x>=0);
-    const diasNuevas = rows.filter(r=>getOnbTipo(r)==='nuevas').map(getOnbDias).filter(x=>x!==null&&x>=0);
-    const diasAntig  = rows.filter(r=>getOnbTipo(r)==='antiguo').map(getOnbDias).filter(x=>x!==null&&x>=0);
-    return { plan, stats:diasStats(diasAll), nuevas:diasStats(diasNuevas), antiguas:diasStats(diasAntig) };
-  }).filter(p=>p.stats);
-  console.log('[PLAN] onbByPlan:', JSON.stringify(onbByPlanStats.map(p=>({plan:p.plan.replace('Plan ',''),n:p.stats?.n}))));
+    const sinCruce = onbGHLAsist.filter(r=>!acctById[getOnbUserId(r)]);
+    const diasSin  = sinCruce.map(getOnbDias).filter(x=>x!==null&&x>=0);
+    if(diasSin.length){
+      const diasN=sinCruce.filter(r=>getOnbTipo(r)==='nuevas').map(getOnbDias).filter(x=>x!==null&&x>=0);
+      const diasA=sinCruce.filter(r=>getOnbTipo(r)==='antiguo').map(getOnbDias).filter(x=>x!==null&&x>=0);
+      result.push({plan:'Sin plan cruzado', stats:diasStats(diasSin), nuevas:diasStats(diasN), antiguas:diasStats(diasA)});
+    }
+    return result;
+  })();
 
   // By segment — with new/old split
   const onbBySegStats = ['A','B','C'].map(seg => {
