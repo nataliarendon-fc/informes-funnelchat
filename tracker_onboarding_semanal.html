@@ -153,8 +153,27 @@ function parseSpanishDate(s) {
   if (m) return new Date(+m[3], +m[2]-1, +m[1]);
   return parseISO(s);
 }
+function parseSpDate(s){ return parseSpanishDate(s); }
 function getCA(r) { return parseISO(r['created_at']) || parseISO(r['Fecha creación']); }
-function getOnbDate(r) { return parseISO(r['Fecha registro']) || parseISO(r['Fecha estado onboarding']); }
+// Fecha asignación etiqueta is the primary, always-filled date for onboarding rows.
+// Fallbacks: Fecha de ONB GHL, Fecha extraida, Fecha registro, Fecha estado onboarding.
+function getOnbDate(r) {
+  return parseSpDate(r['Fecha asignación etiqueta']) || parseISO(r['Fecha asignación etiqueta'])
+      || parseSpDate(r['Fecha de ONB GHL'])           || parseISO(r['Fecha de ONB GHL'])
+      || parseSpDate(r['Fecha extraida'])             || parseISO(r['Fecha extraida'])
+      || parseISO(r['Fecha registro'])
+      || parseISO(r['Fecha estado onboarding'])
+      || null;
+}
+// Normalize Estado del onboarding: lowercase, strip accents, trim
+function normEst(r) {
+  return (r['Estado del onboarding']||'').toString().toLowerCase()
+    .replace(/ó/g,'o').replace(/í/g,'i').replace(/é/g,'e').replace(/á/g,'a').replace(/ú/g,'u').trim();
+}
+function isAsistio(r)  { return normEst(r)==='asistio'; }
+function isAgendado(r) { return ['agendo','agendado','agendar reunion'].includes(normEst(r)); }
+function isNoShow(r)   { return ['no show','no asistio'].includes(normEst(r)); }
+function isAnyOnbState(r) { return isAsistio(r)||isAgendado(r)||isNoShow(r); }
 
 function getMondayOf(d) {
   const dt = new Date(d); dt.setHours(0,0,0,0);
@@ -251,9 +270,9 @@ function calcWeeks() {
 
     function stats(rows) {
       const prop = rows.length;
-      const agen = rows.filter(rr => ['Agendó','Asistió','No show','No asistió'].includes(rr['Estado del onboarding'])).length;
-      const asist = rows.filter(rr => rr['Estado del onboarding']==='Asistió');
-      const noshow = rows.filter(rr => ['No show','No asistió'].includes(rr['Estado del onboarding'])).length;
+      const agen = rows.filter(rr => isAnyOnbState(rr)).length;
+      const asist = rows.filter(rr => isAsistio(rr));
+      const noshow = rows.filter(rr => isNoShow(rr)).length;
 
       // For AHA — use session date = onboarding date
       let wa7=0, fl7=0, gr7=0, waPost=0, flPost=0, grPost=0;
