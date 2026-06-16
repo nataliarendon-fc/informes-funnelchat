@@ -443,6 +443,17 @@ function getOnbDias(r) {
   }
   return null;
 }
+function getOnbPlan(r){
+  // Read plan directly from ONB row — normalize asterisk and spaces
+  const p = (r['Plan']||'').trim().replace(/\*/g,'').trim();
+  if(!p) return null;
+  // Normalize to standard plan names
+  if(p.toLowerCase().includes('advanced personalizado')||p.toLowerCase().includes('adv. pers')) return 'Advanced Personalizado';
+  if(p.toLowerCase().includes('advanced')) return 'Plan Advanced';
+  if(p.toLowerCase().includes('growth'))   return 'Plan Growth';
+  if(p.toLowerCase().includes('starter'))  return 'Plan Starter';
+  return p; // return as-is if doesn't match known plans
+}
 function getOnbTipo(r){
   const t=(r['Tipo de usuario']||r['Tipo de cuenta']||'').trim().toLowerCase();
   if(t.includes('antiguo')||t.includes('antigua')) return 'antiguo';
@@ -1106,28 +1117,23 @@ function calcMonth(off){
     antiguas: onbDiasOld.filter(d=>d>=b.min&&d<=b.max).length,
   }));
 
-  // By plan — ALL accounts, with new/old split
-  const PLANES4 = ['Plan Starter','Plan Growth','Plan Advanced','Advanced Personalizado'];
+  // By plan — use Plan column from ONB row directly
   const onbByPlanStats = (() => {
-    const result = [];
-    PLANES4.forEach(plan => {
-      const rows = onbGHLAsist.filter(r => {
-        const uid=getOnbUserId(r); const a=acctById[uid];
-        return a&&(a['Planes Funnelchat']||'').trim()===plan;
-      });
-      const diasAll = rows.map(getOnbDias).filter(x=>x!==null&&x>=0);
-      const diasN   = rows.filter(r=>getOnbTipo(r)==='nuevas').map(getOnbDias).filter(x=>x!==null&&x>=0);
-      const diasA   = rows.filter(r=>getOnbTipo(r)==='antiguo').map(getOnbDias).filter(x=>x!==null&&x>=0);
-      if(diasAll.length) result.push({plan, stats:diasStats(diasAll), nuevas:diasStats(diasN), antiguas:diasStats(diasA)});
+    const planMap = {};
+    onbGHLAsist.forEach(r => {
+      const plan = getOnbPlan(r) || 'Sin plan';
+      if(!planMap[plan]) planMap[plan] = [];
+      planMap[plan].push(r);
     });
-    const sinCruce = onbGHLAsist.filter(r=>!acctById[getOnbUserId(r)]);
-    const diasSin  = sinCruce.map(getOnbDias).filter(x=>x!==null&&x>=0);
-    if(diasSin.length){
-      const diasN=sinCruce.filter(r=>getOnbTipo(r)==='nuevas').map(getOnbDias).filter(x=>x!==null&&x>=0);
-      const diasA=sinCruce.filter(r=>getOnbTipo(r)==='antiguo').map(getOnbDias).filter(x=>x!==null&&x>=0);
-      result.push({plan:'Sin plan cruzado', stats:diasStats(diasSin), nuevas:diasStats(diasN), antiguas:diasStats(diasA)});
-    }
-    return result;
+    return Object.entries(planMap)
+      .map(([plan, rows]) => {
+        const dias  = rows.map(getOnbDias).filter(x=>x!==null&&x>=0);
+        const diasN = rows.filter(r=>getOnbTipo(r)==='nuevas').map(getOnbDias).filter(x=>x!==null&&x>=0);
+        const diasA = rows.filter(r=>getOnbTipo(r)==='antiguo').map(getOnbDias).filter(x=>x!==null&&x>=0);
+        return { plan, stats:diasStats(dias), nuevas:diasStats(diasN), antiguas:diasStats(diasA) };
+      })
+      .filter(p=>p.stats)
+      .sort((a,b)=>(a.stats?.avg||0)-(b.stats?.avg||0));
   })();
 
   // By segment — with new/old split
