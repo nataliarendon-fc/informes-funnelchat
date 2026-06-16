@@ -444,9 +444,9 @@ function getOnbDias(r) {
   return null;
 }
 function getOnbTipo(r){
-  const t=(r['Tipo de usuario']||r['Tipo de cuenta']||'').trim();
-  if(t==='Cuenta antiguo'||t==='antiguo') return 'antiguo';
-  if(t==='Cuentas nuevas'||t==='nueva'||t==='nuevas') return 'nuevas';
+  const t=(r['Tipo de usuario']||r['Tipo de cuenta']||'').trim().toLowerCase();
+  if(t.includes('antiguo')||t.includes('antigua')) return 'antiguo';
+  if(t.includes('nuevo')||t.includes('nueva')||t.includes('new')) return 'nuevas';
   // Fallback: use Días para ONB — ≤30 = nueva, >30 = antigua
   const d = getOnbDias(r);
   if(d !== null) return d <= 30 ? 'nuevas' : 'antiguo';
