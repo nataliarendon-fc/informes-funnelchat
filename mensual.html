@@ -1085,7 +1085,6 @@ function calcMonth(off){
   console.log('[PLAN] onbGHLAsist='+onbGHLAsist.length+' onbDiasAll='+onbDiasAll.length);
   const _sampleUID = onbGHLAsist.slice(0,3).map(r=>({uid:r['user_id'],cid:r['contact_id'],found:!!acctById[(r['user_id']||'').toString().trim()]}));
   console.log('[PLAN] sample user_ids:', JSON.stringify(_sampleUID));
-  console.log('[PLAN] onbByPlan:', JSON.stringify(onbByPlanStats.map(p=>({plan:p.plan.replace('Plan ',''),n:p.stats?.n}))));
 
   // ── DIAG ONB ─────────────────────────────────────
   console.log('[ONB] O.length='+O.length+' onbDeduped='+dedupeOnb(O).length);
@@ -1121,6 +1120,7 @@ function calcMonth(off){
     const diasAntig  = rows.filter(r=>getOnbTipo(r)==='antiguo').map(getOnbDias).filter(x=>x!==null&&x>=0);
     return { plan, stats:diasStats(diasAll), nuevas:diasStats(diasNuevas), antiguas:diasStats(diasAntig) };
   }).filter(p=>p.stats);
+  console.log('[PLAN] onbByPlan:', JSON.stringify(onbByPlanStats.map(p=>({plan:p.plan.replace('Plan ',''),n:p.stats?.n}))));
 
   // By segment — with new/old split
   const onbBySegStats = ['A','B','C'].map(seg => {
