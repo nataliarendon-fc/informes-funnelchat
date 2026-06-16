@@ -1082,6 +1082,10 @@ function calcMonth(off){
 
   // ── Tiempo al ONB ───────────────────────────────────
   const onbDiasAll = onbGHLAsist.map(getOnbDias).filter(x=>x!==null&&x>=0);
+  console.log('[PLAN] onbGHLAsist='+onbGHLAsist.length+' onbDiasAll='+onbDiasAll.length);
+  const _sampleUID = onbGHLAsist.slice(0,3).map(r=>({uid:r['user_id'],cid:r['contact_id'],found:!!acctById[(r['user_id']||'').toString().trim()]}));
+  console.log('[PLAN] sample user_ids:', JSON.stringify(_sampleUID));
+  console.log('[PLAN] onbByPlan:', JSON.stringify(onbByPlanStats.map(p=>({plan:p.plan.replace('Plan ',''),n:p.stats?.n}))));
 
   // ── DIAG ONB ─────────────────────────────────────
   console.log('[ONB] O.length='+O.length+' onbDeduped='+dedupeOnb(O).length);
