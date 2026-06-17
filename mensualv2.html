@@ -1676,7 +1676,7 @@ function render(m){
   // Impact comparison table for onboarding
   const onbImpEl=document.getElementById('onbImpactTable');
   if(onbImpEl){
-    onbImpEl.innerHTML=impactTable('Onboarding','Con ONB','Sin ONB',m.onbImpact,'var(--green2)')+ahaTable(m.ahaStatsMes,m.ahaStats);
+    onbImpEl.innerHTML=impactTable('Onboarding','Con ONB','Sin ONB',m.onbImpact,'var(--green2)');
   // ONB enriched panel (now includes merged tiempo-al-ONB detail)
   const onbEnrEl = document.getElementById('onbEnrichedPanel');
   if (onbEnrEl) onbEnrEl.innerHTML = renderOnbEnriched(m);
@@ -3007,10 +3007,10 @@ function renderTiempoOnbInner(m) {
   const planColors = {'Plan Starter':'#60a5fa','Plan Growth':'#a78bfa','Plan Advanced':'#2dd4bf','Advanced Personalizado':'#fbbf24'};
   const segColors  = {'A':'var(--green2)','B':'var(--yellow)','C':'var(--muted)'};
 
-  // ── Stat summary row ─────────────────────────────
+  // -- Stat summary row --
   function statBadge(label, val, color) {
     return '<div style="text-align:center;flex:1">'
-      + '<div style="font-family:Syne,sans-serif;font-size:20px;font-weight:800;color:'+color+';line-height:1">'+(val!==null?val+'d':'—')+'</div>'
+      + '<div style="font-family:Syne,sans-serif;font-size:20px;font-weight:800;color:'+color+';line-height:1">'+(val!==null?val+'d':'--')+'</div>'
       + '<div style="font-size:9px;color:var(--muted);margin-top:2px">'+label+'</div>'
       + '</div>';
   }
@@ -3028,24 +3028,7 @@ function renderTiempoOnbInner(m) {
       + '</div>';
   }
 
-  // ── Range bar (min→p50→max) ───────────────────────
-  function rangeBar(st, color, maxScale) {
-    if (!st) return '';
-    const pMin = Math.round(st.min/maxScale*100);
-    const pP50 = Math.round(st.p50/maxScale*100);
-    const pMax = Math.round(st.max/maxScale*100);
-    return '<div style="position:relative;height:8px;background:rgba(255,255,255,.05);border-radius:4px;overflow:visible;margin:4px 0">'
-      + '<div style="position:absolute;left:'+pMin+'%;width:'+(pMax-pMin)+'%;height:100%;background:'+color+';opacity:.3;border-radius:4px"></div>'
-      + '<div style="position:absolute;left:'+pP50+'%;width:3px;height:100%;background:'+color+';border-radius:2px;transform:translateX(-50%)"></div>'
-      + '<div style="position:absolute;left:'+pMin+'%;width:3px;height:100%;background:'+color+';opacity:.6;border-radius:2px;transform:translateX(-50%)"></div>'
-      + '<div style="position:absolute;left:'+pMax+'%;width:3px;height:100%;background:'+color+';opacity:.6;border-radius:2px;transform:translateX(-50%)"></div>'
-      + '</div>'
-      + '<div style="display:flex;justify-content:space-between;font-size:8px;color:var(--muted)">'
-      +   '<span>'+st.min+'d</span><span style="color:'+color+'">↓p50 '+st.p50+'d</span><span>'+st.max+'d</span>'
-      + '</div>';
-  }
-
-  // ── Histogram ─────────────────────────────────────
+  // -- Histogram --
   const maxH = Math.max(...t.histo.map(b=>b.nuevas+b.antiguas), 1);
   const histBars = t.histo.map(b => {
     const tot = b.nuevas + b.antiguas;
@@ -3060,44 +3043,39 @@ function renderTiempoOnbInner(m) {
       + '</div>';
   }).join('');
 
-  // ── By plan rows (with new/old sub-rows) ─────────────
-  const maxPlan = Math.max(...(t.byPlan||[]).map(p => Math.max(p.stats?.max||0, p.nuevas?.max||0, p.antiguas?.max||0)), 1);
-  function subRow(label, st, c) {
-    if (!st) return '';
-    return '<div style="display:flex;align-items:center;gap:4px;margin-bottom:2px">'
-      + '<div style="font-size:8px;color:'+c+';width:48px;flex-shrink:0;opacity:.9">'+label+'</div>'
-      + '<div style="flex:1">' + rangeBar(st, c, maxPlan) + '</div>'
+  // -- Simple avg-bar row builder (used for both plan and segment) --
+  function avgBarRow(label, color, st, stNew, stOld, maxAvg) {
+    if (!st || st.avg === null) return '';
+    const pct = Math.round(st.avg / (maxAvg||1) * 100);
+    const detail = [];
+    if (stNew && stNew.avg !== null) detail.push('nuevas <span style="color:var(--teal);font-weight:700">'+stNew.avg+'d</span>');
+    if (stOld && stOld.avg !== null) detail.push('antiguas <span style="color:var(--orange);font-weight:700">'+stOld.avg+'d</span>');
+    return '<div style="margin-bottom:11px">'
+      + '<div style="display:flex;align-items:center;gap:10px;margin-bottom:3px">'
+      +   '<div style="font-size:11px;font-weight:700;color:'+color+';width:100px;flex-shrink:0">'+label+'</div>'
+      +   '<div style="flex:1;height:8px;background:rgba(255,255,255,.05);border-radius:4px;overflow:hidden">'
+      +     '<div style="width:'+pct+'%;height:100%;background:'+color+';border-radius:4px"></div>'
+      +   '</div>'
+      +   '<div style="font-family:Syne,sans-serif;font-size:14px;font-weight:800;color:'+color+';width:38px;text-align:right">'+st.avg+'d</div>'
+      +   '<div style="font-size:9px;color:var(--muted);width:34px;text-align:right">n='+st.n+'</div>'
+      + '</div>'
+      + (detail.length ? '<div style="font-size:9px;color:var(--muted);padding-left:110px">'+detail.join(' · ')+'</div>' : '')
       + '</div>';
   }
+
+  // -- By plan --
+  const maxPlanAvg = Math.max(...(t.byPlan||[]).map(p=>p.stats?.avg||0), 1);
   const planRows = (t.byPlan||[]).map(p => {
     const c = planColors[p.plan] || 'rgba(148,163,184,.5)';
-    return '<div style="margin-bottom:10px;padding-bottom:6px;border-bottom:1px solid var(--border)">'
-      + '<div style="display:flex;justify-content:space-between;margin-bottom:3px">'
-      +   '<span style="font-size:10px;font-weight:700;color:'+c+'">' + p.plan.replace('Plan ','') + '</span>'
-      +   '<span style="font-size:9px;color:var(--muted)">n='+p.stats.n+'</span>'
-      + '</div>'
-      + subRow('todas', p.stats, c)
-      + subRow('nuevas ≤ 30d', p.nuevas, 'var(--teal)')
-      + subRow('antiguas > 30d', p.antiguas, 'var(--orange)')
-      + '</div>';
+    return avgBarRow(p.plan.replace('Plan ',''), c, p.stats, p.nuevas, p.antiguas, maxPlanAvg);
   }).join('') || '<div style="font-size:10px;color:var(--muted)">Sin cruce con tabla de cuentas</div>';
 
-  // ── By segment rows (with new/old sub-rows) ────────
-  const maxSeg = Math.max(...(t.bySeg||[]).map(s => Math.max(s.stats?.max||0, s.nuevas?.max||0, s.antiguas?.max||0)), 1);
+  // -- By segment --
+  const maxSegAvg = Math.max(...(t.bySeg||[]).map(s=>s.stats?.avg||0), 1);
   const segRows = (t.bySeg||[]).map(s => {
     const c = segColors[s.seg] || 'var(--muted)';
-    return '<div style="margin-bottom:10px;padding-bottom:6px;border-bottom:1px solid var(--border)">'
-      + '<div style="display:flex;justify-content:space-between;margin-bottom:3px">'
-      +   '<span style="font-size:11px;font-weight:800;color:'+c+'">Seg '+s.seg+'</span>'
-      +   '<span style="font-size:9px;color:var(--muted)">n='+s.stats.n+'</span>'
-      + '</div>'
-      + subRow('todas', s.stats, c)
-      + subRow('nuevas ≤ 30d', s.nuevas, 'var(--teal)')
-      + subRow('antiguas > 30d', s.antiguas, 'var(--orange)')
-      + '</div>';
+    return avgBarRow('Segmento '+s.seg, c, s.stats, s.nuevas, s.antiguas, maxSegAvg);
   }).join('') || '<div style="font-size:10px;color:var(--muted)">Sin cruce con tabla de cuentas</div>';
-
-  // ── By segment rows ───────────────────────────────
 
   return '<div style="border-top:1px solid var(--border);margin-top:14px;padding-top:14px">'
     + '<div style="font-size:10px;font-weight:700;color:var(--teal);text-transform:uppercase;letter-spacing:.08em;margin-bottom:14px">⏱ Tiempo hasta el ONB — distribución, por plan y por segmento</div>'
@@ -3107,35 +3085,31 @@ function renderTiempoOnbInner(m) {
     + statRow(t.all, 'var(--teal)')
 
     // Nuevas vs Antiguas
-    + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:12px;margin-bottom:16px">'
+    + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:12px;margin-bottom:18px">'
     +   '<div><div style="font-size:9px;color:var(--teal);text-transform:uppercase;letter-spacing:.06em;margin-bottom:5px">Cuentas nuevas (≤30d)</div>'+ statRow(t.nuevas,'var(--teal)') +'</div>'
     +   '<div><div style="font-size:9px;color:var(--orange);text-transform:uppercase;letter-spacing:.06em;margin-bottom:5px">Cuentas antiguas (>30d)</div>'+ statRow(t.antiguas,'var(--orange)') +'</div>'
     + '</div>'
 
-    // Histogram + breakdown side by side
-    + '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px">'
-
-    // Histogram
-    + '<div><div style="font-size:9px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px">Distribución (días)</div>'
-    +   '<div style="display:flex;gap:2px;align-items:flex-end;height:90px">' + histBars + '</div>'
+    // Histogram full width
+    + '<div style="margin-bottom:18px">'
+    +   '<div style="font-size:9px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px">Distribución de días — todos los asistentes</div>'
+    +   '<div style="display:flex;gap:3px;align-items:flex-end;height:90px">' + histBars + '</div>'
     +   '<div style="display:flex;gap:10px;margin-top:6px">'
-    +     '<span style="font-size:8px;color:rgba(45,212,191,.8)">■ nuevas</span>'
-    +     '<span style="font-size:8px;color:rgba(251,146,60,.6)">■ antiguas</span>'
+    +     '<span style="font-size:9px;color:rgba(45,212,191,.9)">■ nuevas</span>'
+    +     '<span style="font-size:9px;color:rgba(251,146,60,.7)">■ antiguas</span>'
     +   '</div>'
     + '</div>'
 
-    // By plan
-    + '<div><div style="font-size:9px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px">Por plan</div>'
-    + planRows + '</div>'
-
-    // By segment
-    + '<div><div style="font-size:9px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px">Por segmento</div>'
-    + segRows + '</div>'
-
+    // By plan / by segment side by side, full-width rows each
+    + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:24px">'
+    +   '<div><div style="font-size:9px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:10px">Promedio de días por plan</div>' + planRows + '</div>'
+    +   '<div><div style="font-size:9px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:10px">Promedio de días por segmento</div>' + segRows + '</div>'
     + '</div>'
-    + '<div style="font-size:9px;color:var(--muted);margin-top:10px">Barra: rango mín→máx · línea vertical = mediana · p50 = percentil 50: el valor donde la mitad tardó menos y la otra mitad más (resistente a valores extremos) · cruce con cuentas por user_id</div>'
+
+    + '<div style="font-size:9px;color:var(--muted);margin-top:12px">Barra = días promedio hasta el ONB (más corta = más rápido) · debajo de cada barra: promedio separado para cuentas nuevas y antiguas · p50 = mediana, resistente a valores extremos</div>'
     + '</div>';
 }
+
 
 function renderActivacion(m) {
   const a = m.activacion;
@@ -3230,6 +3204,7 @@ function renderActivacion(m) {
     + '</div>'
     // General ONB/Sessions comparison indicator
     + onbVsSinPanel(a)
+    + ahaTable(m.ahaStatsMes, m.ahaStats)
     + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:14px">'
     +   '<div><div style="font-size:9px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px">Distribución por nivel</div>' + bucketBars + '</div>'
     +   '<div><div style="font-size:9px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px">Promedio por plan</div>' + planRows + '</div>'
