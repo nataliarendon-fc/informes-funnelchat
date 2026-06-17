@@ -453,9 +453,21 @@ function getOnbDias(r) {
   return null;
 }
 function getOnbPlan(r){
-  // Read plan directly from ONB row — normalize asterisk and spaces
-  const p = (r['Plan']||'').trim().replace(/\*/g,'').trim();
-  if(!p) return null;
+  // 1) Try the 'Plan' column directly from the onboarding row (case/space tolerant)
+  let raw = '';
+  if (r['Plan'] !== undefined && r['Plan'] !== null) raw = r['Plan'].toString();
+  if (!raw.trim()) {
+    const key = Object.keys(r).find(k => k.trim().toLowerCase() === 'plan');
+    if (key) raw = (r[key]||'').toString();
+  }
+  let p = raw.trim().replace(/\*/g,'').trim();
+  // 2) Fallback: cross-reference via acctById using user_id (in case Plan col is empty/missing)
+  if (!p) {
+    const uid = getOnbUserId(r);
+    const acct = acctById[uid];
+    if (acct) p = (acct['Planes Funnelchat']||'').trim();
+  }
+  if (!p) return null;
   // Normalize to standard plan names
   if(p.toLowerCase().includes('advanced personalizado')||p.toLowerCase().includes('adv. pers')) return 'Advanced Personalizado';
   if(p.toLowerCase().includes('advanced')) return 'Plan Advanced';
@@ -3206,18 +3218,18 @@ function renderActivacion(m) {
     + onbVsSinPanel(a)
     + ahaTable(m.ahaStatsMes, m.ahaStats)
     + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:14px">'
-    +   '<div><div style="font-size:9px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px">Distribución por nivel</div>' + bucketBars + '</div>'
-    +   '<div><div style="font-size:9px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px">Promedio por plan</div>' + planRows + '</div>'
+    +   '<div><div style="font-size:9px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:2px">Distribución por nivel</div>'+'<div style="font-size:8px;color:rgba(148,163,184,.6);margin-bottom:7px">Base: '+a.withData+' de '+a.n+' cuentas con % registrado</div>' + bucketBars + '</div>'
+    +   '<div><div style="font-size:9px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:2px">Promedio por plan</div>'+'<div style="font-size:8px;color:rgba(148,163,184,.6);margin-bottom:7px">% promedio de implementación (solo cuentas con dato)</div>' + planRows + '</div>'
     + '</div>'
     + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">'
-    +   '<div><div style="font-size:9px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px">Por segmento</div>' + segActRows + '</div>'
-    +   '<div><div style="font-size:9px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px">Por objetivo declarado</div>' + objRows + '</div>'
+    +   '<div><div style="font-size:9px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:2px">Por segmento</div>'+'<div style="font-size:8px;color:rgba(148,163,184,.6);margin-bottom:7px">% promedio · sub-filas: solo cuentas con dato, separadas por ONB/sesiones</div>' + segActRows + '</div>'
+    +   '<div><div style="font-size:9px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:2px">Por objetivo declarado</div>'+'<div style="font-size:8px;color:rgba(148,163,184,.6);margin-bottom:7px">% promedio de implementación (solo cuentas con dato)</div>' + objRows + '</div>'
     + '</div>'
     + '<div style="font-size:9px;color:var(--muted);margin-top:10px">Fuente: columna % Nivel de implementación · cuentas pagas creadas durante el mes seleccionado</div>'
 
     // Feature usage section
     + '<div style="border-top:1px solid var(--border);margin-top:14px;padding-top:14px">'
-    +   '<div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:12px">⚙ Adopción por funcionalidad</div>'
+    +   '<div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:2px">⚙ Adopción por funcionalidad</div>'+'<div style="font-size:8px;color:rgba(148,163,184,.6);margin-bottom:10px">Base: las '+a.totalBase+' cuentas nuevas del mes (todas, con o sin % de implementación registrado)</div>'
     +   '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">'
     +   featurePanel('Usa flows', a.flowDist, a.flowsActivos, a.totalBase, 3, 'var(--blue)')
     +   featurePanel('Usa grupos', a.gruposDist, a.gruposActivos, a.totalBase, 2, 'var(--teal)')
