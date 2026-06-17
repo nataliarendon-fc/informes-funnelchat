@@ -477,10 +477,10 @@ function getOnbPlan(r, acctMap){
   return p; // return as-is if doesn't match known plans
 }
 function getOnbTipo(r){
-  const t=(r['Tipo de usuario']||r['Tipo de cuenta']||'').trim().toLowerCase();
-  if(t.includes('antiguo')||t.includes('antigua')) return 'antiguo';
-  if(t.includes('nuevo')||t.includes('nueva')||t.includes('new')) return 'nuevas';
-  // Fallback: use Días para ONB — ≤30 = nueva, >30 = antigua
+  // Clasificación exclusivamente por días: Fecha de creación vs fecha de ONB validada
+  // (Días para ONB, o fallback Fecha asignación etiqueta - Fecha de creación)
+  // ≤30 días = cuenta nueva · >30 días = cuenta antigua
+  // No se usa la columna de texto "Tipo de usuario" porque puede venir desactualizada/incorrecta.
   const d = getOnbDias(r);
   if(d !== null) return d <= 30 ? 'nuevas' : 'antiguo';
   return null;
