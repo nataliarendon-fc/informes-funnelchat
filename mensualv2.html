@@ -452,7 +452,7 @@ function getOnbDias(r) {
   }
   return null;
 }
-function getOnbPlan(r){
+function getOnbPlan(r, acctMap){
   // 1) Try the 'Plan' column directly from the onboarding row (case/space tolerant)
   let raw = '';
   if (r['Plan'] !== undefined && r['Plan'] !== null) raw = r['Plan'].toString();
@@ -461,10 +461,10 @@ function getOnbPlan(r){
     if (key) raw = (r[key]||'').toString();
   }
   let p = raw.trim().replace(/\*/g,'').trim();
-  // 2) Fallback: cross-reference via acctById using user_id (in case Plan col is empty/missing)
-  if (!p) {
+  // 2) Fallback: cross-reference via acctMap using user_id (in case Plan col is empty/missing)
+  if (!p && acctMap) {
     const uid = getOnbUserId(r);
-    const acct = acctById[uid];
+    const acct = acctMap[uid];
     if (acct) p = (acct['Planes Funnelchat']||'').trim();
   }
   if (!p) return null;
@@ -1142,7 +1142,7 @@ function calcMonth(off){
   const onbByPlanStats = (() => {
     const planMap = {};
     onbGHLAsist.forEach(r => {
-      const plan = getOnbPlan(r) || 'Sin plan';
+      const plan = getOnbPlan(r, acctById) || 'Sin plan';
       if(!planMap[plan]) planMap[plan] = [];
       planMap[plan].push(r);
     });
