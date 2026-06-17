@@ -272,9 +272,8 @@ body{background:var(--navy);color:var(--text);font-family:'DM Sans',sans-serif;f
       <div style="flex:1;height:1px;background:var(--border)"></div>
     </div>
     <div id="onbEnrichedPanel" style="margin-bottom:16px"></div>
-    <div id="onbNoShowPanel" style="margin-bottom:16px"></div>
-    <div id="tiempoOnbPanel" style="margin-bottom:16px"></div>
     <div id="activacionPanel" style="margin-bottom:16px"></div>
+    <div id="onbNoShowPanel" style="margin-bottom:16px"></div>
 
     <div style="font-size:9px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.12em;margin:4px 0 12px;display:flex;align-items:center;gap:10px">
       <span>Otros canales de retención</span>
@@ -1678,15 +1677,13 @@ function render(m){
   const onbImpEl=document.getElementById('onbImpactTable');
   if(onbImpEl){
     onbImpEl.innerHTML=impactTable('Onboarding','Con ONB','Sin ONB',m.onbImpact,'var(--green2)')+ahaTable(m.ahaStatsMes,m.ahaStats);
-  // ONB enriched panel
+  // ONB enriched panel (now includes merged tiempo-al-ONB detail)
   const onbEnrEl = document.getElementById('onbEnrichedPanel');
   if (onbEnrEl) onbEnrEl.innerHTML = renderOnbEnriched(m);
-  const onbNSEl = document.getElementById('onbNoShowPanel');
-  if (onbNSEl) onbNSEl.innerHTML = renderNoShowProfile(m);
-  const tOnbEl = document.getElementById('tiempoOnbPanel');
-  if (tOnbEl) tOnbEl.innerHTML = renderTiempoOnb(m);
   const actEl = document.getElementById('activacionPanel');
   if (actEl) actEl.innerHTML = renderActivacion(m);
+  const onbNSEl = document.getElementById('onbNoShowPanel');
+  if (onbNSEl) onbNSEl.innerHTML = renderNoShowProfile(m);
   }
 
   const cobDlt=(now,prev)=>{
@@ -2668,7 +2665,7 @@ function renderOnbEnriched(m) {
   ).join('');
 
   return `<div style="background:rgba(255,255,255,.02);border:1px solid var(--border);border-radius:12px;padding:16px 18px;margin-top:4px">
-    <div style="font-size:10px;font-weight:700;color:var(--teal);text-transform:uppercase;letter-spacing:.08em;margin-bottom:14px">Detalle ONB — Tipo de cuenta y responsable</div>
+    <div style="font-size:10px;font-weight:700;color:var(--teal);text-transform:uppercase;letter-spacing:.08em;margin-bottom:14px">Detalle ONB — Tipo de cuenta, responsable y tiempo al ONB</div>
 
     <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:12px;margin-bottom:16px">
       <div style="background:rgba(45,212,191,.06);border:1px solid rgba(45,212,191,.15);border-radius:8px;padding:12px">
@@ -2702,7 +2699,7 @@ function renderOnbEnriched(m) {
       </div>
     </div>
 
-    ${buildOnbPlanTable(m.onbByPlan||[])}
+    ${renderTiempoOnbInner(m)}
   </div>`;
 }
 
@@ -2791,47 +2788,7 @@ function renderNoShowProfile(m) {
     + '</div>';
 }
 
-function buildOnbPlanTable(rows) {
-  if (!rows.length) return '';
-  const planColors = {'Plan Starter':'#60a5fa','Plan Growth':'#a78bfa','Plan Advanced':'#2dd4bf','Advanced Personalizado':'#fbbf24'};
-  const maxAvg = Math.max(...rows.map(r=>r.avg||0), 1);
-  const minAvg = Math.min(...rows.filter(r=>r.avg!==null).map(r=>r.avg));
-  const trs = rows.map(r => {
-    const pct  = r.avg !== null ? Math.round(r.avg/maxAvg*100) : 0;
-    const fast = r.avg !== null && r.avg === minAvg;
-    const c    = planColors[r.plan] || 'rgba(100,116,139,.5)';
-    return '<tr style="border-bottom:1px solid var(--border)">'
-      + '<td style="padding:7px 12px;font-size:11px;font-weight:600;color:'+c+'">' + r.plan.replace('Plan ','') + '</td>'
-      + '<td style="padding:7px 10px;text-align:center;font-size:11px">' + r.n + '</td>'
-      + '<td style="padding:7px 10px;text-align:center">'
-      +   (r.avg !== null
-           ? '<span style="font-family:Syne,sans-serif;font-weight:800;font-size:15px;color:'+c+'">' + r.avg + 'd</span>'
-             + (fast ? '<span style="font-size:9px;color:var(--teal);margin-left:4px">✓ más rápido</span>' : '')
-           : '<span style="color:var(--muted)">—</span>')
-      + '</td>'
-      + '<td style="padding:7px 10px;text-align:center;font-size:11px;color:var(--muted)">' + (r.min!==null?r.min+'d':'—') + '</td>'
-      + '<td style="padding:7px 10px;text-align:center;font-size:11px;color:var(--muted)">' + (r.max!==null?r.max+'d':'—') + '</td>'
-      + '<td style="padding:7px 10px">'
-      +   (r.avg !== null
-           ? '<div style="height:6px;background:rgba(255,255,255,.05);border-radius:3px;overflow:hidden">'
-             + '<div style="width:'+pct+'%;height:100%;background:'+c+';border-radius:3px"></div></div>'
-           : '')
-      + '</td></tr>';
-  }).join('');
-  return '<div style="border-top:1px solid var(--border);padding-top:14px">'
-    + '<div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:10px">Días hasta ONB por plan — ¿los planes avanzados llegan más rápido?</div>'
-    + '<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;min-width:420px">'
-    + '<thead><tr style="background:rgba(255,255,255,.02)">'
-    + '<th style="padding:6px 12px;font-size:10px;color:var(--muted);text-align:left;border-bottom:1px solid var(--border)">Plan</th>'
-    + '<th style="padding:6px 10px;font-size:10px;color:var(--muted);text-align:center;border-bottom:1px solid var(--border)">Cuentas</th>'
-    + '<th style="padding:6px 10px;font-size:10px;color:var(--teal);text-align:center;border-bottom:1px solid var(--border)">Días promedio</th>'
-    + '<th style="padding:6px 10px;font-size:10px;color:var(--muted);text-align:center;border-bottom:1px solid var(--border)">Mín</th>'
-    + '<th style="padding:6px 10px;font-size:10px;color:var(--muted);text-align:center;border-bottom:1px solid var(--border)">Máx</th>'
-    + '<th style="padding:6px 10px;font-size:10px;color:var(--muted);text-align:left;border-bottom:1px solid var(--border)">Velocidad relativa</th>'
-    + '</tr></thead><tbody>' + trs + '</tbody></table></div>'
-    + '<div style="font-size:9px;color:var(--muted);margin-top:8px">Días = creación de cuenta → sesión ONB · barra proporcional al plan más lento</div>'
-    + '</div>';
-}
+
 
 function renderBaiben(m) {
   const el = document.getElementById('baibenSection');
@@ -3044,7 +3001,7 @@ function renderBaiben(m) {
 }
 
 
-function renderTiempoOnb(m) {
+function renderTiempoOnbInner(m) {
   const t = m.tiempoOnb;
   if (!t || !t.all) return '<div style="color:var(--muted);font-size:11px;padding:8px 0">Sin datos de tiempo al ONB en el período.</div>';
   const planColors = {'Plan Starter':'#60a5fa','Plan Growth':'#a78bfa','Plan Advanced':'#2dd4bf','Advanced Personalizado':'#fbbf24'};
@@ -3142,8 +3099,8 @@ function renderTiempoOnb(m) {
 
   // ── By segment rows ───────────────────────────────
 
-  return '<div style="background:rgba(255,255,255,.02);border:1px solid var(--border);border-radius:12px;padding:16px 18px;margin-top:4px">'
-    + '<div style="font-size:10px;font-weight:700;color:var(--teal);text-transform:uppercase;letter-spacing:.08em;margin-bottom:14px">⏱ Tiempo entre alta de cuenta y sesión de ONB</div>'
+  return '<div style="border-top:1px solid var(--border);margin-top:14px;padding-top:14px">'
+    + '<div style="font-size:10px;font-weight:700;color:var(--teal);text-transform:uppercase;letter-spacing:.08em;margin-bottom:14px">⏱ Tiempo hasta el ONB — distribución, por plan y por segmento</div>'
 
     // Global summary
     + '<div style="font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px">Total · '+t.all.n+' asistentes con datos</div>'
