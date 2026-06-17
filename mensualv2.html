@@ -443,11 +443,12 @@ function getOnbDias(r) {
   // First try the explicit column
   const v = parseInt((r['Días para ONB']||'').toString().replace(/[^0-9]/g,''));
   if (!isNaN(v) && v >= 0) return v;
-  // Fallback: calculate from Fecha de creación → Fecha de ONB GHL
-  const ghl     = getOnbGHLDate(r);
+  // Fallback: calculate from Fecha de creación → Fecha asignación etiqueta
+  // (Fecha asignación etiqueta tiene mejor cobertura que Fecha de ONB GHL, que suele venir vacía)
+  const asign   = parseSpDate(r['Fecha asignación etiqueta']) || parseISO(r['Fecha asignación etiqueta']);
   const created = parseSpDate(r['Fecha de creación']) || parseISO(r['Fecha de creación']);
-  if (ghl && created) {
-    const days = Math.round((ghl - created) / 86400000);
+  if (asign && created) {
+    const days = Math.round((asign - created) / 86400000);
     return days >= 0 ? days : null;
   }
   return null;
