@@ -1,0 +1,511 @@
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap');
+
+.rx-app {
+  --bg: #0F1115;
+  --surface: #161A20;
+  --surface-2: #1C212A;
+  --border: #2A2F39;
+  --border-soft: #21262F;
+  --text: #ECE9E2;
+  --text-dim: #9099A3;
+  --text-faint: #5C6470;
+  --accent: #FF6B35;
+  --accent-dim: #B84F28;
+  --critical: #FF5C5C;
+  --warning: #F5A623;
+  --good: #4CC38A;
+  --font-display: 'Space Grotesk', sans-serif;
+  --font-body: 'Inter', sans-serif;
+  --font-mono: 'IBM Plex Mono', monospace;
+
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-body);
+  padding: 40px 24px 64px;
+  border-radius: 16px;
+  max-width: 1180px;
+  margin: 0 auto;
+  box-sizing: border-box;
+  line-height: 1.55;
+}
+.rx-app *, .rx-app *::before, .rx-app *::after { box-sizing: border-box; }
+
+/* ---------- Header ---------- */
+.rx-header { text-align: left; margin-bottom: 36px; }
+.rx-eyebrow {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  letter-spacing: 2px;
+  color: var(--accent);
+  text-transform: uppercase;
+  margin: 0 0 14px;
+}
+.rx-title {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 44px;
+  letter-spacing: -0.5px;
+  margin: 0;
+  color: var(--text);
+}
+.rx-title .dot { color: var(--accent); }
+.rx-subtitle {
+  font-size: 16px;
+  color: var(--text-dim);
+  max-width: 560px;
+  margin: 12px 0 0;
+}
+.rx-scanline {
+  margin-top: 26px;
+  height: 2px;
+  background: var(--border-soft);
+  position: relative;
+  overflow: hidden;
+  border-radius: 2px;
+}
+.rx-scanline::after {
+  content: '';
+  position: absolute;
+  top: 0; left: -25%;
+  width: 25%; height: 100%;
+  background: linear-gradient(90deg, transparent, var(--accent), transparent);
+  animation: rx-sweep 3.6s ease-in-out infinite;
+}
+.rx-scanline.scanning::after { animation-duration: 1s; }
+@keyframes rx-sweep { 0% { left: -25%; } 100% { left: 100%; } }
+
+/* ---------- Grid ---------- */
+.rx-grid { display: grid; grid-template-columns: 420px 1fr; gap: 24px; align-items: start; }
+@media (max-width: 880px) { .rx-grid { grid-template-columns: 1fr; } }
+
+.rx-panel {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 22px;
+}
+
+/* ---------- Input panel ---------- */
+.rx-field { margin-bottom: 20px; }
+.rx-field-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 4px; }
+.rx-label { font-family: var(--font-mono); font-size: 12.5px; color: var(--text); font-weight: 500; letter-spacing: 0.3px; }
+.rx-optional { color: var(--text-faint); font-weight: 400; }
+.rx-hint { font-size: 12.5px; color: var(--text-faint); margin: 0 0 8px; line-height: 1.5; }
+.rx-upload {
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  color: var(--text-dim);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 4px 9px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: border-color 0.15s, color 0.15s;
+}
+.rx-upload:hover { border-color: var(--accent-dim); color: var(--text); }
+
+textarea.rx-input {
+  width: 100%;
+  min-height: 150px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text);
+  font-family: var(--font-body);
+  font-size: 13.5px;
+  padding: 12px 14px;
+  resize: vertical;
+  line-height: 1.5;
+}
+textarea.rx-input:focus {
+  outline: none;
+  border-color: var(--accent-dim);
+  box-shadow: 0 0 0 3px rgba(255,107,53,0.12);
+}
+textarea.rx-input::placeholder { color: var(--text-faint); }
+#rx-conversacion.rx-input { min-height: 100px; }
+
+.rx-btn-primary {
+  width: 100%;
+  background: var(--accent);
+  color: #1A1100;
+  border: none;
+  border-radius: 8px;
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 15px;
+  padding: 13px 18px;
+  cursor: pointer;
+  transition: background 0.15s, transform 0.1s;
+}
+.rx-btn-primary:hover:not(:disabled) { background: #FF7E4F; }
+.rx-btn-primary:active:not(:disabled) { transform: scale(0.99); }
+.rx-btn-primary:disabled { opacity: 0.55; cursor: not-allowed; }
+
+.rx-error {
+  margin-top: 12px;
+  font-size: 13px;
+  color: var(--critical);
+  background: rgba(255,92,92,0.08);
+  border: 1px solid rgba(255,92,92,0.3);
+  border-radius: 8px;
+  padding: 10px 12px;
+}
+
+/* ---------- Output panel ---------- */
+.rx-output { min-height: 420px; display: flex; flex-direction: column; }
+
+.rx-empty {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  color: var(--text-faint);
+  padding: 40px 20px;
+}
+.rx-empty-icon { font-size: 34px; margin-bottom: 14px; opacity: 0.6; }
+.rx-empty-title { font-family: var(--font-display); font-size: 17px; color: var(--text-dim); margin: 0 0 6px; font-weight: 600; }
+.rx-empty-text { font-size: 13.5px; max-width: 320px; margin: 0; line-height: 1.6; }
+
+.rx-loading { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 20px; padding: 40px; }
+.rx-bars { display: flex; gap: 5px; align-items: flex-end; height: 40px; }
+.rx-bars span { width: 5px; background: var(--accent); border-radius: 3px; animation: rx-bar 1s ease-in-out infinite; }
+.rx-bars span:nth-child(1){animation-delay:0s;}
+.rx-bars span:nth-child(2){animation-delay:0.12s;}
+.rx-bars span:nth-child(3){animation-delay:0.24s;}
+.rx-bars span:nth-child(4){animation-delay:0.36s;}
+.rx-bars span:nth-child(5){animation-delay:0.48s;}
+.rx-bars span:nth-child(6){animation-delay:0.6s;}
+.rx-bars span:nth-child(7){animation-delay:0.72s;}
+@keyframes rx-bar { 0%,100%{height:8px;} 50%{height:38px;} }
+.rx-loading-phrase { font-family: var(--font-mono); font-size: 13px; color: var(--text-dim); letter-spacing: 0.3px; }
+
+.rx-report-toolbar { display: flex; justify-content: flex-end; margin-bottom: 14px; }
+.rx-btn-copy {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--text-dim);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 6px 12px;
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s;
+}
+.rx-btn-copy:hover { border-color: var(--accent-dim); color: var(--text); }
+.rx-btn-copy.copied { color: var(--good); border-color: var(--good); }
+
+.rx-report h1 {
+  font-family: var(--font-display);
+  font-size: 18px;
+  color: var(--text);
+  margin: 0 0 10px;
+}
+.rx-report p { font-size: 14px; color: var(--text); margin: 0 0 14px; line-height: 1.65; }
+.rx-report ul { margin: 0 0 16px; padding-left: 20px; }
+.rx-report li { font-size: 14px; color: var(--text); margin-bottom: 6px; line-height: 1.6; }
+.rx-report strong { color: var(--text); font-weight: 600; }
+
+.rx-report h2.finding-title {
+  font-family: var(--font-display);
+  font-size: 15.5px;
+  font-weight: 600;
+  margin: 22px 0 8px;
+  padding: 9px 14px;
+  border-radius: 8px;
+  border-left: 3px solid var(--border);
+  background: var(--surface-2);
+}
+.rx-report h2.finding-title:first-of-type { margin-top: 4px; }
+.rx-report h2.finding-title.sev-critical { border-left-color: var(--critical); background: rgba(255,92,92,0.08); }
+.rx-report h2.finding-title.sev-warning { border-left-color: var(--warning); background: rgba(245,166,35,0.08); }
+.rx-report h2.finding-title.sev-minor { border-left-color: var(--good); background: rgba(76,195,138,0.08); }
+
+.rx-footnote { margin-top: 24px; font-size: 11.5px; color: var(--text-faint); font-family: var(--font-mono); }
+
+@media (prefers-reduced-motion: reduce) {
+  .rx-scanline::after, .rx-bars span { animation: none !important; }
+}
+</style>
+
+<div class="rx-app">
+  <div class="rx-header">
+    <p class="rx-eyebrow">Diagnóstico de agentes IA</p>
+    <h1 class="rx-title">Rayos&#8209;X<span class="dot">.</span></h1>
+    <p class="rx-subtitle">Pega el entrenamiento de un agente de IA y descubre qué falla antes que tus clientes lo hagan.</p>
+    <div class="rx-scanline" id="rx-scanline"></div>
+  </div>
+
+  <div class="rx-grid">
+    <div class="rx-panel">
+      <div class="rx-field">
+        <div class="rx-field-head">
+          <span class="rx-label">Entrenamiento del agente</span>
+          <label class="rx-upload" for="rx-file-entrenamiento">Subir .txt</label>
+          <input type="file" id="rx-file-entrenamiento" accept=".txt,.md" hidden />
+        </div>
+        <p class="rx-hint">Pega el system prompt y/o la base de conocimiento completa. Mientras más completo, mejor el diagnóstico.</p>
+        <textarea class="rx-input" id="rx-entrenamiento" placeholder="Pega aquí las instrucciones y el entrenamiento del agente..."></textarea>
+      </div>
+
+      <div class="rx-field">
+        <div class="rx-field-head">
+          <span class="rx-label">Conversación observada <span class="rx-optional">(opcional)</span></span>
+          <label class="rx-upload" for="rx-file-conversacion">Subir .txt</label>
+          <input type="file" id="rx-file-conversacion" accept=".txt,.md" hidden />
+        </div>
+        <p class="rx-hint">Pega fragmentos donde el agente respondió mal, para verificarlos contra su entrenamiento.</p>
+        <textarea class="rx-input" id="rx-conversacion" placeholder="Ej: el cliente preguntó X y el agente respondió Y..."></textarea>
+      </div>
+
+      <button class="rx-btn-primary" id="rx-btn-analizar">Analizar agente</button>
+      <div class="rx-error" id="rx-error" style="display:none;"></div>
+    </div>
+
+    <div class="rx-panel rx-output">
+      <div class="rx-empty" id="rx-empty">
+        <div class="rx-empty-icon">&#129502;</div>
+        <p class="rx-empty-title">Sin diagnóstico todavía</p>
+        <p class="rx-empty-text">Pega el entrenamiento de un agente a la izquierda y presiona "Analizar agente" para ver hallazgos, vacíos y contradicciones.</p>
+      </div>
+
+      <div class="rx-loading" id="rx-loading" style="display:none;">
+        <div class="rx-bars"><span></span><span></span><span></span><span></span><span></span><span></span><span></span></div>
+        <p class="rx-loading-phrase" id="rx-loading-phrase">Leyendo el entrenamiento...</p>
+      </div>
+
+      <div class="rx-report" id="rx-report" style="display:none;">
+        <div class="rx-report-toolbar">
+          <button class="rx-btn-copy" id="rx-btn-copy">Copiar informe</button>
+        </div>
+        <div id="rx-report-content"></div>
+        <p class="rx-footnote">Generado con Claude · Verifica los hallazgos críticos antes de implementar cambios.</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function() {
+  const SYSTEM_PROMPT = `Eres un auditor experto en agentes de IA conversacionales para WhatsApp y otros canales de atención automatizada. Tu trabajo es analizar el entrenamiento (system prompt + base de conocimiento) de un agente de IA y, si se proporciona, contrastarlo con ejemplos reales de conversación, para detectar fallas, vacíos y contradicciones que afectan su desempeño.
+
+METODOLOGÍA:
+1. Si se proporcionan ejemplos de conversación o comportamientos observados, verifica cada afirmación del agente contra el entrenamiento: clasifícala como correcta, imprecisa/incompleta, o inventada (alucinación), y explica la causa raíz (dato faltante, dato ignorado, conocimiento general del modelo filtrándose, o el agente cediendo ante presión del usuario).
+2. Siempre revisa la configuración completa en busca de estos patrones de falla recurrentes:
+   - Reglas con límites numéricos que terminan habilitando el comportamiento en vez de restringirlo (ej. "máximo 3 mensajes" interpretado como permiso en vez de límite).
+   - Ausencia de regla para manejar premisas falsas o presión del usuario (el agente no debe ceder ni confirmar algo que no está documentado, aunque el usuario insista o suene seguro).
+   - Promociones, descuentos o datos con vigencia temporal sin fecha de inicio o mecanismo de expiración verificable.
+   - Datos que existen en el entrenamiento pero están desconectados de la entrada estructurada del producto/servicio al que pertenecen (ej. precio mencionado aparte, sin vincularlo al nombre del producto).
+   - Bloques de contenido duplicados que pueden causar respuestas largas, repetidas o inconsistentes.
+   - Ausencia de ruta de escalamiento a humano, o triggers de escalamiento ambiguos o contradictorios.
+   - Solo se documenta lo que SÍ existe (productos, métodos de pago, políticas) sin aclarar explícitamente lo que NO existe o no aplica.
+   - Enlaces o CTAs múltiples sin un criterio claro de cuál usar y en qué momento.
+   - Campos vacíos o incompletos en la base de conocimiento.
+   - Falta de datos de contacto humano, horarios de atención, políticas de cancelación o devolución.
+   - Conflicto entre instrucciones específicas del cliente y reglas genéricas del sistema, cuando se mencionan reglas de sistema no editables.
+
+FORMATO DE RESPUESTA (sé conciso, tienes espacio limitado — prioriza lo más importante):
+Responde siempre en español. Estructura tu respuesta así, usando exactamente esta sintaxis markdown:
+
+## Resumen
+1-2 frases sobre el estado general del agente y su capacidad de cumplir su objetivo.
+
+Luego, máximo 6 hallazgos, cada uno con este formato exacto:
+
+## [emoji] Título corto del hallazgo
+Usa 🔴 al inicio del título para crítico/bloqueante, 🟡 para importante, 🔵 para mejora menor.
+Explicación breve de qué falta o está mal (máximo 3 líneas).
+**Por qué importa:** una línea.
+**Cómo corregirlo:** una línea con la acción concreta y, si aplica, un ejemplo de texto.
+
+Cierra siempre con:
+
+## Prioridad inmediata
+Lista breve (viñetas) de los 2-3 hallazgos que se deben resolver primero.
+
+Reglas de formato: no uses tablas markdown, no uses encabezados de nivel 1 (#), solo nivel 2 (##). No te extiendas más de lo necesario — cada hallazgo debe poder leerse en segundos. Si algo del entrenamiento está bien resuelto, puedes mencionarlo brevemente en el resumen, pero concentra el espacio disponible en los problemas reales y accionables.`;
+
+  const LOADING_PHRASES = [
+    "Leyendo el entrenamiento...",
+    "Buscando contradicciones...",
+    "Verificando reglas anti-alucinación...",
+    "Detectando vacíos de información...",
+    "Comparando comportamiento con la base de conocimiento...",
+    "Redactando el diagnóstico..."
+  ];
+
+  const $ = (id) => document.getElementById(id);
+  const entrenamientoEl = $('rx-entrenamiento');
+  const conversacionEl = $('rx-conversacion');
+  const btnAnalizar = $('rx-btn-analizar');
+  const errorEl = $('rx-error');
+  const emptyEl = $('rx-empty');
+  const loadingEl = $('rx-loading');
+  const loadingPhraseEl = $('rx-loading-phrase');
+  const reportEl = $('rx-report');
+  const reportContentEl = $('rx-report-content');
+  const btnCopy = $('rx-btn-copy');
+  const scanlineEl = $('rx-scanline');
+
+  let phraseInterval = null;
+  let lastReportText = '';
+
+  function setupFileUpload(inputId, targetTextareaEl) {
+    $(inputId).addEventListener('change', function(e) {
+      const file = e.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = function(evt) {
+        targetTextareaEl.value = evt.target.result;
+      };
+      reader.readAsText(file);
+    });
+  }
+  setupFileUpload('rx-file-entrenamiento', entrenamientoEl);
+  setupFileUpload('rx-file-conversacion', conversacionEl);
+
+  function showError(msg) {
+    errorEl.textContent = msg;
+    errorEl.style.display = 'block';
+  }
+  function hideError() {
+    errorEl.style.display = 'none';
+  }
+
+  function escapeHtml(text) {
+    return text
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;');
+  }
+
+  const NL = String.fromCharCode(10);
+
+  function inlineFormat(text) {
+    let t = escapeHtml(text);
+    t = t.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+    return t;
+  }
+
+  function renderMarkdown(md) {
+    const lines = md.split(NL);
+    let html = '';
+    let inList = false;
+    for (let raw of lines) {
+      const line = raw.trim();
+      if (!line) {
+        if (inList) { html += '</ul>'; inList = false; }
+        continue;
+      }
+      if (line.startsWith('## ')) {
+        if (inList) { html += '</ul>'; inList = false; }
+        const text = line.slice(3);
+        let sevClass = '';
+        if (text.indexOf('🔴') !== -1) sevClass = 'sev-critical';
+        else if (text.indexOf('🟡') !== -1) sevClass = 'sev-warning';
+        else if (text.indexOf('🔵') !== -1) sevClass = 'sev-minor';
+        html += '<h2 class="finding-title ' + sevClass + '">' + inlineFormat(text) + '</h2>';
+      } else if (line.startsWith('- ') || line.startsWith('* ')) {
+        if (!inList) { html += '<ul>'; inList = true; }
+        html += '<li>' + inlineFormat(line.slice(2)) + '</li>';
+      } else {
+        if (inList) { html += '</ul>'; inList = false; }
+        html += '<p>' + inlineFormat(line) + '</p>';
+      }
+    }
+    if (inList) html += '</ul>';
+    return html;
+  }
+
+  function setState(state) {
+    emptyEl.style.display = state === 'empty' ? 'flex' : 'none';
+    loadingEl.style.display = state === 'loading' ? 'flex' : 'none';
+    reportEl.style.display = state === 'report' ? 'block' : 'none';
+  }
+
+  function startLoadingPhrases() {
+    let i = 0;
+    loadingPhraseEl.textContent = LOADING_PHRASES[0];
+    phraseInterval = setInterval(function() {
+      i = (i + 1) % LOADING_PHRASES.length;
+      loadingPhraseEl.textContent = LOADING_PHRASES[i];
+    }, 1600);
+  }
+  function stopLoadingPhrases() {
+    if (phraseInterval) { clearInterval(phraseInterval); phraseInterval = null; }
+  }
+
+  async function analizar() {
+    hideError();
+    const entrenamiento = entrenamientoEl.value.trim();
+    const conversacion = conversacionEl.value.trim();
+
+    if (!entrenamiento) {
+      showError('Pega el entrenamiento del agente para poder analizarlo.');
+      return;
+    }
+
+    btnAnalizar.disabled = true;
+    btnAnalizar.textContent = 'Analizando...';
+    scanlineEl.classList.add('scanning');
+    setState('loading');
+    startLoadingPhrases();
+
+    const userMessage = SYSTEM_PROMPT + NL + NL + '---' + NL + NL +
+      'ENTRENAMIENTO / INSTRUCCIONES DEL AGENTE:' + NL + entrenamiento +
+      (conversacion
+        ? NL + NL + 'COMPORTAMIENTO OBSERVADO / CONVERSACIÓN A VERIFICAR:' + NL + conversacion
+        : NL + NL + 'No se proporcionaron ejemplos de conversación. Enfócate en analizar la configuración en busca de vacíos, contradicciones y riesgos.');
+
+    try {
+      const response = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          model: 'claude-sonnet-4-6',
+          max_tokens: 1000,
+          messages: [{ role: 'user', content: userMessage }]
+        })
+      });
+
+      if (!response.ok) throw new Error('request_failed');
+
+      const data = await response.json();
+      const textBlocks = (data.content || []).filter(function(b) { return b.type === 'text'; });
+      const text = textBlocks.map(function(b) { return b.text; }).join(NL);
+
+      if (!text) throw new Error('empty_response');
+
+      lastReportText = text;
+      reportContentEl.innerHTML = renderMarkdown(text);
+      setState('report');
+    } catch (err) {
+      setState('empty');
+      showError('Hubo un problema al generar el diagnóstico. Intenta nuevamente en unos segundos.');
+    } finally {
+      stopLoadingPhrases();
+      scanlineEl.classList.remove('scanning');
+      btnAnalizar.disabled = false;
+      btnAnalizar.textContent = 'Analizar agente';
+    }
+  }
+
+  btnAnalizar.addEventListener('click', analizar);
+
+  btnCopy.addEventListener('click', function() {
+    if (!lastReportText) return;
+    navigator.clipboard.writeText(lastReportText).then(function() {
+      btnCopy.textContent = 'Copiado ✓';
+      btnCopy.classList.add('copied');
+      setTimeout(function() {
+        btnCopy.textContent = 'Copiar informe';
+        btnCopy.classList.remove('copied');
+      }, 1800);
+    });
+  });
+})();
+</script>
