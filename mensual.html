@@ -1228,6 +1228,15 @@ function calcMonth(off){
   }).filter(s=>s.stats);
 
   // ── Cuentas vaivén (van y vienen) ──────────────────
+  // Mapa de TODOS los pagos por usuario (incluye trials) — temporadas de actividad de pago
+  const paysByUserM = {};
+  RAW.payments.forEach(p => {
+    const uid = (p['User ID']||'').toString().trim();
+    if (!uid) return;
+    const d = parseSpanishLong(p['Date']) || parseSpDate(p['Date']) || parseISO(p['Date']);
+    if (!d) return;
+    (paysByUserM[uid] = paysByUserM[uid] || []).push({ d });
+  });
   const GAP_DIAS = 60;
   const baibenMap = {};
   Object.entries(paysByUserM).forEach(([uid, pays]) => {
