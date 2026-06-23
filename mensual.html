@@ -8,13 +8,13 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,400&display=swap" rel="stylesheet">
 <style>
-:root{--navy:#0d1528;--navy2:#131e35;--navy3:#1a2744;--navy4:#1f2f52;--green:#4ade80;--green2:#22c55e;--pink:#f472b6;--orange:#fb923c;--red:#f87171;--blue:#60a5fa;--yellow:#fbbf24;--purple:#a78bfa;--teal:#2dd4bf;--text:#e2e8f0;--muted:#94a3b8;--border:rgba(255,255,255,0.07);--card:rgba(255,255,255,0.04)}
+:root{--navy:#f1f5f9;--navy2:#ffffff;--navy3:#f8fafc;--navy4:#0f172a;--green:#16a34a;--green2:#15803d;--pink:#db2777;--orange:#c2410c;--red:#dc2626;--blue:#2563eb;--yellow:#b45309;--purple:#7c3aed;--teal:#0d9488;--text:#0f172a;--muted:#64748b;--border:rgba(15,23,42,0.10);--card:#ffffff}
 *{box-sizing:border-box;margin:0;padding:0}
 body{background:var(--navy);color:var(--text);font-family:'DM Sans',sans-serif;font-size:14px;line-height:1.6;min-height:100vh}
-.hdr{background:linear-gradient(135deg,#0d1528,#1a2744);border-bottom:1px solid var(--border);padding:20px 44px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100}
+.hdr{background:#ffffff;border-bottom:1px solid var(--border);padding:20px 44px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100;box-shadow:0 1px 3px rgba(15,23,42,.04)}
 .logo{display:flex;align-items:center;gap:12px}
 .logo-icon{width:32px;height:32px;background:var(--green2);clip-path:polygon(50% 0%,100% 25%,100% 75%,50% 100%,0% 75%,0% 25%)}
-.logo-text{font-family:'Syne',sans-serif;font-weight:700;font-size:17px;color:#fff}
+.logo-text{font-family:'Syne',sans-serif;font-weight:700;font-size:17px;color:#0f172a}
 .logo-text span{color:var(--green)}
 .hdr-right{text-align:right}
 .hdr-period{font-family:'Syne',sans-serif;font-size:13px;font-weight:700;color:var(--teal);letter-spacing:.08em;text-transform:uppercase;background:rgba(45,212,191,.1);padding:5px 16px;border-radius:20px;border:1px solid rgba(45,212,191,.25)}
@@ -37,11 +37,11 @@ body{background:var(--navy);color:var(--text);font-family:'DM Sans',sans-serif;f
 .sec-label::after{content:'';flex:1;height:1px;background:var(--border)}
 .sec-num{background:var(--navy4);color:var(--teal);font-size:10px;font-weight:800;padding:2px 8px;border-radius:4px}
 .sec-desc{font-size:11px;color:var(--muted);font-family:'DM Sans',sans-serif;font-weight:400;letter-spacing:0;text-transform:none}
-.card{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:22px 26px;transition:border-color .2s}
-.card:hover{border-color:rgba(255,255,255,.1)}
+.card{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:22px 26px;transition:border-color .2s;box-shadow:0 1px 3px rgba(15,23,42,.04)}
+.card:hover{border-color:rgba(15,23,42,.1)}
 .pulso-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:12px}
-.p-card{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:20px 18px;position:relative;overflow:hidden;transition:all .2s}
-.p-card:hover{transform:translateY(-1px);border-color:rgba(255,255,255,.12)}
+.p-card{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:20px 18px;position:relative;overflow:hidden;transition:all .2s;box-shadow:0 1px 3px rgba(15,23,42,.04)}
+.p-card:hover{transform:translateY(-1px);border-color:rgba(15,23,42,.12)}
 .p-card::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;border-radius:16px 16px 0 0}
 .p-card.c-teal::before{background:var(--teal)}
 .p-card.c-blue::before{background:var(--blue)}
@@ -59,7 +59,7 @@ body{background:var(--navy);color:var(--text);font-family:'DM Sans',sans-serif;f
 .two-col{display:grid;grid-template-columns:1fr 1fr;gap:16px}
 .three-col{display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px}
 .col-4060{display:grid;grid-template-columns:1fr 1.5fr;gap:16px}
-.chart-title{font-family:'Syne',sans-serif;font-size:13px;font-weight:700;margin-bottom:4px;color:#fff}
+.chart-title{font-family:'Syne',sans-serif;font-size:13px;font-weight:700;margin-bottom:4px;color:#0f172a}
 .chart-sub{font-size:11px;color:var(--muted);margin-bottom:14px}
 .chart-wrap{position:relative;height:220px}
 .chart-wrap-lg{position:relative;height:260px}
@@ -69,13 +69,13 @@ body{background:var(--navy);color:var(--text);font-family:'DM Sans',sans-serif;f
 .t-badge .tv{font-family:'Syne',sans-serif;font-weight:700;font-size:15px}
 .motivo-row{display:flex;align-items:center;gap:10px;margin-bottom:10px}
 .motivo-label{font-size:11px;color:var(--muted);width:190px;flex-shrink:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.motivo-track{flex:1;height:8px;background:rgba(255,255,255,.06);border-radius:4px;overflow:hidden}
+.motivo-track{flex:1;height:8px;background:rgba(15,23,42,.06);border-radius:4px;overflow:hidden}
 .motivo-fill{height:100%;border-radius:4px;transition:width .6s ease}
 .motivo-pct{font-family:'Syne',sans-serif;font-size:12px;font-weight:700;width:40px;text-align:right;flex-shrink:0}
 .motivo-n{font-size:10px;color:var(--muted);width:30px;text-align:right;flex-shrink:0}
 .insight{background:rgba(45,212,191,.05);border:1px solid rgba(45,212,191,.15);border-radius:10px;padding:12px 16px;font-size:12px;color:var(--muted);margin-top:12px;line-height:1.6}
 .insight strong{color:var(--teal)}
-.onb-funnel{display:flex;gap:0;margin:12px 0;background:rgba(255,255,255,.02);border-radius:12px;overflow:hidden}
+.onb-funnel{display:flex;gap:0;margin:12px 0;background:rgba(15,23,42,.02);border-radius:12px;overflow:hidden}
 .onb-step{flex:1;text-align:center;padding:16px 8px;position:relative;border-right:1px solid var(--border)}
 .onb-step:last-child{border-right:none}
 .onb-step-val{font-family:'Syne',sans-serif;font-size:24px;font-weight:800;line-height:1}
@@ -92,14 +92,14 @@ body{background:var(--navy);color:var(--text);font-family:'DM Sans',sans-serif;f
 .risk-mini.low .rm-count{color:var(--yellow)}
 .rm-label{font-size:10px;color:var(--muted);margin-top:4px;line-height:1.4}
 .rm-mrr{font-size:11px;font-weight:600;margin-top:6px;color:var(--red)}
-.risk-dl-btn{margin-top:8px;width:100%;padding:5px 0;font-size:10px;font-weight:600;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-radius:6px;color:var(--muted);cursor:pointer;font-family:'DM Sans',sans-serif;transition:all .15s}
+.risk-dl-btn{margin-top:8px;width:100%;padding:5px 0;font-size:10px;font-weight:600;background:rgba(15,23,42,.06);border:1px solid rgba(15,23,42,.1);border-radius:6px;color:var(--muted);cursor:pointer;font-family:'DM Sans',sans-serif;transition:all .15s}
 .risk-dl-btn:hover{background:rgba(45,212,191,.15);color:var(--teal);border-color:rgba(45,212,191,.3)}
 .risk-mini.moderate .rm-mrr{color:var(--orange)}
 .risk-mini.low .rm-mrr{color:var(--yellow)}
 .plan-table{width:100%;border-collapse:collapse}
 .plan-table th{text-align:left;font-size:10px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);padding:0 14px 10px;border-bottom:1px solid var(--border)}
 .plan-table td{padding:13px 14px;border-bottom:1px solid var(--border);font-size:13px;cursor:pointer;vertical-align:top}
-.plan-table td[contenteditable]:focus{outline:none;background:rgba(255,255,255,.03)}
+.plan-table td[contenteditable]:focus{outline:none;background:rgba(15,23,42,.03)}
 .plan-table tr:last-child td{border-bottom:none}
 .status-badge{display:inline-flex;align-items:center;gap:5px;font-size:10px;font-weight:600;padding:3px 10px;border-radius:20px;cursor:pointer;user-select:none;white-space:nowrap}
 .status-badge::before{content:'';width:5px;height:5px;border-radius:50%}
@@ -112,8 +112,8 @@ body{background:var(--navy);color:var(--text);font-family:'DM Sans',sans-serif;f
 .data-note{background:rgba(45,212,191,.06);border:1px solid rgba(45,212,191,.2);border-radius:10px;padding:10px 16px;font-size:11px;color:var(--muted);margin-bottom:24px;display:flex;align-items:center;gap:8px}
 .tip{position:relative;display:inline-flex;align-items:center;cursor:help}
 .tip-icon{width:13px;height:13px;border-radius:50%;background:rgba(148,163,184,.2);color:var(--muted);font-size:9px;font-weight:700;display:inline-flex;align-items:center;justify-content:center;margin-left:4px;flex-shrink:0}
-.tip-box{display:none;position:absolute;bottom:calc(100% + 6px);left:50%;transform:translateX(-50%);background:#1a2744;border:1px solid rgba(45,212,191,.25);border-radius:8px;padding:8px 12px;font-size:10px;color:var(--muted);white-space:nowrap;z-index:200;min-width:220px;line-height:1.5;box-shadow:0 4px 20px rgba(0,0,0,.4)}
-.tip-box strong{color:#fff}
+.tip-box{display:none;position:absolute;bottom:calc(100% + 6px);left:50%;transform:translateX(-50%);background:#ffffff;border:1px solid rgba(13,148,136,.25);border-radius:8px;padding:8px 12px;font-size:10px;color:var(--muted);white-space:nowrap;z-index:200;min-width:220px;line-height:1.5;box-shadow:0 4px 20px rgba(15,23,42,.15)}
+.tip-box strong{color:#0f172a}
 .tip:hover .tip-box{display:block}
 .data-note span{color:var(--teal)}
 ::-webkit-scrollbar{width:5px}::-webkit-scrollbar-track{background:var(--navy)}::-webkit-scrollbar-thumb{background:var(--navy4);border-radius:3px}
@@ -209,7 +209,7 @@ body{background:var(--navy);color:var(--text);font-family:'DM Sans',sans-serif;f
     <!-- 4 dimensiones horizontales con toggle pagas/trial -->
     <div style="display:flex;align-items:center;justify-content:space-between;margin-top:20px;margin-bottom:12px;flex-wrap:wrap;gap:8px">
       <div>
-        <div style="font-family:'Syne',sans-serif;font-size:13px;font-weight:700;color:#fff;margin-bottom:2px">¿Quiénes cancelan?</div>
+        <div style="font-family:'Syne',sans-serif;font-size:13px;font-weight:700;color:#0f172a;margin-bottom:2px">¿Quiénes cancelan?</div>
         <div style="font-size:11px;color:var(--muted)" id="quienesSub">—</div>
       </div>
       <div style="display:flex;gap:6px">
@@ -265,10 +265,19 @@ body{background:var(--navy);color:var(--text);font-family:'DM Sans',sans-serif;f
       <div class="onb-funnel" id="onbFunnel"></div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:14px" id="onbCobertura"></div>
       <div id="onbImpactTable" style="margin-top:14px"></div>
-      <div id="onbEnrichedPanel" style="margin-top:12px"></div>
-      <div id="onbNoShowPanel" style="margin-top:12px"></div>
-      <div id="tiempoOnbPanel" style="margin-top:12px"></div>
-      <div id="activacionPanel" style="margin-top:12px"></div>
+    </div>
+
+    <div style="font-size:9px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.12em;margin:4px 0 12px;display:flex;align-items:center;gap:10px">
+      <span>Detalle de onboarding</span>
+      <div style="flex:1;height:1px;background:var(--border)"></div>
+    </div>
+    <div id="onbEnrichedPanel" style="margin-bottom:16px"></div>
+    <div id="activacionPanel" style="margin-bottom:16px"></div>
+    <div id="onbNoShowPanel" style="margin-bottom:16px"></div>
+
+    <div style="font-size:9px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.12em;margin:4px 0 12px;display:flex;align-items:center;gap:10px">
+      <span>Otros canales de retención</span>
+      <div style="flex:1;height:1px;background:var(--border)"></div>
     </div>
     <!-- Embudos -->
     <div class="card" style="margin-bottom:16px">
@@ -277,20 +286,12 @@ body{background:var(--navy);color:var(--text);font-family:'DM Sans',sans-serif;f
       <div id="embudosGrid" style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px"></div>
     </div>
 
-    <div class="two-col">
-      <div class="card">
-        <div class="chart-title">Sesiones en vivo — últimos 6 meses</div>
-        <div class="chart-sub">Barras = asistentes (eje izq.) · línea = sesiones realizadas (eje der.)</div>
-        <div class="chart-wrap"><canvas id="sesionesChart"></canvas></div>
-        <div style="margin-top:12px" id="sesBadge"></div>
-        <div id="sesImpactTable" style="margin-top:12px"></div>
-      </div>
-      <div class="card">
-        <div class="chart-title">Impacto económico del área este mes</div>
-        <div class="chart-sub">MRR generado + protegido vs perdido</div>
-        <div id="impactoGrid" style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:8px"></div>
-        <div class="insight" id="impactoInsight"></div>
-      </div>
+    <div class="card">
+      <div class="chart-title">Sesiones en vivo — últimos 6 meses</div>
+      <div class="chart-sub">Barras = asistentes (eje izq.) · línea = sesiones realizadas (eje der.)</div>
+      <div class="chart-wrap"><canvas id="sesionesChart"></canvas></div>
+      <div style="margin-top:12px" id="sesBadge"></div>
+      <div id="sesImpactTable" style="margin-top:12px"></div>
     </div>
   </div>
 
@@ -312,7 +313,7 @@ body{background:var(--navy);color:var(--text);font-family:'DM Sans',sans-serif;f
 
   <!-- BLOQUE: MOVIMIENTOS DE PLAN -->
   <div id="hist6_upgdown" style="margin-top:14px;margin-bottom:8px"></div>
-  <div class="sec-label"><span class="sec-num" style="background:rgba(34,197,94,.15);color:var(--green)">↑↓</span> Movimientos de plan <span class="sec-desc">· Upgrades y downgrades del período · cantidad y MRR</span></div>
+  <div class="sec-label"><span class="sec-num" style="background:rgba(34,197,94,.15);color:var(--green)">↑↓</span> Movimientos de plan <span class="sec-desc">· Upgrades y downgrades del período</span></div>
   <div id="upgDownSection" style="margin-bottom:28px"></div>
 
   <!-- BLOQUE 6 -->
@@ -434,19 +435,32 @@ function getOnbDias(r) {
   // First try the explicit column
   const v = parseInt((r['Días para ONB']||'').toString().replace(/[^0-9]/g,''));
   if (!isNaN(v) && v >= 0) return v;
-  // Fallback: calculate from Fecha de creación → Fecha de ONB GHL
-  const ghl     = getOnbGHLDate(r);
+  // Fallback: calculate from Fecha de creación → Fecha asignación etiqueta
+  // (Fecha asignación etiqueta tiene mejor cobertura que Fecha de ONB GHL, que suele venir vacía)
+  const asign   = parseSpDate(r['Fecha asignación etiqueta']) || parseISO(r['Fecha asignación etiqueta']);
   const created = parseSpDate(r['Fecha de creación']) || parseISO(r['Fecha de creación']);
-  if (ghl && created) {
-    const days = Math.round((ghl - created) / 86400000);
+  if (asign && created) {
+    const days = Math.round((asign - created) / 86400000);
     return days >= 0 ? days : null;
   }
   return null;
 }
-function getOnbPlan(r){
-  // Read plan directly from ONB row — normalize asterisk and spaces
-  const p = (r['Plan']||'').trim().replace(/\*/g,'').trim();
-  if(!p) return null;
+function getOnbPlan(r, acctMap){
+  // 1) Try the 'Plan' column directly from the onboarding row (case/space tolerant)
+  let raw = '';
+  if (r['Plan'] !== undefined && r['Plan'] !== null) raw = r['Plan'].toString();
+  if (!raw.trim()) {
+    const key = Object.keys(r).find(k => k.trim().toLowerCase() === 'plan');
+    if (key) raw = (r[key]||'').toString();
+  }
+  let p = raw.trim().replace(/\*/g,'').trim();
+  // 2) Fallback: cross-reference via acctMap using user_id (in case Plan col is empty/missing)
+  if (!p && acctMap) {
+    const uid = getOnbUserId(r);
+    const acct = acctMap[uid];
+    if (acct) p = (acct['Planes Funnelchat']||'').trim();
+  }
+  if (!p) return null;
   // Normalize to standard plan names
   if(p.toLowerCase().includes('advanced personalizado')||p.toLowerCase().includes('adv. pers')) return 'Advanced Personalizado';
   if(p.toLowerCase().includes('advanced')) return 'Plan Advanced';
@@ -455,10 +469,10 @@ function getOnbPlan(r){
   return p; // return as-is if doesn't match known plans
 }
 function getOnbTipo(r){
-  const t=(r['Tipo de usuario']||r['Tipo de cuenta']||'').trim().toLowerCase();
-  if(t.includes('antiguo')||t.includes('antigua')) return 'antiguo';
-  if(t.includes('nuevo')||t.includes('nueva')||t.includes('new')) return 'nuevas';
-  // Fallback: use Días para ONB — ≤30 = nueva, >30 = antigua
+  // Clasificación exclusivamente por días: Fecha de creación vs fecha de ONB validada
+  // (Días para ONB, o fallback Fecha asignación etiqueta - Fecha de creación)
+  // ≤30 días = cuenta nueva · >30 días = cuenta antigua
+  // No se usa la columna de texto "Tipo de usuario" porque puede venir desactualizada/incorrecta.
   const d = getOnbDias(r);
   if(d !== null) return d <= 30 ? 'nuevas' : 'antiguo';
   return null;
@@ -480,12 +494,12 @@ function getTTV(r, ahaCol) {
   const ca  = parseISO(r['created_at']) || parseISO(r['Fecha creación']);
   const aha = parseISO(r[ahaCol]);
   if (!ca || !aha || aha < ca) return null;
-  return Math.round((aha - ca) / 86400000);
+  return (aha - ca) / 86400000; // fractional days — keeps sub-day precision
 }
 function ahaStats(arr, ahaCol) {
   const vals = arr.map(r => getTTV(r, ahaCol)).filter(v => v !== null && v >= 0);
   if (!vals.length) return { avg: null, n: 0, pct: 0, total: arr.length };
-  const avg = Math.round(vals.reduce((a,b) => a+b, 0) / vals.length);
+  const avg = Math.round((vals.reduce((a,b) => a+b, 0) / vals.length)*10)/10; // 1-decimal precision
   return { avg, n: vals.length, pct: Math.round(vals.length/arr.length*100), total: arr.length };
 }
 
@@ -1014,7 +1028,13 @@ function calcMonth(off){
   // Use full selected month (not just last 4 weeks) for activation
   const newLast4w = C.filter(r => { const ca=getCA(r); return ca&&inRange(ca,range)&&isPaga(r); });
   const niveles  = newLast4w.map(r=>parseNivel(r)).filter(x=>x!==null);
-  const avgNivel = niveles.length ? Math.round(niveles.reduce((a,b)=>a+b,0)/niveles.length*10)/10 : null;
+  // Average % implementation over the FULL group (missing data counts as 0%) — consistent denominator
+  const avgNivTotal = arr => {
+    if (!arr.length) return null;
+    const sum = arr.reduce((s,r) => { const v = parseNivel(r); return s + (v!==null ? v : 0); }, 0);
+    return Math.round(sum/arr.length*10)/10;
+  };
+  const avgNivel = avgNivTotal(newLast4w);
   const nivelBuckets = [
     { label:'0%',     min:0,  max:0,   n:0 },
     { label:'1–25%',  min:1,  max:25,  n:0 },
@@ -1027,8 +1047,7 @@ function calcMonth(off){
   const nivelByPlan = ['Plan Starter','Plan Growth','Plan Advanced','Advanced Personalizado'].map(plan => {
     const rows = newLast4w.filter(r=>(r['Planes Funnelchat']||'').trim()===plan);
     const vals = rows.map(r=>parseNivel(r)).filter(x=>x!==null);
-    const avg  = vals.length ? Math.round(vals.reduce((a,b)=>a+b,0)/vals.length*10)/10 : null;
-    return { plan, n:rows.length, withData:vals.length, avg };
+    return { plan, n:rows.length, withData:vals.length, avg:avgNivTotal(rows) };
   }).filter(p=>p.n>0);
 
   // ONB and sessions sets for new accounts
@@ -1037,7 +1056,7 @@ function calcMonth(off){
      .map(r=>getOnbUserId(r)).filter(Boolean)
   );
   const hasSes = r => parseInt((r['Sesiones en vivo']||'0').toString()) > 0;
-  const avgNiv = arr => { const v=arr.map(r=>parseNivel(r)).filter(x=>x!==null); return v.length?Math.round(v.reduce((a,b)=>a+b,0)/v.length*10)/10:null; };
+  const avgNiv = avgNivTotal; // unified: total-group denominator, missing=0
 
   // Global ONB comparison
   const newConOnb = newLast4w.filter(r=>onbAsistIds.has((r['id']||'').toString().trim()));
@@ -1053,16 +1072,13 @@ function calcMonth(off){
   const nivelBySeg = ['A','B','C'].map(seg => {
     const rows    = newLast4w.filter(r=>(r['Segmento de cliente (priorización de cliente)']||'').trim()===seg);
     const vals    = rows.map(r=>parseNivel(r)).filter(x=>x!==null);
-    const avg     = vals.length ? Math.round(vals.reduce((a,b)=>a+b,0)/vals.length*10)/10 : null;
     const rowsOnb = rows.filter(r=>onbAsistIds.has((r['id']||'').toString().trim()));
     const rowsSin = rows.filter(r=>!onbAsistIds.has((r['id']||'').toString().trim()));
     const rowsSes = rows.filter(r=>hasSes(r));
-    const rowsSinSes = rows.filter(r=>!hasSes(r));
-    return { seg, n:rows.length, withData:vals.length, avg,
-      avgConOnb: avgNiv(rowsOnb), nConOnb: rowsOnb.length,
-      avgSinOnb: avgNiv(rowsSin), nSinOnb: rowsSin.length,
-      avgConSes: avgNiv(rowsSes), nConSes: rowsSes.length,
-      avgSinSes: avgNiv(rowsSinSes), nSinSes: rowsSinSes.length };
+    return { seg, n:rows.length, withData:vals.length, avg:avgNivTotal(rows),
+      avgConOnb: avgNivTotal(rowsOnb), nConOnb: rowsOnb.length,
+      avgSinOnb: avgNivTotal(rowsSin), nSinOnb: rowsSin.length,
+      avgConSes: avgNivTotal(rowsSes), nConSes: rowsSes.length };
   }).filter(s=>s.n>0);
 
   // Feature usage: Usa flows + Usa grupos?
@@ -1076,18 +1092,16 @@ function calcMonth(off){
   const totalBase = newLast4w.length || 1;
 
   // By objetivo
-  const objNivelMap = {};
+  const objGroups = {};
   newLast4w.forEach(r => {
     const obj = (r['Objetivo con Funnelchat']||'Sin objetivo').trim();
-    const val = parseNivel(r);
-    if (!objNivelMap[obj]) objNivelMap[obj] = { n:0, vals:[] };
-    objNivelMap[obj].n++;
-    if (val !== null) objNivelMap[obj].vals.push(val);
+    if (!objGroups[obj]) objGroups[obj] = [];
+    objGroups[obj].push(r);
   });
-  const nivelByObj = Object.entries(objNivelMap)
-    .map(([obj, d]) => ({
-      obj, n:d.n, withData:d.vals.length,
-      avg: d.vals.length ? Math.round(d.vals.reduce((a,b)=>a+b,0)/d.vals.length*10)/10 : null,
+  const nivelByObj = Object.entries(objGroups)
+    .map(([obj, rows]) => ({
+      obj, n:rows.length, withData:rows.map(r=>parseNivel(r)).filter(x=>x!==null).length,
+      avg: avgNivTotal(rows),
     }))
     .sort((a,b) => (b.avg||0)-(a.avg||0));
 
@@ -1121,7 +1135,7 @@ function calcMonth(off){
   const onbByPlanStats = (() => {
     const planMap = {};
     onbGHLAsist.forEach(r => {
-      const plan = getOnbPlan(r) || 'Sin plan';
+      const plan = getOnbPlan(r, acctById) || 'Sin plan';
       if(!planMap[plan]) planMap[plan] = [];
       planMap[plan].push(r);
     });
@@ -1491,12 +1505,11 @@ function render(m){
         </span>
       </div>
       <div class="p-value" style="color:var(--teal)">${m.vigP.toLocaleString('es-CO')}</div>
-      <div class="p-context">MRR activo: <strong>${fmt$(m.mrrActivo)}</strong><br>Trial activos: ${m.vigT}</div>
+      <div class="p-context">Trial activos: ${m.vigT}</div>
     </div>
     <div class="p-card" style="border-top:3px solid var(--muted);opacity:.9">
       <div class="p-label">En plan reposo</div>
       <div class="p-value" style="color:var(--muted)">${m.reposoN.toLocaleString('es-CO')}</div>
-      <div class="p-context">${m.reposoMRR>0?'MRR: <strong>$'+m.reposoMRR.toLocaleString('es-CO')+'</strong>':'Sin MRR registrado'}</div>
     </div>
     <div class="p-card c-teal" style="opacity:.85">
       <div class="p-label">
@@ -1511,7 +1524,7 @@ function render(m){
     <div class="p-card c-blue"><div class="p-label">Nuevas pagas del mes</div>
       <div class="p-value" style="color:var(--blue)">${m.nuevosMesP}</div>
       <div class="p-delta ${dN.cls}">${dN.txt}</div>
-      <div class="p-context">Trial nuevos: ${m.nuevosMesT} · MRR: ${fmt$(m.mrrNuevo)}</div></div>
+      <div class="p-context">Trial nuevos: ${m.nuevosMesT}</div></div>
     <div class="p-card c-red">
       <div class="p-label">
         <span class="tip">Cancelaciones del mes
@@ -1521,21 +1534,19 @@ function render(m){
       </div>
       <div class="p-value" style="color:var(--red)">${m.cancelMes}</div>
       <div class="p-delta ${dC.cls}">${dC.txt}</div>
-      <div class="p-context">MRR perdido: <strong style="color:var(--red)">${fmt$(m.mrrPerdido)}</strong></div></div>
+    </div>
     <div class="p-card c-yellow"><div class="p-label">Trials convertidos</div>
       <div class="p-value" style="color:var(--yellow)">${m.convMes}</div>
-      <div class="p-delta ${dCv.cls}">${dCv.txt}</div>
-      <div class="p-context">MRR generado: ${fmt$(m.mrrConv)}</div></div>
+      <div class="p-delta ${dCv.cls}">${dCv.txt}</div></div>
     <div class="p-card c-orange">
       <div class="p-label">
         <span class="tip">Atrasadas pagas
           <span class="tip-icon">?</span>
-          <span class="tip-box"><strong>payment_till vencido · dentro de los 21 días de gracia</strong><br>Aún no confirmadas como canceladas · MRR en riesgo real</span>
+          <span class="tip-box"><strong>payment_till vencido · dentro de los 21 días de gracia</strong><br>Aún no confirmadas como canceladas · riesgo real de pérdida</span>
         </span>
       </div>
       <div class="p-value" style="color:var(--orange)">${m.atrP}</div>
-      <div class="p-delta neg">⚠ en riesgo</div>
-      <div class="p-context">MRR en riesgo: ${fmt$(m.mrrRiesgo)}</div></div>
+      <div class="p-delta neg">⚠ en riesgo</div></div>
     <div class="p-card ${m.retNeta>=0?'c-green':'c-red'}"><div class="p-label">Retención neta</div>
       <div class="p-value" style="color:${m.retNeta>=0?'var(--green2)':'var(--red)'}">${m.retNeta>=0?'+':''}${m.retNeta}</div>
       <div class="p-delta ${m.retNeta>=0?'pos':'neg'}">${m.retNeta>=0?'▲ Crecimiento':'▼ Pérdida neta'}</div>
@@ -1546,15 +1557,15 @@ function render(m){
   charts.ev=new Chart(document.getElementById('evolucionChart').getContext('2d'),{
     type:'bar',
     data:{labels:m.trend6.map(t=>t.label),datasets:[
-      {label:'Activos',data:m.trend6.map(t=>t.activos),type:'line',borderColor:'#2dd4bf',backgroundColor:'rgba(45,212,191,.15)',borderWidth:2,tension:.3,fill:true,pointRadius:3,yAxisID:'y'},
-      {label:'Nuevas',data:m.trend6.map(t=>t.nuevas),backgroundColor:'rgba(96,165,250,.7)',borderColor:'#60a5fa',borderWidth:1,borderRadius:4,yAxisID:'y1'},
-      {label:'Canceladas',data:m.trend6.map(t=>t.cancels),backgroundColor:'rgba(248,113,113,.7)',borderColor:'#f87171',borderWidth:1,borderRadius:4,yAxisID:'y1'}
+      {label:'Activos',data:m.trend6.map(t=>t.activos),type:'line',borderColor:'#0d9488',backgroundColor:'rgba(45,212,191,.15)',borderWidth:2,tension:.3,fill:true,pointRadius:3,yAxisID:'y'},
+      {label:'Nuevas',data:m.trend6.map(t=>t.nuevas),backgroundColor:'rgba(96,165,250,.7)',borderColor:'#2563eb',borderWidth:1,borderRadius:4,yAxisID:'y1'},
+      {label:'Canceladas',data:m.trend6.map(t=>t.cancels),backgroundColor:'rgba(248,113,113,.7)',borderColor:'#dc2626',borderWidth:1,borderRadius:4,yAxisID:'y1'}
     ]},
     options:{responsive:true,maintainAspectRatio:false,
-      plugins:{legend:{position:'top',labels:{boxWidth:10,padding:12,color:'#94a3b8',font:{size:10}}},tooltip:{mode:'index',intersect:false}},
-      scales:{x:{grid:{color:'rgba(255,255,255,.03)'},ticks:{color:'#94a3b8',font:{size:9}}},
-        y:{grid:{color:'rgba(255,255,255,.03)'},ticks:{color:'#2dd4bf',font:{size:9}},position:'left'},
-        y1:{grid:{display:false},ticks:{color:'#94a3b8',font:{size:9}},position:'right',beginAtZero:true}}}
+      plugins:{legend:{position:'top',labels:{boxWidth:10,padding:12,color:'#64748b',font:{size:10}}},tooltip:{mode:'index',intersect:false}},
+      scales:{x:{grid:{color:'rgba(15,23,42,.03)'},ticks:{color:'#64748b',font:{size:9}}},
+        y:{grid:{color:'rgba(15,23,42,.03)'},ticks:{color:'#0d9488',font:{size:9}},position:'left'},
+        y1:{grid:{display:false},ticks:{color:'#64748b',font:{size:9}},position:'right',beginAtZero:true}}}
   });
   const last=m.trend6[5];
   document.getElementById('trendBadges').innerHTML=`
@@ -1563,19 +1574,19 @@ function render(m){
     <div class="t-badge"><span class="tl">Neto</span><span class="tv" style="color:${last.nuevas-last.cancels>=0?'var(--green2)':'var(--red)'}">${last.nuevas-last.cancels>=0?'+':''}${last.nuevas-last.cancels}</span></div>`;
 
   destroyChart('churnMesChart');
-  const clrs={'Plan Starter':'#60a5fa','Plan Growth':'#f472b6','Plan Advanced':'#4ade80'};
+  const clrs={'Plan Starter':'#2563eb','Plan Growth':'#db2777','Plan Advanced':'#16a34a'};
   charts.churnM=new Chart(document.getElementById('churnMesChart').getContext('2d'),{
     type:'line',
     data:{labels:m.trend6.map(t=>t.label),datasets:m.churnByPlan.map(p=>({
       label:p.plan.replace('Plan ',''),data:p.data,
-      borderColor:clrs[p.plan]||'#94a3b8',backgroundColor:(clrs[p.plan]||'#94a3b8')+'18',
+      borderColor:clrs[p.plan]||'#64748b',backgroundColor:(clrs[p.plan]||'#64748b')+'18',
       borderWidth:2,pointRadius:3,tension:.3
     })).concat([{label:'Benchmark 5%',data:Array(6).fill(5),borderColor:'rgba(148,163,184,.3)',borderDash:[4,4],borderWidth:1.5,pointRadius:0}])},
     options:{responsive:true,maintainAspectRatio:false,
-      plugins:{legend:{position:'top',labels:{boxWidth:10,padding:12,color:'#94a3b8',font:{size:10}}},
+      plugins:{legend:{position:'top',labels:{boxWidth:10,padding:12,color:'#64748b',font:{size:10}}},
         tooltip:{callbacks:{label:ctx=>` ${ctx.dataset.label}: ${ctx.parsed.y}%`}}},
-      scales:{x:{grid:{color:'rgba(255,255,255,.03)'},ticks:{color:'#94a3b8',font:{size:9}}},
-        y:{grid:{color:'rgba(255,255,255,.03)'},ticks:{color:'#94a3b8',font:{size:9},callback:v=>v+'%'},beginAtZero:true,
+      scales:{x:{grid:{color:'rgba(15,23,42,.03)'},ticks:{color:'#64748b',font:{size:9}}},
+        y:{grid:{color:'rgba(15,23,42,.03)'},ticks:{color:'#64748b',font:{size:9},callback:v=>v+'%'},beginAtZero:true,
           max:Math.max(10,...m.churnByPlan.flatMap(p=>p.data))*1.3|0}}}
   });
   const worst=m.churnByPlan.map(p=>({n:p.plan.replace('Plan ',''),v:p.data[5]})).sort((a,b)=>b.v-a.v)[0];
@@ -1619,7 +1630,7 @@ function render(m){
           <span style="font-size:11px;color:var(--muted)">${b.label}</span>
           <span style="font-size:10px;color:var(--muted)">este mes <strong style="color:${b.color}">${b.mes}%</strong> · histórico <strong style="color:rgba(148,163,184,.8)">${b.hist}%</strong></span>
         </div>
-        <div style="height:6px;background:rgba(255,255,255,.05);border-radius:4px;overflow:hidden;position:relative">
+        <div style="height:6px;background:rgba(15,23,42,.05);border-radius:4px;overflow:hidden;position:relative">
           <div style="width:${b.hist}%;height:100%;background:rgba(148,163,184,.3);border-radius:4px;position:absolute"></div>
           <div style="width:${b.mes}%;height:100%;background:${b.color};border-radius:4px;position:absolute"></div>
         </div>
@@ -1660,23 +1671,21 @@ function render(m){
     </div>`).join('');
 
   document.getElementById('onbImpacto').innerHTML=`
-    <div style="font-family:'Syne',sans-serif;font-size:22px;font-weight:800;color:var(--green2)">${fmt$(m.mrrProtOnb)}</div>
-    <div style="font-size:10px;color:var(--muted)">MRR protegido est.</div>
-    <div style="font-size:9px;color:var(--muted);margin-top:2px">Ret. con ONB ${m.pctRetCon}% vs sin ${m.pctRetSin}%</div>`;
+    <div style="font-family:'Syne',sans-serif;font-size:22px;font-weight:800;color:var(--green2)">${m.pctRetCon}%</div>
+    <div style="font-size:10px;color:var(--muted)">Retención con ONB</div>
+    <div style="font-size:9px;color:var(--muted);margin-top:2px">vs ${m.pctRetSin}% sin ONB</div>`;
 
   // Impact comparison table for onboarding
   const onbImpEl=document.getElementById('onbImpactTable');
   if(onbImpEl){
-    onbImpEl.innerHTML=impactTable('Onboarding','Con ONB','Sin ONB',m.onbImpact,'var(--green2)')+ahaTable(m.ahaStatsMes,m.ahaStats);
-  // ONB enriched panel
+    onbImpEl.innerHTML=impactTable('Onboarding','Con ONB','Sin ONB',m.onbImpact,'var(--green2)');
+  // ONB enriched panel (now includes merged tiempo-al-ONB detail)
   const onbEnrEl = document.getElementById('onbEnrichedPanel');
   if (onbEnrEl) onbEnrEl.innerHTML = renderOnbEnriched(m);
-  const onbNSEl = document.getElementById('onbNoShowPanel');
-  if (onbNSEl) onbNSEl.innerHTML = renderNoShowProfile(m);
-  const tOnbEl = document.getElementById('tiempoOnbPanel');
-  if (tOnbEl) tOnbEl.innerHTML = renderTiempoOnb(m);
   const actEl = document.getElementById('activacionPanel');
   if (actEl) actEl.innerHTML = renderActivacion(m);
+  const onbNSEl = document.getElementById('onbNoShowPanel');
+  if (onbNSEl) onbNSEl.innerHTML = renderNoShowProfile(m);
   }
 
   const cobDlt=(now,prev)=>{
@@ -1725,10 +1734,9 @@ function render(m){
       const prevUsers=new Set(prevRows.map(r=>(r['user_id']||'').toString()).filter(Boolean));
       const vigentes=[...mesUsers].filter(uid=>acctM[uid]&&(acctM[uid]['Vigencia del servicio']||'').trim()==='Vigente').length;
       const retPct=mesUsers.size>0?Math.round(vigentes/mesUsers.size*100):0;
-      const mrrImp=Math.round([...mesUsers].reduce((s,uid)=>s+(acctM[uid]?getMRR(acctM[uid]):0),0));
       const diff=mesUsers.size-prevUsers.size;
       const color=colors[f]||'var(--teal)';
-      return`<div style="background:rgba(255,255,255,.03);border:1px solid var(--border);border-radius:12px;padding:14px 16px">
+      return`<div style="background:rgba(15,23,42,.03);border:1px solid var(--border);border-radius:12px;padding:14px 16px">
         <div style="font-size:10px;color:var(--muted);margin-bottom:4px;text-transform:uppercase;letter-spacing:.06em">${labels[f]||f}</div>
         <div style="font-family:'Syne',sans-serif;font-size:26px;font-weight:800;color:${color};line-height:1">${mesUsers.size}</div>
         <div style="font-size:10px;margin-top:4px;color:${diff===0?'var(--muted)':diff>0?'var(--red)':'var(--green2)'}">
@@ -1739,7 +1747,7 @@ function render(m){
           <div style="font-family:'Syne',sans-serif;font-size:16px;font-weight:700;color:${retPct>=50?'var(--green2)':'var(--orange)'}">${retPct}%</div>
           <div style="font-size:9px;color:var(--muted)">${vigentes} de ${mesUsers.size} siguen activos</div>
         </div>
-        <div style="font-size:9px;color:var(--muted);margin-top:6px">MRR impactado: ${fmt$(mrrImp)}</div>
+
       ${m.embImpactData[f]?`
       <div style="margin-top:8px;padding-top:8px;border-top:1px solid var(--border)">
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">
@@ -1763,15 +1771,15 @@ function render(m){
   charts.ses=new Chart(document.getElementById('sesionesChart').getContext('2d'),{
     type:'bar',
     data:{labels:m.ses6.map(s=>s.label),datasets:[
-      {label:'Asistentes',data:m.ses6.map(s=>s.asist),backgroundColor:'rgba(244,114,182,.55)',borderColor:'#f472b6',borderWidth:1,borderRadius:4,yAxisID:'y'},
-      {label:'Sesiones',data:m.ses6.map(s=>s.sesiones),type:'line',borderColor:'#fbbf24',backgroundColor:'rgba(251,191,36,.1)',borderWidth:2,pointRadius:3,tension:.3,yAxisID:'y1'},
+      {label:'Asistentes',data:m.ses6.map(s=>s.asist),backgroundColor:'rgba(244,114,182,.55)',borderColor:'#db2777',borderWidth:1,borderRadius:4,yAxisID:'y'},
+      {label:'Sesiones',data:m.ses6.map(s=>s.sesiones),type:'line',borderColor:'#b45309',backgroundColor:'rgba(251,191,36,.1)',borderWidth:2,pointRadius:3,tension:.3,yAxisID:'y1'},
     ]},
     options:{responsive:true,maintainAspectRatio:false,
-      plugins:{legend:{position:'top',labels:{boxWidth:10,padding:12,color:'#94a3b8',font:{size:10}}}},
+      plugins:{legend:{position:'top',labels:{boxWidth:10,padding:12,color:'#64748b',font:{size:10}}}},
       scales:{
-        x:{grid:{color:'rgba(255,255,255,.03)'},ticks:{color:'#94a3b8',font:{size:9}}},
-        y:{grid:{color:'rgba(255,255,255,.03)'},ticks:{color:'#94a3b8',font:{size:9}},position:'left',beginAtZero:true},
-        y1:{grid:{display:false},ticks:{color:'#fbbf24',font:{size:9}},position:'right',beginAtZero:true}
+        x:{grid:{color:'rgba(15,23,42,.03)'},ticks:{color:'#64748b',font:{size:9}}},
+        y:{grid:{color:'rgba(15,23,42,.03)'},ticks:{color:'#64748b',font:{size:9}},position:'left',beginAtZero:true},
+        y1:{grid:{display:false},ticks:{color:'#b45309',font:{size:9}},position:'right',beginAtZero:true}
       }}
   });
   // Asistentes por sesión badge
@@ -1794,30 +1802,7 @@ function render(m){
       </div>
     </div>`;}
 
-  const netMRR=m.mrrNuevo+m.mrrConv+m.mrrProtOnb-m.mrrPerdido;
-  document.getElementById('impactoGrid').innerHTML=`
-    <div style="background:rgba(34,197,94,.08);border:1px solid rgba(34,197,94,.2);border-radius:10px;padding:14px">
-      <div style="font-size:10px;color:var(--muted);margin-bottom:4px">MRR protegido ONB</div>
-      <div style="font-family:'Syne',sans-serif;font-size:20px;font-weight:800;color:var(--green2)">${fmt$(m.mrrProtOnb)}</div>
-      <div style="font-size:9px;color:var(--muted);margin-top:3px">${m.onbAsist} asist. × ${m.retDiff}pp retención</div>
-    </div>
-    <div style="background:rgba(251,191,36,.08);border:1px solid rgba(251,191,36,.2);border-radius:10px;padding:14px">
-      <div style="font-size:10px;color:var(--muted);margin-bottom:4px">MRR conversiones trial</div>
-      <div style="font-family:'Syne',sans-serif;font-size:20px;font-weight:800;color:var(--yellow)">${fmt$(m.mrrConv)}</div>
-      <div style="font-size:9px;color:var(--muted);margin-top:3px">${m.convMes} trials convertidos</div>
-    </div>
-    <div style="background:rgba(96,165,250,.08);border:1px solid rgba(96,165,250,.2);border-radius:10px;padding:14px">
-      <div style="font-size:10px;color:var(--muted);margin-bottom:4px">MRR nuevo pagas</div>
-      <div style="font-family:'Syne',sans-serif;font-size:20px;font-weight:800;color:var(--blue)">${fmt$(m.mrrNuevo)}</div>
-      <div style="font-size:9px;color:var(--muted);margin-top:3px">${m.nuevosMesP} nuevas pagas</div>
-    </div>
-    <div style="background:rgba(248,113,113,.08);border:1px solid rgba(248,113,113,.2);border-radius:10px;padding:14px">
-      <div style="font-size:10px;color:var(--muted);margin-bottom:4px">MRR perdido</div>
-      <div style="font-family:'Syne',sans-serif;font-size:20px;font-weight:800;color:var(--red)">${fmt$(m.mrrPerdido)}</div>
-      <div style="font-size:9px;color:var(--muted);margin-top:3px">${m.cancelMes} cancelaciones</div>
-    </div>`;
-  document.getElementById('impactoInsight').innerHTML=`MRR neto estimado: <strong style="color:${netMRR>=0?'var(--green2)':'var(--red)'}">${netMRR>=0?'+':''}${fmt$(netMRR)}</strong> · Generado+Protegido: ${fmt$(m.mrrNuevo+m.mrrConv+m.mrrProtOnb)} · Perdido: ${fmt$(m.mrrPerdido)}`;
-
+  
   // BLOQUE 5
   const periodBase=m.nuevosMesP||1;
   document.getElementById('riskMiniGrid').innerHTML=[
@@ -1849,8 +1834,8 @@ function render(m){
       borderRadius:4}]},
     options:{responsive:true,maintainAspectRatio:false,
       plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>' '+ctx.parsed.y+' clientes'}}},
-      scales:{x:{grid:{color:'rgba(255,255,255,.03)'},ticks:{color:'#94a3b8',font:{size:10}}},
-        y:{grid:{color:'rgba(255,255,255,.03)'},ticks:{color:'#94a3b8',font:{size:9}},beginAtZero:true}}}
+      scales:{x:{grid:{color:'rgba(15,23,42,.03)'},ticks:{color:'#64748b',font:{size:10}}},
+        y:{grid:{color:'rgba(15,23,42,.03)'},ticks:{color:'#64748b',font:{size:9}},beginAtZero:true}}}
   });
   const maxLt=ltL[ltD.indexOf(Math.max(...ltD))];
   document.getElementById('lifetimeInsight').innerHTML=m.cancelMes>0
@@ -1865,20 +1850,20 @@ function render(m){
 
     // ── SECCIÓN A: Acciones sobre la base del período (nuevos clientes del mes) ──
     rows.push({t:'sep',a:'── ACCIONES SOBRE LA BASE DEL PERÍODO ── (clientes nuevos y cancelados de este mes)',r:'',f:'',e:'s-gris',l:'',n:'Impacto directo en retención de los clientes que llegaron o se fueron este mes'});
-    if(m.sinWaMes>0)rows.push({t:'prev',a:`Contactar ${m.sinWaMes} cuentas nuevas de este mes sin WhatsApp conectado — acompañar activación antes de que terminen el trial`,r:'Onboarding',f:fd(nd),e:'s-rojo',l:'Urgente',n:`${fmt$(m.mrrSinWaMes)} MRR de nuevos en riesgo. Sin WA no pueden usar la plataforma.`});
+    if(m.sinWaMes>0)rows.push({t:'prev',a:`Contactar ${m.sinWaMes} cuentas nuevas de este mes sin WhatsApp conectado — acompañar activación antes de que terminen el trial`,r:'Onboarding',f:fd(nd),e:'s-rojo',l:'Urgente',n:`Sin WA no pueden usar la plataforma — riesgo directo de no activación.`});
     if(m.sinOnbMes>0)rows.push({t:'prev',a:`Proponer onboarding a ${m.sinOnbMes} cuentas nuevas del mes sin sesión agendada`,r:'Onboarding',f:fd(nd),e:'s-amarillo',l:'En progreso',n:`Cobertura actual: ${m.cobP}% pagas · ${m.cobT}% trial. Meta ≥ 50% pagas.`});
-    if(m.convMes>0)rows.push({t:'prev',a:`Dar seguimiento a los ${m.convMes} trials convertidos este mes — asegurar que activen funcionalidades clave en los primeros 15 días`,r:'CX',f:fd(nd),e:'s-amarillo',l:'En progreso',n:`Conversiones = ${fmt$(m.mrrConv)} MRR nuevo. El riesgo de churn temprano es alto sin activación.`});
+    if(m.convMes>0)rows.push({t:'prev',a:`Dar seguimiento a los ${m.convMes} trials convertidos este mes — asegurar que activen funcionalidades clave en los primeros 15 días`,r:'CX',f:fd(nd),e:'s-amarillo',l:'En progreso',n:`El riesgo de churn temprano es alto sin activación oportuna.`});
     if(m.motivos[0])rows.push({t:'react',a:`Diseñar respuesta para el motivo principal de cancelación del mes: "${m.motivos[0].label}"`,r:'CX Lead',f:fd(nd),e:'s-gris',l:'Pendiente',n:`${m.motivos[0].count} casos este mes. Identificar si es prevenible desde el onboarding o requiere ajuste de producto.`});
 
     // ── SECCIÓN B: Acciones sobre la base activa histórica vigente ──
     rows.push({t:'sep',a:'── ACCIONES SOBRE LA BASE ACTIVA TOTAL ── (todos los clientes vigentes)',r:'',f:'',e:'s-gris',l:'',n:'Retención preventiva y reactivación de clientes en riesgo de la base completa'});
-    if(m.sinWa>0)rows.push({t:'react',a:`Activar flujo de conexión WA para ${m.sinWa} cuentas vigentes sin WhatsApp conectado`,r:'Onboarding',f:fd(nd),e:'s-rojo',l:'Urgente',n:`${fmt$(m.mrrSinWa)} MRR total en riesgo. Priorizar las de mayor plan.`});
-    if(m.sinLogin>0)rows.push({t:'react',a:`Reactivar ${m.sinLogin} cuentas vigentes sin login en +14 días`,r:'CX',f:fd(nd),e:'s-amarillo',l:'En progreso',n:`${fmt$(m.mrrSinLogin)} MRR en riesgo. Inactividad predice churn en los próximos 30 días.`});
+    if(m.sinWa>0)rows.push({t:'react',a:`Activar flujo de conexión WA para ${m.sinWa} cuentas vigentes sin WhatsApp conectado`,r:'Onboarding',f:fd(nd),e:'s-rojo',l:'Urgente',n:`Priorizar las de mayor plan — sin WA conectado no pueden operar la plataforma.`});
+    if(m.sinLogin>0)rows.push({t:'react',a:`Reactivar ${m.sinLogin} cuentas vigentes sin login en +14 días`,r:'CX',f:fd(nd),e:'s-amarillo',l:'En progreso',n:`Inactividad predice churn en los próximos 30 días.`});
     rows.push({t:'prev',a:`Mantener sesiones en vivo y publicar agenda con anticipación — meta: aumentar asistentes/sesión`,r:'CX',f:fd(nd),e:'s-verde',l:'En curso',n:`Actual: ${m.sesPorSesion} asist./sesión · ${m.sesSesiones} sesiones este mes.`});
     rows.push({t:'prev',a:'Agregar acción adicional...',r:'—',f:'—',e:'s-gris',l:'Pendiente',n:'—'});
 
     document.getElementById('planBody').innerHTML=rows.map(r=>{
-      if(r.t==='sep')return`<tr style="background:rgba(255,255,255,.02)"><td colspan="6" style="padding:10px 14px;font-size:10px;color:var(--muted);font-weight:600;letter-spacing:.05em;border-bottom:1px solid var(--border)"><span style="color:var(--teal)">${r.a}</span><br><span style="font-weight:400;color:#475569">${r.n}</span></td></tr>`;
+      if(r.t==='sep')return`<tr style="background:rgba(15,23,42,.02)"><td colspan="6" style="padding:10px 14px;font-size:10px;color:var(--muted);font-weight:600;letter-spacing:.05em;border-bottom:1px solid var(--border)"><span style="color:var(--teal)">${r.a}</span><br><span style="font-weight:400;color:#475569">${r.n}</span></td></tr>`;
       return`<tr>
         <td><span class="${r.t==='react'?'tipo-react':'tipo-prev'}">${r.t==='react'?'Reactivación':'Preventiva'}</span></td>
         <td contenteditable="true">${r.a}</td><td contenteditable="true">${r.r}</td>
@@ -1958,7 +1943,7 @@ function renderPerfilTable() {
   const hdrs = H.map((h,i)=>
     `<th style="padding:6px 10px;font-size:10px;font-weight:600;white-space:nowrap;
       color:${i===last?'var(--red)':'var(--muted)'};
-      background:${i===last?'rgba(255,255,255,.04)':'transparent'}">${h.lbl}${i===last?' ← actual':''}</th>`
+      background:${i===last?'rgba(15,23,42,.04)':'transparent'}">${h.lbl}${i===last?' ← actual':''}</th>`
   ).join('');
 
   const body = rows.map(({label,values,inv,fmt})=>{
@@ -2123,22 +2108,22 @@ function renderGruposModal() {
     diag.push({ color:'var(--teal)', txt:`Perfil activo: mayoría con WA, flows y onboarding. El problema en este segmento parece ser de valor percibido, no de adopción técnica.` });
 
   const pill = (color, txt) =>
-    `<div style="background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.07);border-radius:8px;padding:9px 14px;font-size:11px;color:#cbd5e1;line-height:1.65">
+    `<div style="background:rgba(15,23,42,.03);border:1px solid rgba(15,23,42,.07);border-radius:8px;padding:9px 14px;font-size:11px;color:#334155;line-height:1.65">
       <span style="color:${color};font-weight:700">● </span>${txt}</div>`;
 
   const kpi = (label, val, sub, color='#fff') =>
-    `<div style="background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.07);border-radius:10px;padding:12px 14px">
+    `<div style="background:rgba(15,23,42,.03);border:1px solid rgba(15,23,42,.07);border-radius:10px;padding:12px 14px">
       <div style="font-size:9px;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);margin-bottom:4px">${label}</div>
       <div style="font-family:'Syne',sans-serif;font-size:22px;font-weight:800;color:${color};line-height:1">${val}</div>
       ${sub?`<div style="font-size:10px;color:var(--muted);margin-top:4px">${sub}</div>`:''}
     </div>`;
 
   const miniBar = (n, max, color) =>
-    `<div style="flex:1;height:6px;background:rgba(255,255,255,.05);border-radius:3px;overflow:hidden">
+    `<div style="flex:1;height:6px;background:rgba(15,23,42,.05);border-radius:3px;overflow:hidden">
       <div style="width:${Math.round(n/max*100)}%;height:100%;background:${color};border-radius:3px"></div>
     </div>`;
 
-  const planColors = {'Plan Starter':'#60a5fa','Plan Growth':'#a78bfa','Plan Advanced':'#2dd4bf','Advanced Personalizado':'#fbbf24'};
+  const planColors = {'Plan Starter':'#2563eb','Plan Growth':'#7c3aed','Plan Advanced':'#0d9488','Advanced Personalizado':'#b45309'};
 
   document.getElementById('gruposModalContent').innerHTML = `
 
@@ -2166,13 +2151,13 @@ function renderGruposModal() {
     <!-- TENDENCIA 6M + LT -->
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:20px">
 
-      <div style="background:rgba(255,255,255,.02);border:1px solid rgba(255,255,255,.07);border-radius:10px;padding:14px">
+      <div style="background:rgba(15,23,42,.02);border:1px solid rgba(15,23,42,.07);border-radius:10px;padding:14px">
         <div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:12px">Tendencia 6 meses</div>
         <div style="display:flex;align-items:flex-end;gap:4px;height:80px">${trendBars}</div>
         <div style="font-size:9px;color:var(--muted);margin-top:8px">↑ Volumen de cancelados con este objetivo</div>
       </div>
 
-      <div style="background:rgba(255,255,255,.02);border:1px solid rgba(255,255,255,.07);border-radius:10px;padding:14px">
+      <div style="background:rgba(15,23,42,.02);border:1px solid rgba(15,23,42,.07);border-radius:10px;padding:14px">
         <div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:12px">Antigüedad (LT)</div>
         ${[['0–30d', lt0_30, 'rgba(248,113,113,.7)'],['31–90d', lt31_90, 'rgba(251,146,60,.7)'],['91–180d', lt91_180, 'rgba(96,165,250,.7)'],['180d+', lt181p, 'rgba(45,212,191,.7)']].map(([l,n,c])=>
           `<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
@@ -2188,7 +2173,7 @@ function renderGruposModal() {
     <!-- USO PLATAFORMA + PLANES -->
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:20px">
 
-      <div style="background:rgba(255,255,255,.02);border:1px solid rgba(255,255,255,.07);border-radius:10px;padding:14px">
+      <div style="background:rgba(15,23,42,.02);border:1px solid rgba(15,23,42,.07);border-radius:10px;padding:14px">
         <div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:12px">Uso de plataforma al cancelar</div>
         ${[['WhatsApp conectado',nWA,'rgba(45,212,191,.7)'],['Flow activo',nFlow,'rgba(96,165,250,.7)'],['Grupos activos',nGrupos,'rgba(167,139,250,.7)'],['Con onboarding',nOnb,'rgba(251,146,60,.7)']].map(([l,n,c])=>
           `<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
@@ -2200,7 +2185,7 @@ function renderGruposModal() {
         ).join('')}
       </div>
 
-      <div style="background:rgba(255,255,255,.02);border:1px solid rgba(255,255,255,.07);border-radius:10px;padding:14px">
+      <div style="background:rgba(15,23,42,.02);border:1px solid rgba(15,23,42,.07);border-radius:10px;padding:14px">
         <div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:12px">Por plan</div>
         ${planRows.map(({p,n})=>
           `<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
@@ -2216,7 +2201,7 @@ function renderGruposModal() {
     <!-- NICHO + EXPERIENCIA -->
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:16px">
 
-      <div style="background:rgba(255,255,255,.02);border:1px solid rgba(255,255,255,.07);border-radius:10px;padding:14px">
+      <div style="background:rgba(15,23,42,.02);border:1px solid rgba(15,23,42,.07);border-radius:10px;padding:14px">
         <div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:12px">Top nichos</div>
         ${niches.map(([n,v])=>
           `<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
@@ -2227,7 +2212,7 @@ function renderGruposModal() {
         ).join('')}
       </div>
 
-      <div style="background:rgba(255,255,255,.02);border:1px solid rgba(255,255,255,.07);border-radius:10px;padding:14px">
+      <div style="background:rgba(15,23,42,.02);border:1px solid rgba(15,23,42,.07);border-radius:10px;padding:14px">
         <div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:12px">Experiencia automatizando</div>
         ${exps.map(([e,v])=>
           `<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
@@ -2240,7 +2225,7 @@ function renderGruposModal() {
       </div>
     </div>
 
-    <div style="font-size:9px;color:var(--muted);border-top:1px solid rgba(255,255,255,.06);padding-top:10px">
+    <div style="font-size:9px;color:var(--muted);border-top:1px solid rgba(15,23,42,.06);padding-top:10px">
       Base: cancelados pagas · ${m.label} · Objetivo = "${TARGET}"
     </div>`;
 }
@@ -2345,7 +2330,7 @@ function renderQuienesMes(mode) {
             ${trendTxt ? `<span style="font-size:9px;font-weight:700;color:${trendColor};cursor:help" title="${trendTitle}">${trendTxt}</span>` : ''}
           </span>
         </div>
-        <div style="height:6px;background:rgba(255,255,255,.05);border-radius:4px;overflow:hidden;position:relative">
+        <div style="height:6px;background:rgba(15,23,42,.05);border-radius:4px;overflow:hidden;position:relative">
           <div style="width:${histPct}%;height:100%;background:rgba(148,163,184,.3);border-radius:4px;position:absolute"></div>
           <div style="width:${mesPct}%;height:100%;background:${color};border-radius:4px;position:absolute"></div>
         </div>
@@ -2398,18 +2383,23 @@ function ahaTable(statsMes, stats6m) {
     { key:'grupos', label:'Crear primer grupo',   color:'var(--purple)' },
   ];
 
+  function fmtDias(v) {
+    // Show in hours when under 1 day, days otherwise
+    if (v < 1) return Math.round(v*24) + 'h';
+    return Math.round(v) + 'd';
+  }
   function cell(s, color, dim=false) {
     if (!s || s.avg === null) return '<span style="color:var(--muted);font-size:10px">—</span>';
     const c = dim ? 'rgba(148,163,184,.6)' : color;
     const pct = s.total > 0 ? Math.round(s.n / s.total * 100) : 0;
-    return `<span style="font-family:'Syne',sans-serif;font-weight:700;font-size:${dim?'12':'14'}px;color:${c}">${s.avg}d</span>`
+    return `<span style="font-family:'Syne',sans-serif;font-weight:700;font-size:${dim?'12':'14'}px;color:${c}">${fmtDias(s.avg)}</span>`
          + `<br><span style="font-size:9px;color:var(--muted)">${s.n} de ${s.total} · ${pct}%</span>`;
   }
   function diffCell(a, b) {
     if (!a || !b || a.avg===null || b.avg===null) return '<span style="color:var(--muted);font-size:10px">—</span>';
     const d = b.avg - a.avg;
     const faster = d > 0;
-    return `<span style="font-size:11px;font-weight:700;color:${faster?'var(--green2)':'var(--red)'}">${faster?'▲':'▼'}&nbsp;${Math.abs(d)}d</span>`;
+    return `<span style="font-size:11px;font-weight:700;color:${faster?'var(--green2)':'var(--red)'}">${faster?'▲':'▼'}&nbsp;${fmtDias(Math.abs(d))}</span>`;
   }
 
   const rows = hitos.map(h => {
@@ -2421,34 +2411,34 @@ function ahaTable(statsMes, stats6m) {
       <td style="padding:6px 12px;font-size:11px;color:var(--muted);border-bottom:1px solid var(--border);white-space:nowrap">${h.label}</td>
       <td style="padding:6px 8px;text-align:center;border-bottom:1px solid var(--border)">${cell(mc,h.color)}</td>
       <td style="padding:6px 8px;text-align:center;border-bottom:1px solid var(--border)">${cell(ms,'var(--muted)')}</td>
-      <td style="padding:6px 8px;text-align:center;border-bottom:1px solid var(--border);border-right:1px solid rgba(255,255,255,.08)">${diffCell(mc,ms)}</td>
+      <td style="padding:6px 8px;text-align:center;border-bottom:1px solid var(--border);border-right:1px solid rgba(15,23,42,.08)">${diffCell(mc,ms)}</td>
       <td style="padding:6px 8px;text-align:center;border-bottom:1px solid var(--border)">${cell(sc,h.color,true)}</td>
       <td style="padding:6px 8px;text-align:center;border-bottom:1px solid var(--border)">${cell(ss,'var(--muted)',true)}</td>
     </tr>`;
   }).join('');
 
-  return `<div style="background:rgba(255,255,255,.02);border:1px solid var(--border);border-radius:10px;overflow:hidden;margin-top:10px">
+  return `<div style="background:rgba(15,23,42,.02);border:1px solid var(--border);border-radius:10px;overflow:hidden;margin-top:10px">
     <div style="background:rgba(74,222,128,.06);border-bottom:1px solid var(--border);padding:8px 12px">
       <span style="font-size:10px;font-weight:700;color:var(--muted);letter-spacing:.06em;text-transform:uppercase">Tiempo hasta el hito (AHA) · con ONB vs sin ONB</span>
     </div>
     <table style="width:100%;border-collapse:collapse">
       <thead>
         <tr>
-          <th rowspan="2" style="padding:6px 12px;font-size:10px;font-weight:600;color:var(--muted);text-align:left;border-bottom:1px solid rgba(255,255,255,.08)">Hito</th>
-          <th colspan="3" style="padding:5px 8px;font-size:9px;font-weight:700;color:var(--green2);text-align:center;border-bottom:1px solid rgba(255,255,255,.06);border-right:1px solid rgba(255,255,255,.08)">Este mes</th>
-          <th colspan="2" style="padding:5px 8px;font-size:9px;font-weight:600;color:var(--muted);text-align:center;border-bottom:1px solid rgba(255,255,255,.06)">Referencia 6 meses</th>
+          <th rowspan="2" style="padding:6px 12px;font-size:10px;font-weight:600;color:var(--muted);text-align:left;border-bottom:1px solid rgba(15,23,42,.08)">Hito</th>
+          <th colspan="3" style="padding:5px 8px;font-size:9px;font-weight:700;color:var(--green2);text-align:center;border-bottom:1px solid rgba(15,23,42,.06);border-right:1px solid rgba(15,23,42,.08)">Este mes</th>
+          <th colspan="2" style="padding:5px 8px;font-size:9px;font-weight:600;color:var(--muted);text-align:center;border-bottom:1px solid rgba(15,23,42,.06)">Referencia 6 meses</th>
         </tr>
         <tr>
           <th style="padding:5px 8px;font-size:9px;color:var(--green2);text-align:center;border-bottom:1px solid var(--border)">Con ONB</th>
           <th style="padding:5px 8px;font-size:9px;color:var(--muted);text-align:center;border-bottom:1px solid var(--border)">Sin ONB</th>
-          <th style="padding:5px 8px;font-size:9px;color:var(--muted);text-align:center;border-bottom:1px solid var(--border);border-right:1px solid rgba(255,255,255,.08)">Dif.</th>
+          <th style="padding:5px 8px;font-size:9px;color:var(--muted);text-align:center;border-bottom:1px solid var(--border);border-right:1px solid rgba(15,23,42,.08)">Dif.</th>
           <th style="padding:5px 8px;font-size:9px;color:rgba(74,222,128,.5);text-align:center;border-bottom:1px solid var(--border)">Con ONB</th>
           <th style="padding:5px 8px;font-size:9px;color:var(--muted);text-align:center;border-bottom:1px solid var(--border)">Sin ONB</th>
         </tr>
       </thead>
       <tbody>${rows}</tbody>
     </table>
-    <div style="padding:6px 12px;font-size:9px;color:var(--muted)">Días = media desde creación hasta el hito · Cuentas = las que lo lograron · Ref. 6m = promedio de los últimos 6 meses</div>
+    <div style="padding:6px 12px;font-size:9px;color:var(--muted)">Tiempo = media desde creación hasta el hito (en horas si es menor a 1 día) · Cuentas = las que lo lograron · Ref. 6m = promedio de los últimos 6 meses</div>
   </div>`;
 }
 
@@ -2457,7 +2447,6 @@ function impactTable(title, labelA, labelB, data, color) {
   const metrics = [
     { label:'Retención', a:data.conRet+'%', b:data.sinRet+'%', better:data.conRet>=data.sinRet, diff:data.conRet-data.sinRet, unit:'pp' },
     { label:'LT prom.',  a:data.conLT+'d',  b:data.sinLT+'d',  better:data.conLT>=data.sinLT,  diff:data.conLT-data.sinLT,   unit:'d'  },
-    { label:'MRR',       a:'$'+data.conMRR, b:'$'+data.sinMRR, better:data.conMRR>=data.sinMRR, diff:data.conMRR-data.sinMRR, unit:''   },
   ];
   const rows = metrics.map(m =>
     '<div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid var(--border)">'
@@ -2512,7 +2501,7 @@ function renderHist6(m) {
     const hdrs = H.map((h,i)=>
       `<th style="padding:6px 10px;font-size:10px;font-weight:600;white-space:nowrap;
         color:${i===last?color:'var(--muted)'};
-        background:${i===last?'rgba(255,255,255,.04)':'transparent'}">${h.lbl}${i===last?' ← actual':''}</th>`
+        background:${i===last?'rgba(15,23,42,.04)':'transparent'}">${h.lbl}${i===last?' ← actual':''}</th>`
     ).join('');
     const body = rows.map(({label,values,inv,fmt})=>{
       const cells = values.map((v,i)=>{
@@ -2532,7 +2521,7 @@ function renderHist6(m) {
     return `<div style="background:var(--card);border:1px solid var(--border);border-radius:12px;overflow:hidden;margin-bottom:10px">
       <div style="background:${color}18;border-bottom:1px solid var(--border);padding:8px 14px;display:flex;align-items:center;gap:8px">
         <div style="width:7px;height:7px;border-radius:50%;background:${color}"></div>
-        <span style="font-family:'Syne',sans-serif;font-size:11px;font-weight:700;color:#fff">${title}</span>
+        <span style="font-family:'Syne',sans-serif;font-size:11px;font-weight:700;color:#0f172a">${title}</span>
       </div>
       <div style="overflow-x:auto">
         <table style="width:100%;border-collapse:collapse">
@@ -2556,7 +2545,6 @@ function renderHist6(m) {
     {label:'Atrasadas del mes',   values:H.map(h=>h.atrM),      inv:true,  fmt:'n'},
     {label:'Retención neta',      values:H.map(h=>h.retNeta),   inv:false, fmt:'n'},
     {label:'Tasa churn (%)',      values:H.map(h=>h.churnRate), inv:true,  fmt:'%'},
-    {label:'MRR inicio mes ($)',  values:H.map(h=>h.mrrM),      inv:false, fmt:'$'},
         {label:'En plan reposo',       values:H.map(h=>h.reposoM??null), inv:true,  fmt:'n'},
   ]);
 
@@ -2632,7 +2620,7 @@ function renderOnbEnriched(m) {
   if (!total) return '';
   const pct = (n,d) => d>0?Math.round(n/d*100):0;
   const bar = (n,max,color) =>
-    `<div style="flex:1;height:6px;background:rgba(255,255,255,.05);border-radius:3px;overflow:hidden">
+    `<div style="flex:1;height:6px;background:rgba(15,23,42,.05);border-radius:3px;overflow:hidden">
       <div style="width:${Math.round(n/(max||1)*100)}%;height:100%;background:${color};border-radius:3px"></div>
     </div>`;
   const dias = (v,label) => v!==null
@@ -2657,8 +2645,8 @@ function renderOnbEnriched(m) {
     </div>`
   ).join('');
 
-  return `<div style="background:rgba(255,255,255,.02);border:1px solid var(--border);border-radius:12px;padding:16px 18px;margin-top:4px">
-    <div style="font-size:10px;font-weight:700;color:var(--teal);text-transform:uppercase;letter-spacing:.08em;margin-bottom:14px">Detalle ONB — Tipo de cuenta y responsable</div>
+  return `<div style="background:rgba(15,23,42,.02);border:1px solid var(--border);border-radius:12px;padding:16px 18px;margin-top:4px">
+    <div style="font-size:10px;font-weight:700;color:var(--teal);text-transform:uppercase;letter-spacing:.08em;margin-bottom:14px">Detalle ONB — Tipo de cuenta, responsable y tiempo al ONB</div>
 
     <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:12px;margin-bottom:16px">
       <div style="background:rgba(45,212,191,.06);border:1px solid rgba(45,212,191,.15);border-radius:8px;padding:12px">
@@ -2671,11 +2659,11 @@ function renderOnbEnriched(m) {
         <div style="font-family:'Syne',sans-serif;font-size:22px;font-weight:800;color:var(--orange)">${m.onbAntiguas}</div>
         <div style="font-size:10px;color:var(--muted);margin-top:2px">${pct(m.onbAntiguas,total)}% del total ONB</div>
       </div>
-      <div style="background:rgba(255,255,255,.02);border:1px solid var(--border);border-radius:8px;padding:12px">
+      <div style="background:rgba(15,23,42,.02);border:1px solid var(--border);border-radius:8px;padding:12px">
         <div style="font-size:9px;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);margin-bottom:4px">Días al ONB (nuevas)</div>
         <div style="margin-top:4px">${dias(m.diasNuevas,'días promedio')}</div>
       </div>
-      <div style="background:rgba(255,255,255,.02);border:1px solid var(--border);border-radius:8px;padding:12px">
+      <div style="background:rgba(15,23,42,.02);border:1px solid var(--border);border-radius:8px;padding:12px">
         <div style="font-size:9px;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);margin-bottom:4px">Días al ONB (antiguas)</div>
         <div style="margin-top:4px">${dias(m.diasAntiguas,'días promedio')}</div>
       </div>
@@ -2692,7 +2680,7 @@ function renderOnbEnriched(m) {
       </div>
     </div>
 
-    ${buildOnbPlanTable(m.onbByPlan||[])}
+    ${renderTiempoOnbInner(m)}
   </div>`;
 }
 
@@ -2702,11 +2690,11 @@ function renderNoShowProfile(m) {
   if (!ns.total && !pnd.total) return '';
 
   const pct = (n,d) => d>0 ? Math.round(n/d*100) : 0;
-  const planColors = {'Plan Starter':'#60a5fa','Plan Growth':'#a78bfa','Plan Advanced':'#2dd4bf','Advanced Personalizado':'#fbbf24'};
+  const planColors = {'Plan Starter':'#2563eb','Plan Growth':'#7c3aed','Plan Advanced':'#0d9488','Advanced Personalizado':'#b45309'};
   const segColors  = {'A':'var(--green2)','B':'var(--yellow)','C':'var(--muted)'};
 
   function miniBar(n, max, color) {
-    return '<div style="flex:1;height:5px;background:rgba(255,255,255,.05);border-radius:3px;overflow:hidden">'
+    return '<div style="flex:1;height:5px;background:rgba(15,23,42,.05);border-radius:3px;overflow:hidden">'
       + '<div style="width:'+Math.round(n/(max||1)*100)+'%;height:100%;background:'+color+';border-radius:3px"></div></div>';
   }
   function rowList(arr, colors, total) {
@@ -2754,7 +2742,7 @@ function renderNoShowProfile(m) {
       +     '<div style="font-family:Syne,sans-serif;font-size:16px;font-weight:800;color:var(--purple)">'+data.trial+'</div>'
       +     '<div style="font-size:9px;color:var(--muted)">Trial</div>'
       +   '</div>'
-      +   '<div style="flex:1;background:rgba(255,255,255,.02);border:1px solid var(--border);border-radius:6px;padding:6px 8px;text-align:center">'
+      +   '<div style="flex:1;background:rgba(15,23,42,.02);border:1px solid var(--border);border-radius:6px;padding:6px 8px;text-align:center">'
       +     '<div style="font-family:Syne,sans-serif;font-size:16px;font-weight:800;color:var(--muted)">'+(data.total-data.matched)+'</div>'
       +     '<div style="font-size:9px;color:var(--muted)">Sin cruce</div>'
       +   '</div>'
@@ -2771,7 +2759,7 @@ function renderNoShowProfile(m) {
       + '</div>';
   }
 
-  return '<div style="background:rgba(255,255,255,.02);border:1px solid var(--border);border-radius:12px;padding:16px 18px;margin-top:4px">'
+  return '<div style="background:rgba(15,23,42,.02);border:1px solid var(--border);border-radius:12px;padding:16px 18px;margin-top:4px">'
     + '<div style="font-size:10px;font-weight:700;color:var(--red);text-transform:uppercase;letter-spacing:.08em;margin-bottom:12px">Perfil: No show y agendados sin asistir</div>'
     + '<div style="display:flex;gap:14px;flex-wrap:wrap">'
     + panel('No show / No asistió', 'var(--red)',    '✗', ns)
@@ -2781,47 +2769,7 @@ function renderNoShowProfile(m) {
     + '</div>';
 }
 
-function buildOnbPlanTable(rows) {
-  if (!rows.length) return '';
-  const planColors = {'Plan Starter':'#60a5fa','Plan Growth':'#a78bfa','Plan Advanced':'#2dd4bf','Advanced Personalizado':'#fbbf24'};
-  const maxAvg = Math.max(...rows.map(r=>r.avg||0), 1);
-  const minAvg = Math.min(...rows.filter(r=>r.avg!==null).map(r=>r.avg));
-  const trs = rows.map(r => {
-    const pct  = r.avg !== null ? Math.round(r.avg/maxAvg*100) : 0;
-    const fast = r.avg !== null && r.avg === minAvg;
-    const c    = planColors[r.plan] || 'rgba(100,116,139,.5)';
-    return '<tr style="border-bottom:1px solid var(--border)">'
-      + '<td style="padding:7px 12px;font-size:11px;font-weight:600;color:'+c+'">' + r.plan.replace('Plan ','') + '</td>'
-      + '<td style="padding:7px 10px;text-align:center;font-size:11px">' + r.n + '</td>'
-      + '<td style="padding:7px 10px;text-align:center">'
-      +   (r.avg !== null
-           ? '<span style="font-family:Syne,sans-serif;font-weight:800;font-size:15px;color:'+c+'">' + r.avg + 'd</span>'
-             + (fast ? '<span style="font-size:9px;color:var(--teal);margin-left:4px">✓ más rápido</span>' : '')
-           : '<span style="color:var(--muted)">—</span>')
-      + '</td>'
-      + '<td style="padding:7px 10px;text-align:center;font-size:11px;color:var(--muted)">' + (r.min!==null?r.min+'d':'—') + '</td>'
-      + '<td style="padding:7px 10px;text-align:center;font-size:11px;color:var(--muted)">' + (r.max!==null?r.max+'d':'—') + '</td>'
-      + '<td style="padding:7px 10px">'
-      +   (r.avg !== null
-           ? '<div style="height:6px;background:rgba(255,255,255,.05);border-radius:3px;overflow:hidden">'
-             + '<div style="width:'+pct+'%;height:100%;background:'+c+';border-radius:3px"></div></div>'
-           : '')
-      + '</td></tr>';
-  }).join('');
-  return '<div style="border-top:1px solid var(--border);padding-top:14px">'
-    + '<div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:10px">Días hasta ONB por plan — ¿los planes avanzados llegan más rápido?</div>'
-    + '<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;min-width:420px">'
-    + '<thead><tr style="background:rgba(255,255,255,.02)">'
-    + '<th style="padding:6px 12px;font-size:10px;color:var(--muted);text-align:left;border-bottom:1px solid var(--border)">Plan</th>'
-    + '<th style="padding:6px 10px;font-size:10px;color:var(--muted);text-align:center;border-bottom:1px solid var(--border)">Cuentas</th>'
-    + '<th style="padding:6px 10px;font-size:10px;color:var(--teal);text-align:center;border-bottom:1px solid var(--border)">Días promedio</th>'
-    + '<th style="padding:6px 10px;font-size:10px;color:var(--muted);text-align:center;border-bottom:1px solid var(--border)">Mín</th>'
-    + '<th style="padding:6px 10px;font-size:10px;color:var(--muted);text-align:center;border-bottom:1px solid var(--border)">Máx</th>'
-    + '<th style="padding:6px 10px;font-size:10px;color:var(--muted);text-align:left;border-bottom:1px solid var(--border)">Velocidad relativa</th>'
-    + '</tr></thead><tbody>' + trs + '</tbody></table></div>'
-    + '<div style="font-size:9px;color:var(--muted);margin-top:8px">Días = creación de cuenta → sesión ONB · barra proporcional al plan más lento</div>'
-    + '</div>';
-}
+
 
 function renderBaiben(m) {
   const el = document.getElementById('baibenSection');
@@ -2832,11 +2780,11 @@ function renderBaiben(m) {
     return;
   }
 
-  const planColors = {'Plan Starter':'#60a5fa','Plan Growth':'#a78bfa','Plan Advanced':'#2dd4bf','Advanced Personalizado':'#fbbf24'};
+  const planColors = {'Plan Starter':'#2563eb','Plan Growth':'#7c3aed','Plan Advanced':'#0d9488','Advanced Personalizado':'#b45309'};
   const fmt = (n,d) => d>0?Math.round(n/d*100):0;
 
   function miniBar(n, max, color) {
-    return '<div style="flex:1;height:5px;background:rgba(255,255,255,.05);border-radius:3px;overflow:hidden">'
+    return '<div style="flex:1;height:5px;background:rgba(15,23,42,.05);border-radius:3px;overflow:hidden">'
       + '<div style="width:'+Math.round(n/(max||1)*100)+'%;height:100%;background:'+color+';border-radius:3px"></div></div>';
   }
 
@@ -2957,15 +2905,15 @@ function renderBaiben(m) {
         options: {
           responsive:true, maintainAspectRatio:false, indexAxis:'y',
           plugins: {
-            legend: { position:'top', labels:{ color:'#94a3b8', font:{size:9}, boxWidth:10, padding:6 } },
+            legend: { position:'top', labels:{ color:'#64748b', font:{size:9}, boxWidth:10, padding:6 } },
             tooltip: { callbacks: { label: (i) => {
               const tot = i.datasetIndex===0 ? b.baibenTotal : (b.churnN||1);
               return ' '+i.dataset.label+': '+i.raw+' ('+Math.round(i.raw/tot*100)+'%)';
             }}}
           },
           scales: {
-            x: { grid:{ color:'rgba(255,255,255,.04)' }, ticks:{ color:'#64748b', font:{size:9} } },
-            y: { grid:{ display:false }, ticks:{ color:'#94a3b8', font:{size:9} } }
+            x: { grid:{ color:'rgba(15,23,42,.04)' }, ticks:{ color:'#64748b', font:{size:9} } },
+            y: { grid:{ display:false }, ticks:{ color:'#64748b', font:{size:9} } }
           },
           animation:false
         }
@@ -3006,8 +2954,8 @@ function renderBaiben(m) {
           }
         },
         scales: {
-          x: { grid: { color:'rgba(255,255,255,.04)' }, ticks: { color:'#64748b', font:{size:10} } },
-          y: { grid: { color:'rgba(255,255,255,.04)' }, ticks: { color:'#64748b', font:{size:10}, stepSize:1 },
+          x: { grid: { color:'rgba(15,23,42,.04)' }, ticks: { color:'#64748b', font:{size:10} } },
+          y: { grid: { color:'rgba(15,23,42,.04)' }, ticks: { color:'#64748b', font:{size:10}, stepSize:1 },
                beginAtZero:true }
         },
         animation: false,
@@ -3034,22 +2982,22 @@ function renderBaiben(m) {
 }
 
 
-function renderTiempoOnb(m) {
+function renderTiempoOnbInner(m) {
   const t = m.tiempoOnb;
   if (!t || !t.all) return '<div style="color:var(--muted);font-size:11px;padding:8px 0">Sin datos de tiempo al ONB en el período.</div>';
-  const planColors = {'Plan Starter':'#60a5fa','Plan Growth':'#a78bfa','Plan Advanced':'#2dd4bf','Advanced Personalizado':'#fbbf24'};
+  const planColors = {'Plan Starter':'#2563eb','Plan Growth':'#7c3aed','Plan Advanced':'#0d9488','Advanced Personalizado':'#b45309'};
   const segColors  = {'A':'var(--green2)','B':'var(--yellow)','C':'var(--muted)'};
 
-  // ── Stat summary row ─────────────────────────────
+  // -- Stat summary row --
   function statBadge(label, val, color) {
     return '<div style="text-align:center;flex:1">'
-      + '<div style="font-family:Syne,sans-serif;font-size:20px;font-weight:800;color:'+color+';line-height:1">'+(val!==null?val+'d':'—')+'</div>'
+      + '<div style="font-family:Syne,sans-serif;font-size:20px;font-weight:800;color:'+color+';line-height:1">'+(val!==null?val+'d':'--')+'</div>'
       + '<div style="font-size:9px;color:var(--muted);margin-top:2px">'+label+'</div>'
       + '</div>';
   }
   function statRow(st, color) {
     if (!st) return '<div style="color:var(--muted);font-size:10px">Sin datos</div>';
-    return '<div style="display:flex;gap:4px;background:rgba(255,255,255,.02);border-radius:8px;padding:8px;align-items:center">'
+    return '<div style="display:flex;gap:4px;background:rgba(15,23,42,.02);border-radius:8px;padding:8px;align-items:center">'
       + statBadge('mín', st.min, color)
       + '<div style="width:1px;height:24px;background:var(--border)"></div>'
       + statBadge('p50', st.p50, color)
@@ -3061,24 +3009,7 @@ function renderTiempoOnb(m) {
       + '</div>';
   }
 
-  // ── Range bar (min→p50→max) ───────────────────────
-  function rangeBar(st, color, maxScale) {
-    if (!st) return '';
-    const pMin = Math.round(st.min/maxScale*100);
-    const pP50 = Math.round(st.p50/maxScale*100);
-    const pMax = Math.round(st.max/maxScale*100);
-    return '<div style="position:relative;height:8px;background:rgba(255,255,255,.05);border-radius:4px;overflow:visible;margin:4px 0">'
-      + '<div style="position:absolute;left:'+pMin+'%;width:'+(pMax-pMin)+'%;height:100%;background:'+color+';opacity:.3;border-radius:4px"></div>'
-      + '<div style="position:absolute;left:'+pP50+'%;width:3px;height:100%;background:'+color+';border-radius:2px;transform:translateX(-50%)"></div>'
-      + '<div style="position:absolute;left:'+pMin+'%;width:3px;height:100%;background:'+color+';opacity:.6;border-radius:2px;transform:translateX(-50%)"></div>'
-      + '<div style="position:absolute;left:'+pMax+'%;width:3px;height:100%;background:'+color+';opacity:.6;border-radius:2px;transform:translateX(-50%)"></div>'
-      + '</div>'
-      + '<div style="display:flex;justify-content:space-between;font-size:8px;color:var(--muted)">'
-      +   '<span>'+st.min+'d</span><span style="color:'+color+'">↓p50 '+st.p50+'d</span><span>'+st.max+'d</span>'
-      + '</div>';
-  }
-
-  // ── Histogram ─────────────────────────────────────
+  // -- Histogram --
   const maxH = Math.max(...t.histo.map(b=>b.nuevas+b.antiguas), 1);
   const histBars = t.histo.map(b => {
     const tot = b.nuevas + b.antiguas;
@@ -3093,93 +3024,84 @@ function renderTiempoOnb(m) {
       + '</div>';
   }).join('');
 
-  // ── By plan rows (with new/old sub-rows) ─────────────
-  const maxPlan = Math.max(...(t.byPlan||[]).map(p => Math.max(p.stats?.max||0, p.nuevas?.max||0, p.antiguas?.max||0)), 1);
-  function subRow(label, st, c) {
-    if (!st) return '';
-    return '<div style="display:flex;align-items:center;gap:4px;margin-bottom:2px">'
-      + '<div style="font-size:8px;color:'+c+';width:48px;flex-shrink:0;opacity:.9">'+label+'</div>'
-      + '<div style="flex:1">' + rangeBar(st, c, maxPlan) + '</div>'
+  // -- Simple avg-bar row builder (used for both plan and segment) --
+  function avgBarRow(label, color, st, stNew, stOld, maxAvg) {
+    if (!st || st.avg === null) return '';
+    const pct = Math.round(st.avg / (maxAvg||1) * 100);
+    const detail = [];
+    if (stNew && stNew.avg !== null) detail.push('nuevas <span style="color:var(--teal);font-weight:700">'+stNew.avg+'d</span>');
+    if (stOld && stOld.avg !== null) detail.push('antiguas <span style="color:var(--orange);font-weight:700">'+stOld.avg+'d</span>');
+    return '<div style="margin-bottom:11px">'
+      + '<div style="display:flex;align-items:center;gap:10px;margin-bottom:3px">'
+      +   '<div style="font-size:11px;font-weight:700;color:'+color+';width:100px;flex-shrink:0">'+label+'</div>'
+      +   '<div style="flex:1;height:8px;background:rgba(15,23,42,.05);border-radius:4px;overflow:hidden">'
+      +     '<div style="width:'+pct+'%;height:100%;background:'+color+';border-radius:4px"></div>'
+      +   '</div>'
+      +   '<div style="font-family:Syne,sans-serif;font-size:14px;font-weight:800;color:'+color+';width:38px;text-align:right">'+st.avg+'d</div>'
+      +   '<div style="font-size:9px;color:var(--muted);width:62px;text-align:right">'+st.n+' cuenta'+(st.n===1?'':'s')+'</div>'
+      + '</div>'
+      + (detail.length ? '<div style="font-size:9px;color:var(--muted);padding-left:110px">'+detail.join(' · ')+'</div>' : '')
       + '</div>';
   }
+
+  // -- By plan --
+  const maxPlanAvg = Math.max(...(t.byPlan||[]).map(p=>p.stats?.avg||0), 1);
   const planRows = (t.byPlan||[]).map(p => {
     const c = planColors[p.plan] || 'rgba(148,163,184,.5)';
-    return '<div style="margin-bottom:10px;padding-bottom:6px;border-bottom:1px solid var(--border)">'
-      + '<div style="display:flex;justify-content:space-between;margin-bottom:3px">'
-      +   '<span style="font-size:10px;font-weight:700;color:'+c+'">' + p.plan.replace('Plan ','') + '</span>'
-      +   '<span style="font-size:9px;color:var(--muted)">n='+p.stats.n+'</span>'
-      + '</div>'
-      + subRow('todas', p.stats, c)
-      + subRow('nuevas ≤ 30d', p.nuevas, 'var(--teal)')
-      + subRow('antiguas > 30d', p.antiguas, 'var(--orange)')
-      + '</div>';
+    return avgBarRow(p.plan.replace('Plan ',''), c, p.stats, p.nuevas, p.antiguas, maxPlanAvg);
   }).join('') || '<div style="font-size:10px;color:var(--muted)">Sin cruce con tabla de cuentas</div>';
 
-  // ── By segment rows (with new/old sub-rows) ────────
-  const maxSeg = Math.max(...(t.bySeg||[]).map(s => Math.max(s.stats?.max||0, s.nuevas?.max||0, s.antiguas?.max||0)), 1);
+  // -- By segment --
+  const maxSegAvg = Math.max(...(t.bySeg||[]).map(s=>s.stats?.avg||0), 1);
   const segRows = (t.bySeg||[]).map(s => {
     const c = segColors[s.seg] || 'var(--muted)';
-    return '<div style="margin-bottom:10px;padding-bottom:6px;border-bottom:1px solid var(--border)">'
-      + '<div style="display:flex;justify-content:space-between;margin-bottom:3px">'
-      +   '<span style="font-size:11px;font-weight:800;color:'+c+'">Seg '+s.seg+'</span>'
-      +   '<span style="font-size:9px;color:var(--muted)">n='+s.stats.n+'</span>'
-      + '</div>'
-      + subRow('todas', s.stats, c)
-      + subRow('nuevas ≤ 30d', s.nuevas, 'var(--teal)')
-      + subRow('antiguas > 30d', s.antiguas, 'var(--orange)')
-      + '</div>';
+    return avgBarRow('Segmento '+s.seg, c, s.stats, s.nuevas, s.antiguas, maxSegAvg);
   }).join('') || '<div style="font-size:10px;color:var(--muted)">Sin cruce con tabla de cuentas</div>';
 
-  // ── By segment rows ───────────────────────────────
-
-  return '<div style="background:rgba(255,255,255,.02);border:1px solid var(--border);border-radius:12px;padding:16px 18px;margin-top:4px">'
-    + '<div style="font-size:10px;font-weight:700;color:var(--teal);text-transform:uppercase;letter-spacing:.08em;margin-bottom:14px">⏱ Tiempo entre alta de cuenta y sesión de ONB</div>'
+  return '<div style="border-top:1px solid var(--border);margin-top:14px;padding-top:14px">'
+    + '<div style="font-size:10px;font-weight:700;color:var(--teal);text-transform:uppercase;letter-spacing:.08em;margin-bottom:14px">⏱ Tiempo hasta el ONB — distribución, por plan y por segmento</div>'
 
     // Global summary
     + '<div style="font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px">Total · '+t.all.n+' asistentes con datos</div>'
     + statRow(t.all, 'var(--teal)')
 
     // Nuevas vs Antiguas
-    + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:12px;margin-bottom:16px">'
+    + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:12px;margin-bottom:18px">'
     +   '<div><div style="font-size:9px;color:var(--teal);text-transform:uppercase;letter-spacing:.06em;margin-bottom:5px">Cuentas nuevas (≤30d)</div>'+ statRow(t.nuevas,'var(--teal)') +'</div>'
     +   '<div><div style="font-size:9px;color:var(--orange);text-transform:uppercase;letter-spacing:.06em;margin-bottom:5px">Cuentas antiguas (>30d)</div>'+ statRow(t.antiguas,'var(--orange)') +'</div>'
     + '</div>'
 
-    // Histogram + breakdown side by side
-    + '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px">'
-
-    // Histogram
-    + '<div><div style="font-size:9px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px">Distribución (días)</div>'
-    +   '<div style="display:flex;gap:2px;align-items:flex-end;height:90px">' + histBars + '</div>'
+    // Histogram full width
+    + '<div style="margin-bottom:18px">'
+    +   '<div style="font-size:9px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px">Distribución de días — todos los asistentes</div>'
+    +   '<div style="display:flex;gap:3px;align-items:flex-end;height:90px">' + histBars + '</div>'
     +   '<div style="display:flex;gap:10px;margin-top:6px">'
-    +     '<span style="font-size:8px;color:rgba(45,212,191,.8)">■ nuevas</span>'
-    +     '<span style="font-size:8px;color:rgba(251,146,60,.6)">■ antiguas</span>'
+    +     '<span style="font-size:9px;color:rgba(45,212,191,.9)">■ nuevas</span>'
+    +     '<span style="font-size:9px;color:rgba(251,146,60,.7)">■ antiguas</span>'
     +   '</div>'
     + '</div>'
 
-    // By plan
-    + '<div><div style="font-size:9px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px">Por plan</div>'
-    + planRows + '</div>'
-
-    // By segment
-    + '<div><div style="font-size:9px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px">Por segmento</div>'
-    + segRows + '</div>'
-
+    // By plan / by segment side by side, full-width rows each
+    + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:24px">'
+    +   '<div><div style="font-size:9px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:10px">Promedio de días por plan</div>' + planRows + '</div>'
+    +   '<div><div style="font-size:9px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:10px">Promedio de días por segmento</div>' + segRows + '</div>'
     + '</div>'
-    + '<div style="font-size:9px;color:var(--muted);margin-top:10px">Barra: rango mín→máx · línea vertical = mediana · p50 = percentil 50: el valor donde la mitad tardó menos y la otra mitad más (resistente a valores extremos) · cruce con cuentas por user_id</div>'
+
+    + '<div style="font-size:9px;color:var(--muted);margin-top:12px">Barra = días promedio hasta el ONB (más corta = más rápido) · debajo de cada barra: promedio separado para cuentas nuevas y antiguas · p50 = mediana, resistente a valores extremos</div>'
     + '</div>';
 }
+
 
 function renderActivacion(m) {
   const a = m.activacion;
   if (!a || a.n === 0) return '<div style="color:var(--muted);font-size:11px;padding:8px 0">Sin cuentas nuevas en las últimas 4 semanas.</div>';
-  const planColors = {'Plan Starter':'#60a5fa','Plan Growth':'#a78bfa','Plan Advanced':'#2dd4bf','Advanced Personalizado':'#fbbf24'};
-  const bucketColors = ['#475569','#f97316','#fbbf24','#22c55e','#2dd4bf'];
+  const planColors = {'Plan Starter':'#2563eb','Plan Growth':'#7c3aed','Plan Advanced':'#0d9488','Advanced Personalizado':'#b45309'};
+  const bucketColors = ['#475569','#f97316','#b45309','#15803d','#0d9488'];
   const pct = (n,d) => d>0?Math.round(n/d*100):0;
 
   // Gauge arc
   const avg = a.avg !== null ? a.avg : 0;
-  const gaugeColor = avg < 25 ? '#f87171' : avg < 50 ? '#fb923c' : avg < 75 ? '#fbbf24' : '#2dd4bf';
+  const gaugeColor = avg < 25 ? '#dc2626' : avg < 50 ? '#c2410c' : avg < 75 ? '#b45309' : '#0d9488';
   const angle = Math.round(avg * 1.8); // 0-100 → 0-180 degrees
 
   // Bucket bars
@@ -3187,7 +3109,7 @@ function renderActivacion(m) {
   const bucketBars = a.buckets.map((b,i) =>
     '<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">'
     + '<div style="font-size:10px;color:var(--muted);width:60px;flex-shrink:0">' + b.label + '</div>'
-    + '<div style="flex:1;height:6px;background:rgba(255,255,255,.05);border-radius:3px;overflow:hidden">'
+    + '<div style="flex:1;height:6px;background:rgba(15,23,42,.05);border-radius:3px;overflow:hidden">'
     +   '<div style="width:' + Math.round(b.n/maxB*100) + '%;height:100%;background:' + bucketColors[i] + ';border-radius:3px"></div>'
     + '</div>'
     + '<div style="font-size:10px;font-weight:700;width:20px;text-align:right">' + b.n + '</div>'
@@ -3201,7 +3123,7 @@ function renderActivacion(m) {
     const pctVal = p.avg !== null ? p.avg : 0;
     return '<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">'
       + '<div style="font-size:10px;color:' + c + ';width:110px;flex-shrink:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + p.plan.replace('Plan ','') + '</div>'
-      + '<div style="flex:1;height:6px;background:rgba(255,255,255,.05);border-radius:3px;overflow:hidden">'
+      + '<div style="flex:1;height:6px;background:rgba(15,23,42,.05);border-radius:3px;overflow:hidden">'
       +   '<div style="width:' + pctVal + '%;height:100%;background:' + c + ';border-radius:3px"></div>'
       + '</div>'
       + '<div style="font-size:11px;font-weight:700;width:36px;text-align:right;color:' + c + '">' + (p.avg!==null?p.avg+'%':'—') + '</div>'
@@ -3215,7 +3137,7 @@ function renderActivacion(m) {
     if (avg === null) return '';
     return '<div style="display:flex;align-items:center;gap:5px;margin-bottom:2px">'
       + '<div style="font-size:8px;color:'+color+';width:52px;flex-shrink:0;opacity:.9">'+label+'</div>'
-      + '<div style="flex:1;height:5px;background:rgba(255,255,255,.05);border-radius:3px;overflow:hidden">'
+      + '<div style="flex:1;height:5px;background:rgba(15,23,42,.05);border-radius:3px;overflow:hidden">'
       +   '<div style="width:'+Math.round(avg/(maxW||100)*100)+'%;height:100%;background:'+color+';border-radius:3px"></div>'
       + '</div>'
       + '<div style="font-size:9px;font-weight:700;color:'+color+';width:30px;text-align:right">'+avg+'%</div>'
@@ -3233,7 +3155,6 @@ function renderActivacion(m) {
       + segSubBar('Con ONB', s.avgConOnb, s.nConOnb, 'var(--teal)', maxSegAvg)
       + segSubBar('Sin ONB', s.avgSinOnb, s.nSinOnb, c, maxSegAvg)
       + segSubBar('Con Ses.', s.avgConSes, s.nConSes, 'var(--purple)', maxSegAvg)
-      + segSubBar('Sin Ses.', s.avgSinSes, s.nSinSes, 'rgba(148,163,184,.4)', maxSegAvg)
       + '</div>';
   }).join('') || '<div style="font-size:10px;color:var(--muted)">Sin datos por segmento</div>';
 
@@ -3246,13 +3167,13 @@ function renderActivacion(m) {
       +   '<div style="font-size:10px;font-weight:700;color:var(--text);margin-left:8px">'+(o.avg!==null?o.avg+'%':'--')+'</div>'
       +   '<div style="font-size:9px;color:var(--muted);width:24px;text-align:right;margin-left:4px">'+o.n+'</div>'
       + '</div>'
-      + '<div style="height:5px;background:rgba(255,255,255,.05);border-radius:3px;overflow:hidden">'
+      + '<div style="height:5px;background:rgba(15,23,42,.05);border-radius:3px;overflow:hidden">'
       +   '<div style="width:'+pctW+'%;height:100%;background:rgba(96,165,250,.6);border-radius:3px"></div>'
       + '</div></div>';
   }).join('') || '<div style="font-size:10px;color:var(--muted)">Sin datos por objetivo</div>';
 
 
-  return '<div style="background:rgba(255,255,255,.02);border:1px solid var(--border);border-radius:12px;padding:16px 18px;margin-top:4px">'
+  return '<div style="background:rgba(15,23,42,.02);border:1px solid var(--border);border-radius:12px;padding:16px 18px;margin-top:4px">'
     + '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:8px">'
     +   '<div><div style="font-size:10px;font-weight:700;color:var(--green2);text-transform:uppercase;letter-spacing:.08em">📊 Activación de cuentas nuevas — mes seleccionado</div>'
     +     '<div style="font-size:10px;color:var(--muted);margin-top:2px">' + a.n + ' cuentas pagas creadas · ' + a.withData + ' con datos de implementación (' + pct(a.withData,a.n) + '%)</div></div>'
@@ -3263,19 +3184,20 @@ function renderActivacion(m) {
     + '</div>'
     // General ONB/Sessions comparison indicator
     + onbVsSinPanel(a)
+    + ahaTable(m.ahaStatsMes, m.ahaStats)
     + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:14px">'
-    +   '<div><div style="font-size:9px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px">Distribución por nivel</div>' + bucketBars + '</div>'
-    +   '<div><div style="font-size:9px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px">Promedio por plan</div>' + planRows + '</div>'
+    +   '<div><div style="font-size:9px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:2px">Distribución por nivel</div>'+'<div style="font-size:8px;color:rgba(148,163,184,.6);margin-bottom:7px">Solo de las '+a.withData+' de '+a.n+' cuentas con % registrado (no incluye sin dato)</div>' + bucketBars + '</div>'
+    +   '<div><div style="font-size:9px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:2px">Promedio por plan</div>'+'<div style="font-size:8px;color:rgba(148,163,184,.6);margin-bottom:7px">% promedio sobre el total de cuentas del plan (sin dato = 0%)</div>' + planRows + '</div>'
     + '</div>'
     + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">'
-    +   '<div><div style="font-size:9px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px">Por segmento</div>' + segActRows + '</div>'
-    +   '<div><div style="font-size:9px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px">Por objetivo declarado</div>' + objRows + '</div>'
+    +   '<div><div style="font-size:9px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:2px">Por segmento</div>'+'<div style="font-size:8px;color:rgba(148,163,184,.6);margin-bottom:7px">% promedio sobre el total de cada grupo (sin dato = 0%)</div>' + segActRows + '</div>'
+    +   '<div><div style="font-size:9px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:2px">Por objetivo declarado</div>'+'<div style="font-size:8px;color:rgba(148,163,184,.6);margin-bottom:7px">% promedio sobre el total de cuentas del objetivo (sin dato = 0%)</div>' + objRows + '</div>'
     + '</div>'
-    + '<div style="font-size:9px;color:var(--muted);margin-top:10px">Fuente: columna % Nivel de implementación · cuentas pagas creadas durante el mes seleccionado</div>'
+    + '<div style="font-size:9px;color:var(--muted);margin-top:10px">Fuente: columna % Nivel de implementación · cuentas pagas creadas durante el mes seleccionado · promedios por plan/segmento/objetivo usan el total de cuentas del grupo, tratando las sin dato como 0%</div>'
 
     // Feature usage section
     + '<div style="border-top:1px solid var(--border);margin-top:14px;padding-top:14px">'
-    +   '<div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:12px">⚙ Adopción por funcionalidad</div>'
+    +   '<div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:2px">⚙ Adopción por funcionalidad</div>'+'<div style="font-size:8px;color:rgba(148,163,184,.6);margin-bottom:10px">Base: las '+a.totalBase+' cuentas nuevas del mes (todas, con o sin % de implementación registrado)</div>'
     +   '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">'
     +   featurePanel('Usa flows', a.flowDist, a.flowsActivos, a.totalBase, 3, 'var(--blue)')
     +   featurePanel('Usa grupos', a.gruposDist, a.gruposActivos, a.totalBase, 2, 'var(--teal)')
@@ -3327,7 +3249,7 @@ function boolPanel(label, siCount, total, color) {
     const dp = total > 0 ? Math.round(d.count/total*100) : 0;
     return '<div style="display:flex;align-items:center;gap:6px;margin-bottom:5px">'
       + '<div style="font-size:10px;color:var(--muted);width:16px">' + d.label + '</div>'
-      + '<div style="flex:1;height:7px;background:rgba(255,255,255,.05);border-radius:3px;overflow:hidden">'
+      + '<div style="flex:1;height:7px;background:rgba(15,23,42,.05);border-radius:3px;overflow:hidden">'
       +   '<div style="width:'+dp+'%;height:100%;background:'+d.c+';border-radius:3px"></div>'
       + '</div>'
       + '<div style="font-size:10px;font-weight:700;color:'+d.c+';width:24px;text-align:right">'+d.count+'</div>'
@@ -3353,7 +3275,7 @@ function featurePanel(label, dist, activos, total, maxVal, color) {
     const isEmpty = d.n === 0;
     return '<div style="display:flex;align-items:center;gap:6px;margin-bottom:5px">'
       + '<div style="font-size:10px;color:var(--muted);width:16px;text-align:center">'+(isEmpty?'0':d.n)+'</div>'
-      + '<div style="flex:1;height:7px;background:rgba(255,255,255,.05);border-radius:3px;overflow:hidden">'
+      + '<div style="flex:1;height:7px;background:rgba(15,23,42,.05);border-radius:3px;overflow:hidden">'
       +   '<div style="width:'+pct+'%;height:100%;background:'+(isEmpty?'rgba(148,163,184,.2)':color)+';border-radius:3px"></div>'
       + '</div>'
       + '<div style="font-size:10px;font-weight:'+(isEmpty?'400':'700')+';color:'+(isEmpty?'var(--muted)':color)+';width:24px;text-align:right">'+d.count+'</div>'
@@ -3382,13 +3304,13 @@ function renderNoNeed(m) {
     el.innerHTML = '<div style="font-size:11px;color:var(--muted);padding:8px 0">Sin registros con motivo "Ya no la necesito" en el período.</div>';
     return;
   }
-  const planColors = {'Plan Starter':'#60a5fa','Plan Growth':'#a78bfa','Plan Advanced':'#2dd4bf','Advanced Personalizado':'#fbbf24'};
+  const planColors = {'Plan Starter':'#2563eb','Plan Growth':'#7c3aed','Plan Advanced':'#0d9488','Advanced Personalizado':'#b45309'};
   const segColors  = {'A':'var(--green2)','B':'var(--yellow)','C':'var(--muted)'};
   const total = nn.n;
   const pct = (n) => total>0?Math.round(n/total*100):0;
 
   function miniBar(n,max,color){
-    return '<div style="flex:1;height:5px;background:rgba(255,255,255,.05);border-radius:3px;overflow:hidden">'
+    return '<div style="flex:1;height:5px;background:rgba(15,23,42,.05);border-radius:3px;overflow:hidden">'
       +'<div style="width:'+Math.round(n/(max||1)*100)+'%;height:100%;background:'+color+';border-radius:3px"></div></div>';
   }
 
@@ -3458,46 +3380,36 @@ function renderUpgDown(m) {
     el.innerHTML = '<div style="color:var(--muted);font-size:12px;padding:12px 0">Sin movimientos de plan en el período seleccionado.</div>';
     return;
   }
-  const fmt$ = n => '$' + Math.round(n||0).toLocaleString('es-CO');
-  const planColor = {'Plan Starter':'#60a5fa','Plan Growth':'#a78bfa','Plan Advanced':'#2dd4bf','Advanced Personalizado':'#fbbf24'};
+  const planColor = {'Plan Starter':'#2563eb','Plan Growth':'#7c3aed','Plan Advanced':'#0d9488','Advanced Personalizado':'#b45309'};
 
   function movTable(items, color, label, icon) {
     if (!items.length) return `<div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px 20px;flex:1">
       <div style="font-size:10px;font-weight:700;color:${color};text-transform:uppercase;letter-spacing:.08em;margin-bottom:8px">${icon} ${label}</div>
       <div style="color:var(--muted);font-size:12px">Sin ${label.toLowerCase()} este mes.</div>
     </div>`;
-    const totalMRR = items.reduce((s,e)=>s+e.delta,0);
     const rows = items.slice(0,10).map(e => {
       const seg = (e.acct['Segmento de cliente (priorización de cliente)']||'').trim();
       const kam = (e.acct['KAM']||'').trim();
       return `<tr style="border-bottom:1px solid var(--border)">
         <td style="padding:6px 10px;font-size:11px;color:var(--muted)">${e.acct['id']||e.uid}</td>
         <td style="padding:6px 10px;font-size:10px;color:var(--muted);white-space:nowrap">${e.prevPlan||'—'} → <span style="color:${color}">${e.plan||'—'}</span></td>
-        <td style="padding:6px 10px;font-size:11px;text-align:right;font-weight:700;color:${color}">${icon}${fmt$(e.delta)}</td>
-        <td style="padding:6px 10px;font-size:10px;text-align:center"><span style="background:${planColor[e.acct['Segmento de cliente (priorización de cliente)']]||'rgba(100,116,139,.2)'};color:#fff;padding:1px 6px;border-radius:10px;font-size:9px">${seg||'—'}</span></td>
+        <td style="padding:6px 10px;font-size:10px;text-align:center"><span style="background:${planColor[seg]||'rgba(100,116,139,.2)'};color:#fff;padding:1px 6px;border-radius:10px;font-size:9px">${seg||'—'}</span></td>
         <td style="padding:6px 10px;font-size:10px;color:var(--muted)">${kam||'—'}</td>
       </tr>`;
     }).join('');
     return `<div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px 20px;flex:1;min-width:0">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
         <div style="font-size:10px;font-weight:700;color:${color};text-transform:uppercase;letter-spacing:.08em">${icon} ${label}</div>
-        <div style="display:flex;gap:16px">
-          <div style="text-align:center">
-            <div style="font-family:'Syne',sans-serif;font-size:20px;font-weight:800;color:${color}">${items.length}</div>
-            <div style="font-size:9px;color:var(--muted)">cuentas</div>
-          </div>
-          <div style="text-align:center">
-            <div style="font-family:'Syne',sans-serif;font-size:20px;font-weight:800;color:${color}">${fmt$(totalMRR)}</div>
-            <div style="font-size:9px;color:var(--muted)">MRR ${label==='Upgrades'?'ganado':'perdido'}</div>
-          </div>
+        <div style="text-align:center">
+          <div style="font-family:'Syne',sans-serif;font-size:20px;font-weight:800;color:${color}">${items.length}</div>
+          <div style="font-size:9px;color:var(--muted)">cuentas</div>
         </div>
       </div>
       <div style="overflow-x:auto">
         <table style="width:100%;border-collapse:collapse">
-          <thead><tr style="background:rgba(255,255,255,.02)">
+          <thead><tr style="background:rgba(15,23,42,.02)">
             <th style="padding:5px 10px;font-size:9px;color:var(--muted);text-align:left;border-bottom:1px solid var(--border)">ID</th>
             <th style="padding:5px 10px;font-size:9px;color:var(--muted);text-align:left;border-bottom:1px solid var(--border)">Movimiento</th>
-            <th style="padding:5px 10px;font-size:9px;color:var(--muted);text-align:right;border-bottom:1px solid var(--border)">Delta MRR</th>
             <th style="padding:5px 10px;font-size:9px;color:var(--muted);text-align:center;border-bottom:1px solid var(--border)">Seg</th>
             <th style="padding:5px 10px;font-size:9px;color:var(--muted);border-bottom:1px solid var(--border)">KAM</th>
           </tr></thead>
@@ -3513,8 +3425,7 @@ function renderUpgDown(m) {
     ${movTable(downs,'var(--red)',   'Downgrades',  '▼')}
   </div>
   <div style="margin-top:10px;font-size:10px;color:var(--muted)">
-    Neto MRR: <strong style="color:${m.upMRR-m.downMRR>=0?'var(--green)':'var(--red)'}">${m.upMRR-m.downMRR>=0?'▲':'▼'} $${Math.abs(m.upMRR-m.downMRR).toLocaleString('es-CO')}</strong>
-    · Basado en tabla payments · pagos del período comparados con el pago anterior del mismo usuario
+    Basado en tabla payments · pagos del período comparados con el pago anterior del mismo usuario
   </div>`;
 }
 
@@ -3570,7 +3481,6 @@ function downloadChurnCSV(planFilter) {
     { h:'Usa WA',              k: r => (r['Usa API?']||r['Usa Business?']||'')===''?'No':'Sí' },
     { h:'Usa Flow',            k: r => { const v=(r['Usa flows']||'').toString().trim(); return (v===''||v==='0')?'No':'Sí ('+v+')'; } },
     { h:'Usa Grupos',          k: r => { const v=(r['Usa grupos?']||r['Usa grupos']||'').toString().trim(); return (v===''||v==='0')?'No':'Sí ('+v+')'; } },
-    { h:'MRR',                 k: r => getMRR(r)||'' },
   ];
 
   const esc = v => '"' + String(v).replace(/"/g,'""') + '"';
@@ -3623,31 +3533,31 @@ function buildMonthNav(){
       if(_hasData){currentMonthOffset=_off;break;}
     }
     buildMonthNav();
-    try{const _m=calcMonth(currentMonthOffset);render(_m);}catch(_e){const _d=document.getElementById('_errBox')||document.createElement('div');_d.id='_errBox';_d.style.cssText='position:fixed;top:60px;left:50%;transform:translateX(-50%);background:#7f1d1d;color:#fca5a5;padding:12px 18px;border-radius:8px;font-size:11px;font-family:monospace;max-width:640px;z-index:9999;white-space:pre-wrap';_d.textContent='Error: '+_e.message+'\n'+(_e.stack||'').split('\n').slice(0,5).join('\n');document.body.appendChild(_d);}
+    try{const _m=calcMonth(currentMonthOffset);render(_m);}catch(_e){const _d=document.getElementById('_errBox')||document.createElement('div');_d.id='_errBox';_d.style.cssText='position:fixed;top:60px;left:50%;transform:translateX(-50%);background:#fee2e2;color:#991b1b;border:1px solid #fecaca;padding:12px 18px;border-radius:8px;font-size:11px;font-family:monospace;max-width:640px;z-index:9999;white-space:pre-wrap';_d.textContent='Error: '+_e.message+'\n'+(_e.stack||'').split('\n').slice(0,5).join('\n');document.body.appendChild(_d);}
   }catch(err){
     document.getElementById('loadingState').innerHTML=`
       <div style="max-width:500px;margin:0 auto;background:rgba(248,113,113,.08);border:1px solid rgba(248,113,113,.25);border-radius:12px;padding:24px 28px">
-        <h3 style="color:#f87171;font-family:Syne,sans-serif;margin-bottom:10px">Error al cargar los datos</h3>
+        <h3 style="color:#dc2626;font-family:Syne,sans-serif;margin-bottom:10px">Error al cargar los datos</h3>
         <p style="font-size:13px;margin-bottom:12px">${err.message||err}</p>
-        <button onclick="location.reload()" style="padding:8px 18px;background:#1a2744;border:1px solid rgba(255,255,255,.1);border-radius:8px;color:#e2e8f0;cursor:pointer;font-family:'DM Sans',sans-serif;font-size:12px">↻ Reintentar</button>
+        <button onclick="location.reload()" style="padding:8px 18px;background:#0f172a;border:1px solid rgba(15,23,42,.1);border-radius:8px;color:#ffffff;cursor:pointer;font-family:'DM Sans',sans-serif;font-size:12px">↻ Reintentar</button>
       </div>`;
   }
 })();
 </script>
 <!-- MODAL: Uso real de grupos en cancelados por objetivo -->
 <div id="gruposModal" style="display:none;position:fixed;inset:0;z-index:1000;background:rgba(0,0,0,.65);backdrop-filter:blur(4px)" onclick="if(event.target===this)closeGruposModal()">
-  <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:min(920px,96vw);max-height:85vh;overflow-y:auto;background:#131e35;border:1px solid rgba(255,255,255,.1);border-radius:16px;padding:28px 32px">
+  <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:min(920px,96vw);max-height:85vh;overflow-y:auto;background:#ffffff;border:1px solid rgba(15,23,42,.1);border-radius:16px;padding:28px 32px;box-shadow:0 8px 32px rgba(15,23,42,.15)">
     <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:20px">
       <div>
-        <div style="font-family:'Syne',sans-serif;font-size:16px;font-weight:800;color:#fff">🔍 Análisis por objetivo declarado</div>
+        <div style="font-family:'Syne',sans-serif;font-size:16px;font-weight:800;color:#0f172a">🔍 Análisis por objetivo declarado</div>
         <div style="font-size:11px;color:var(--muted);margin-top:4px">Objetivo declarado: "Optimizar la gestión de grupos / comunidades"</div>
       </div>
-      <button onclick="closeGruposModal()" style="background:rgba(255,255,255,.06);border:none;color:var(--muted);font-size:18px;cursor:pointer;border-radius:6px;padding:4px 10px;line-height:1">✕</button>
+      <button onclick="closeGruposModal()" style="background:rgba(15,23,42,.06);border:none;color:var(--muted);font-size:18px;cursor:pointer;border-radius:6px;padding:4px 10px;line-height:1">✕</button>
     </div>
     <div style="margin-bottom:16px">
       <label style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;display:block;margin-bottom:6px">Objetivo declarado</label>
       <select id="gruposObjSelect" onchange="renderGruposModal()"
-        style="width:100%;background:#1a2744;border:1px solid rgba(255,255,255,.1);border-radius:8px;color:#e2e8f0;font-family:'DM Sans',sans-serif;font-size:12px;padding:8px 12px;cursor:pointer;outline:none">
+        style="width:100%;background:#f8fafc;border:1px solid rgba(15,23,42,.15);border-radius:8px;color:#0f172a;font-family:'DM Sans',sans-serif;font-size:12px;padding:8px 12px;cursor:pointer;outline:none">
       </select>
     </div>
     <div id="gruposModalContent">cargando...</div>
