@@ -3489,24 +3489,9 @@ function renderUpgDown(m) {
     </div>`;
   }
 
-  // ── Tendencia mes a mes (barras pareadas: verde=upgrades, rojo=downgrades) ──
-  const maxT = Math.max(1, ...trend.map(t=>Math.max(t.ups,t.downs)));
-  const trendBars = trend.map(t=>{
-    const uh=Math.round(t.ups/maxT*56), dh=Math.round(t.downs/maxT*56);
-    return `<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:5px">
-      <div style="display:flex;align-items:flex-end;gap:3px;height:60px">
-        <div style="width:13px;height:${uh}px;background:var(--green2);border-radius:3px 3px 0 0"></div>
-        <div style="width:13px;height:${dh}px;background:var(--red);border-radius:3px 3px 0 0"></div>
-      </div>
-      <div style="font-size:9px;color:var(--muted)">${t.label}</div>
-      <div style="font-size:10px"><span style="color:var(--green2);font-weight:700">${t.ups}</span><span style="color:var(--muted)"> / </span><span style="color:var(--red);font-weight:700">${t.downs}</span></div>
-    </div>`;
-  }).join('');
+  // ── Tendencia mes a mes: una sola gráfica de barras (Chart.js) ──
   const trendBlock = `<div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px 20px">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
-      <div style="font-size:10px;color:var(--muted)">Cada par: <span style="color:var(--green2);font-weight:700">▲ upgrades</span> · <span style="color:var(--red);font-weight:700">▼ downgrades</span></div>
-    </div>
-    <div style="display:flex;gap:6px;align-items:flex-end">${trendBars}</div>
+    <div style="height:240px;position:relative"><canvas id="movTrendChart"></canvas></div>
   </div>`;
 
   // ── Matriz: de qué plan → a qué plan (verde=upgrade, rojo=downgrade) ──
@@ -3577,6 +3562,23 @@ function renderUpgDown(m) {
     <div style="margin-top:12px;font-size:10px;color:var(--muted);line-height:1.6">
       Basado en la tabla payments · el plan se identifica por el precio mensual (Starter ≈$49 · Growth ≈$99 · Advanced ≈$199) y los pagos anuales se reparten entre los meses que cubren · una renovación al mismo plan no cuenta como movimiento.
     </div>`;
+
+  // Gráfica única de barras agrupadas: upgrades vs downgrades por mes
+  destroyChart('movTrendChart');
+  const cv = document.getElementById('movTrendChart');
+  if (cv) {
+    charts.movTrend = new Chart(cv.getContext('2d'), {
+      type:'bar',
+      data:{ labels:trend.map(t=>t.label), datasets:[
+        {label:'Upgrades',   data:trend.map(t=>t.ups),   backgroundColor:'rgba(34,197,94,.75)',  borderColor:'#15803d', borderWidth:1, borderRadius:4},
+        {label:'Downgrades', data:trend.map(t=>t.downs), backgroundColor:'rgba(248,113,113,.75)',borderColor:'#dc2626', borderWidth:1, borderRadius:4}
+      ]},
+      options:{responsive:true,maintainAspectRatio:false,
+        plugins:{legend:{position:'top',labels:{boxWidth:10,padding:12,color:'#64748b',font:{size:10}}},tooltip:{mode:'index',intersect:false}},
+        scales:{x:{grid:{display:false},ticks:{color:'#64748b',font:{size:10}}},
+          y:{grid:{color:'rgba(15,23,42,.04)'},ticks:{color:'#64748b',font:{size:9},precision:0},beginAtZero:true}}}
+    });
+  }
 }
 
 
