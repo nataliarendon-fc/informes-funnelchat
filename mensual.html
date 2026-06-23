@@ -610,6 +610,15 @@ function calcMonth(off){
   })();
   const convMesArr = convFromPayments.filter(c => inRange(c.convDate, range));
   const convMes = convMesArr.length;
+  // ── Separar conversiones del mes según cuándo empezó el trial ──
+  // "Nuevas del mes" = la cuenta se creó (created_at) DENTRO del mismo mes en que convirtió.
+  //   Esto la vuelve un subconjunto de los trials nuevos del mes → coherente, nunca puede superarlos.
+  // "De meses anteriores" = convirtió este mes pero la cuenta se creó en un mes previo (o sin fecha de creación).
+  const startedInRange = c => { const a=acctById[c.uid]; const ca=a?getCA(a):null; return inRange(ca,range); };
+  const convMesNuevasArr  = convMesArr.filter(startedInRange);
+  const convMesNuevas     = convMesNuevasArr.length;
+  const convMesPreviasArr = convMesArr.filter(c => !startedInRange(c));
+  const convMesPrevias    = convMesPreviasArr.length;
 
   const mrrActivo=Math.round(vigP.reduce((s,r)=>s+getMRR(r),0));
   const mrrRiesgo=Math.round(atrP.reduce((s,r)=>s+getMRR(r),0));
@@ -622,6 +631,11 @@ function calcMonth(off){
   const prevNuevos=C.filter(r=>inRange(getCA(r),prevR)&&isPaga(r)).length;
   const prevCancel=canP.filter(r=>inRange(cancelDate(r),prevR)).length;
   const prevConv=convFromPayments.filter(c=>inRange(c.convDate,prevR)).length;
+  // Mismo criterio "nuevas del mes" pero para el mes anterior (para la flecha de comparación)
+  const prevConvNuevas=convFromPayments.filter(c=>{
+    if(!inRange(c.convDate,prevR))return false;
+    const a=acctById[c.uid]; const ca=a?getCA(a):null; return inRange(ca,prevR);
+  }).length;
 
   // 6-month trend
   const trend6=Array.from({length:6},(_,i)=>{
@@ -1284,13 +1298,13 @@ function calcMonth(off){
     upgrades, downgrades, upMRR:Math.round(upMRR), downMRR:Math.round(downMRR),
     vigP:vigP.length,vigT:vigT.length,activasInicioMes,
     nuevosMesP:nuevosMesP.length,nuevosMesT:nuevosMesT.length,
-    cancelMes:cancelMes.length,convMes:convMes,
+    cancelMes:cancelMes.length,convMes:convMes,convMesNuevas:convMesNuevas,convMesPrevias:convMesPrevias,
     cancelMesArr:cancelMes,cancelMesTrial:cancelMesTrial,
     allCancelP:allCancelP,
     prevCancelMesArr:prevCancelMesArr,atrP:atrP.length,
     mrrActivo,mrrRiesgo,mrrNuevo,mrrPerdido,mrrConv,
     retNeta:nuevosMesP.length-cancelMes.length,
-    prevNuevos,prevCancel,prevConv,
+    prevNuevos,prevCancel,prevConv,prevConvNuevas,
     trend6,churnByPlan,
     motivos,cancelConMotivo,
     cp_sin_onb,cp_sin_flow,cp_sin_wa,cp_sin_ses,cp_lt_avg,
@@ -1508,7 +1522,7 @@ function render(m){
   // BLOQUE 1
   const dN=dlt(m.nuevosMesP,m.prevNuevos);
   const dC=dlt(m.cancelMes,m.prevCancel,true);
-  const dCv=dlt(m.convMes,m.prevConv);
+  const dCv=dlt(m.convMesNuevas,m.prevConvNuevas);
   document.getElementById('pulsoGrid').innerHTML=`
     <div class="p-card c-teal">
       <div class="p-label">
@@ -1548,9 +1562,16 @@ function render(m){
       <div class="p-value" style="color:var(--red)">${m.cancelMes}</div>
       <div class="p-delta ${dC.cls}">${dC.txt}</div>
     </div>
-    <div class="p-card c-yellow"><div class="p-label">Trials convertidos</div>
-      <div class="p-value" style="color:var(--yellow)">${m.convMes}</div>
-      <div class="p-delta ${dCv.cls}">${dCv.txt}</div></div>
+    <div class="p-card c-yellow">
+      <div class="p-label">
+        <span class="tip">Trials convertidos del mes
+          <span class="tip-icon">?</span>
+          <span class="tip-box"><strong>Empezaron como trial y pagaron, ambos dentro de este mes</strong><br>La cuenta se creó este mes y convirtió este mes · es un subconjunto de los trials nuevos del mes, nunca puede superarlos</span>
+        </span>
+      </div>
+      <div class="p-value" style="color:var(--yellow)">${m.convMesNuevas}</div>
+      <div class="p-delta ${dCv.cls}">${dCv.txt}</div>
+      <div class="p-context">+ ${m.convMesPrevias} convertidos de meses anteriores</div></div>
     <div class="p-card c-orange">
       <div class="p-label">
         <span class="tip">Atrasadas pagas
