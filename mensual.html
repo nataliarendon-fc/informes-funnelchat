@@ -519,6 +519,31 @@ function topN(arr,key,n=5){
   return Object.entries(c).sort((a,b)=>b[1]-a[1]).slice(0,n).map(([l,ct])=>({label:l,count:ct}));
 }
 
+// ── Clasificación de plan por PRECIO (payments usa un nombre genérico) ──
+// Orden de niveles para decidir si un movimiento es subida o bajada
+const PLAN_RANK = {'Plan Starter':1,'Plan Growth':2,'Plan Advanced':3,'Advanced Personalizado':4};
+// Devuelve el plan a partir del valor mensual normalizado.
+// Bandas tolerantes a cobros de pasarela con unos dólares de menos (ej. 195 sigue siendo Advanced).
+// Referencia de precios mensuales: Starter ≈49 · Growth ≈99 · Advanced ≈199.
+function planFromMonthlyVal(mv){
+  if(!(mv>0)) return null;        // pago en 0 = trial/gratis, no es un nivel de plan
+  if(mv < 74)  return 'Plan Starter';
+  if(mv < 149) return 'Plan Growth';
+  if(mv < 280) return 'Plan Advanced';
+  return 'Advanced Personalizado'; // claramente por encima de Advanced (ajustable: umbral 280)
+}
+// Convierte un pago a "precio de un mes" usando la vigencia (Expiration − Date).
+// Así un pago anual no se confunde con un upgrade: se reparte entre los meses que cubre.
+function paymentMonthlyVal(p){
+  const val = parseFloat((p['Plan Value']||'0').toString().replace(/[^0-9.]/g,'')) || 0;
+  if(val<=0) return 0;
+  const d = parseSpanishLong(p['Date'])||parseSpDate(p['Date'])||parseISO(p['Date']);
+  const e = parseSpanishLong(p['Expiration'])||parseSpDate(p['Expiration'])||parseISO(p['Expiration']);
+  let months = 1;
+  if(d && e){ const days=Math.round((e-d)/86400000); if(days>0) months=Math.max(1, Math.round(days/30)); }
+  return val/months;
+}
+
 // LOAD
 async function loadAll(){
   const setMsg=(t,h='')=>{document.getElementById('loadingText').textContent=t;document.getElementById('loadingHint').textContent=h;};
@@ -1015,42 +1040,55 @@ function calcMonth(off){
     grupos: { con: ahaStats(conOnbMes,'AHA grupos'), sin: ahaStats(sinOnbMes,'AHA grupos') },
   };
 
-  // ── Upgrades / Downgrades from payments ──────────────
-  const paysByUserM = {};
+  // ── Movimientos de plan (upgrades / downgrades) desde payments ──────────────
+  // Cada pago se clasifica por NIVEL de plan (precio mensual normalizado), no por el
+  // monto bruto. Un movimiento = cambio de nivel entre dos pagos consecutivos del
+  // mismo usuario. Renovar al mismo nivel (aunque cambie mensual↔anual) NO es movimiento.
+  const tiersByUser = {};
   RAW.payments.forEach(p => {
     const uid = (p['User ID']||'').toString().trim();
     if (!uid) return;
     const d = parseSpanishLong(p['Date']) || parseSpDate(p['Date']) || parseISO(p['Date']);
-    const val = parseFloat((p['Plan Value']||'0').toString()) || 0;
-    const plan = (p['Plan Name']||'').trim();
     if (!d) return;
-    if (!paysByUserM[uid]) paysByUserM[uid] = [];
-    paysByUserM[uid].push({ d, val, plan });
+    const tier = planFromMonthlyVal(paymentMonthlyVal(p));
+    if (!tier) return; // pago en 0 (trial) — no es un nivel de plan
+    if (!tiersByUser[uid]) tiersByUser[uid] = [];
+    tiersByUser[uid].push({ d, tier });
   });
-  Object.values(paysByUserM).forEach(arr => arr.sort((a,b) => a.d - b.d));
+  // Lista única de todos los movimientos (con fecha), para el mes y la tendencia
+  const allMovements = [];
+  Object.entries(tiersByUser).forEach(([uid, arr]) => {
+    arr.sort((a,b) => a.d - b.d);
+    for (let i=1; i<arr.length; i++) {
+      const from = arr[i-1].tier, to = arr[i].tier;
+      if (from === to) continue; // renovación al mismo nivel
+      allMovements.push({
+        uid, date: arr[i].d, fromTier: from, toTier: to,
+        dir: PLAN_RANK[to] > PLAN_RANK[from] ? 'up' : 'down',
+        acct: acctById[uid] || {}
+      });
+    }
+  });
+  const upgrades   = allMovements.filter(m => m.dir==='up'   && inRange(m.date, range));
+  const downgrades = allMovements.filter(m => m.dir==='down' && inRange(m.date, range));
 
-  // Cross-ref user_id → account for MRR and KPI
+  // Agregados del mes: ¿desde qué plan? ¿hacia qué plan? ¿qué par es más común?
+  const tallyBy   = (arr,key) => arr.reduce((c,m)=>{const v=m[key];c[v]=(c[v]||0)+1;return c;},{});
+  const tallyPair = arr => arr.reduce((c,m)=>{const k=m.fromTier+' → '+m.toTier;c[k]=(c[k]||0)+1;return c;},{});
+  const topEntry  = obj => { const e=Object.entries(obj).sort((a,b)=>b[1]-a[1]); return e.length?{label:e[0][0],count:e[0][1]}:null; };
+  const upAgg = { fromCount:tallyBy(upgrades,'fromTier'), toCount:tallyBy(upgrades,'toTier'), pairs:tallyPair(upgrades),
+                  topFrom:topEntry(tallyBy(upgrades,'fromTier')), topTo:topEntry(tallyBy(upgrades,'toTier')), topPair:topEntry(tallyPair(upgrades)) };
+  const downAgg={ fromCount:tallyBy(downgrades,'fromTier'),toCount:tallyBy(downgrades,'toTier'),pairs:tallyPair(downgrades),
+                  topFrom:topEntry(tallyBy(downgrades,'fromTier')),topTo:topEntry(tallyBy(downgrades,'toTier')),topPair:topEntry(tallyPair(downgrades)) };
 
-  const upgrades = [], downgrades = [];
-  Object.entries(paysByUserM).forEach(([uid, pays]) => {
-    pays.forEach((pay, i) => {
-      if (!inRange(pay.d, range)) return;
-      const prev = pays[i-1];
-      if (!prev || prev.val === 0) return;
-      const delta = pay.val - prev.val;
-      const acct = acctById[uid] || {};
-      const entry = {
-        uid, plan: pay.plan, prevPlan: prev.plan,
-        val: pay.val, prevVal: prev.val, delta: Math.abs(delta),
-        acct
-      };
-      if (delta > 0) upgrades.push(entry);
-      else if (delta < 0) downgrades.push(entry);
-    });
+  // Tendencia mes a mes — últimos 6 meses
+  const movTrend6 = Array.from({length:6},(_,i)=>{
+    const r=getMonthRange(off-5+i);
+    return { label:fmtMonthShort(r.start),
+      ups:  allMovements.filter(m=>m.dir==='up'   && inRange(m.date,r)).length,
+      downs:allMovements.filter(m=>m.dir==='down' && inRange(m.date,r)).length };
   });
 
-  const upMRR   = upgrades.reduce((s,e)=>s+e.delta, 0);
-  const downMRR = downgrades.reduce((s,e)=>s+e.delta, 0);
   // ── Activación de cuentas nuevas ─────────────────
   // Use full selected month (not just last 4 weeks) for activation
   const newLast4w = C.filter(r => { const ca=getCA(r); return ca&&inRange(ca,range)&&isPaga(r); });
@@ -1295,7 +1333,7 @@ function calcMonth(off){
   return{
     range, off, ahaStats:ahaStatsData, ahaStatsMes,
     reposoN:reposoAll.length, reposoMRR:Math.round(reposoAll.reduce((s,r)=>s+getMRR(r),0)),
-    upgrades, downgrades, upMRR:Math.round(upMRR), downMRR:Math.round(downMRR),
+    upgrades, downgrades, upAgg, downAgg, movTrend6,
     vigP:vigP.length,vigT:vigT.length,activasInicioMes,
     nuevosMesP:nuevosMesP.length,nuevosMesT:nuevosMesT.length,
     cancelMes:cancelMes.length,convMes:convMes,convMesNuevas:convMesNuevas,convMesPrevias:convMesPrevias,
@@ -3408,60 +3446,130 @@ function renderNoNeed(m) {
 function renderUpgDown(m) {
   const el = document.getElementById('upgDownSection');
   if (!el) return;
-  const ups  = m.upgrades  || [];
-  const downs= m.downgrades|| [];
-  if (!ups.length && !downs.length) {
-    el.innerHTML = '<div style="color:var(--muted);font-size:12px;padding:12px 0">Sin movimientos de plan en el período seleccionado.</div>';
-    return;
-  }
+  const ups   = m.upgrades  || [];
+  const downs = m.downgrades|| [];
+  const upAgg = m.upAgg || {}, downAgg = m.downAgg || {};
+  const trend = m.movTrend6 || [];
   const planColor = {'Plan Starter':'#2563eb','Plan Growth':'#7c3aed','Plan Advanced':'#0d9488','Advanced Personalizado':'#b45309'};
+  const TIERS = ['Plan Starter','Plan Growth','Plan Advanced','Advanced Personalizado'];
+  const short = p => (p||'—').replace('Advanced Personalizado','Adv. Pers.').replace('Plan ','');
+  const sep = label => `<div style="font-size:9px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.12em;margin:18px 0 12px;display:flex;align-items:center;gap:10px"><span>${label}</span><div style="flex:1;height:1px;background:var(--border)"></div></div>`;
 
-  function movTable(items, color, label, icon) {
-    if (!items.length) return `<div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px 20px;flex:1">
-      <div style="font-size:10px;font-weight:700;color:${color};text-transform:uppercase;letter-spacing:.08em;margin-bottom:8px">${icon} ${label}</div>
-      <div style="color:var(--muted);font-size:12px">Sin ${label.toLowerCase()} este mes.</div>
+  // ── Tarjetas resumen con la lectura clave ──
+  function insight(agg, dir){
+    if(!agg.topTo && !agg.topFrom) return '<div style="font-size:11px;color:var(--muted)">Sin movimientos este mes.</div>';
+    const pairTxt = agg.topPair ? `<br><span style="font-size:10px">${dir==='up'?'Salto':'Caída'} más común: ${short(agg.topPair.label.split(' → ')[0])} → ${short(agg.topPair.label.split(' → ')[1])} (${agg.topPair.count})</span>` : '';
+    if(dir==='up'){
+      return `<div style="font-size:11px;color:var(--muted);line-height:1.7">
+        Más upgrades <strong style="color:var(--text)">hacia</strong> <strong style="color:${planColor[agg.topTo.label]||'var(--text)'}">${short(agg.topTo.label)}</strong> (${agg.topTo.count})<br>
+        que vienen sobre todo <strong style="color:var(--text)">desde</strong> <strong style="color:${planColor[agg.topFrom.label]||'var(--text)'}">${short(agg.topFrom.label)}</strong> (${agg.topFrom.count})${pairTxt}
+      </div>`;
+    }
+    return `<div style="font-size:11px;color:var(--muted);line-height:1.7">
+      Más downgrades <strong style="color:var(--text)">desde</strong> <strong style="color:${planColor[agg.topFrom.label]||'var(--text)'}">${short(agg.topFrom.label)}</strong> (${agg.topFrom.count})<br>
+      que se van sobre todo <strong style="color:var(--text)">a</strong> <strong style="color:${planColor[agg.topTo.label]||'var(--text)'}">${short(agg.topTo.label)}</strong> (${agg.topTo.count})${pairTxt}
     </div>`;
+  }
+  function summaryCard(count, color, icon, label, agg, dir){
+    return `<div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px 20px;flex:1;min-width:0">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+        <div style="font-size:10px;font-weight:700;color:${color};text-transform:uppercase;letter-spacing:.08em">${icon} ${label}</div>
+        <div style="text-align:right"><span style="font-family:'Syne',sans-serif;font-size:24px;font-weight:800;color:${color}">${count}</span><span style="font-size:9px;color:var(--muted);margin-left:4px">cuentas</span></div>
+      </div>
+      ${insight(agg,dir)}
+    </div>`;
+  }
+
+  // ── Tendencia mes a mes (barras pareadas: verde=upgrades, rojo=downgrades) ──
+  const maxT = Math.max(1, ...trend.map(t=>Math.max(t.ups,t.downs)));
+  const trendBars = trend.map(t=>{
+    const uh=Math.round(t.ups/maxT*56), dh=Math.round(t.downs/maxT*56);
+    return `<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:5px">
+      <div style="display:flex;align-items:flex-end;gap:3px;height:60px">
+        <div style="width:13px;height:${uh}px;background:var(--green2);border-radius:3px 3px 0 0"></div>
+        <div style="width:13px;height:${dh}px;background:var(--red);border-radius:3px 3px 0 0"></div>
+      </div>
+      <div style="font-size:9px;color:var(--muted)">${t.label}</div>
+      <div style="font-size:10px"><span style="color:var(--green2);font-weight:700">${t.ups}</span><span style="color:var(--muted)"> / </span><span style="color:var(--red);font-weight:700">${t.downs}</span></div>
+    </div>`;
+  }).join('');
+  const trendBlock = `<div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px 20px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+      <div style="font-size:10px;color:var(--muted)">Cada par: <span style="color:var(--green2);font-weight:700">▲ upgrades</span> · <span style="color:var(--red);font-weight:700">▼ downgrades</span></div>
+    </div>
+    <div style="display:flex;gap:6px;align-items:flex-end">${trendBars}</div>
+  </div>`;
+
+  // ── Matriz: de qué plan → a qué plan (verde=upgrade, rojo=downgrade) ──
+  const all = [...ups, ...downs];
+  const present = TIERS.filter(t => all.some(mv=>mv.fromTier===t||mv.toTier===t));
+  function matrixCell(from,to){
+    if(from===to) return `<td style="text-align:center;padding:7px;background:rgba(15,23,42,.03);color:rgba(100,116,139,.5);font-size:11px">·</td>`;
+    const n = all.filter(mv=>mv.fromTier===from && mv.toTier===to).length;
+    if(!n) return `<td style="text-align:center;padding:7px;color:rgba(100,116,139,.4);font-size:11px">0</td>`;
+    const isUp = PLAN_RANK[to] > PLAN_RANK[from];
+    return `<td style="text-align:center;padding:7px;background:${isUp?'rgba(34,197,94,.12)':'rgba(220,38,38,.10)'};color:${isUp?'var(--green2)':'var(--red)'};font-weight:800;font-size:14px">${n}</td>`;
+  }
+  let matrixBlock;
+  if(!present.length){
+    matrixBlock = `<div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px 20px;color:var(--muted);font-size:12px">Sin movimientos de plan este mes.</div>`;
+  } else {
+    const head = `<tr><th style="padding:7px 10px;font-size:9px;color:var(--muted);text-align:right">desde \\ hacia</th>${present.map(to=>`<th style="padding:7px;font-size:9px;color:${planColor[to]};font-weight:700">${short(to)}</th>`).join('')}</tr>`;
+    const body = present.map(from=>`<tr><td style="padding:7px 10px;font-size:10px;font-weight:700;color:${planColor[from]};text-align:right;white-space:nowrap">${short(from)}</td>${present.map(to=>matrixCell(from,to)).join('')}</tr>`).join('');
+    matrixBlock = `<div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px 20px;overflow-x:auto">
+      <table style="border-collapse:collapse;margin:0 auto"><thead>${head}</thead><tbody>${body}</tbody></table>
+      <div style="font-size:10px;color:var(--muted);margin-top:10px;text-align:center"><span style="color:var(--green2)">Verde = upgrade</span> · <span style="color:var(--red)">Rojo = downgrade</span> · filas = plan de origen · columnas = plan de destino</div>
+    </div>`;
+  }
+
+  // ── Detalle de cuentas que se movieron ──
+  function movTable(items, color, label, icon) {
+    if (!items.length) return `<div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px 20px;flex:1;min-width:0">
+      <div style="font-size:10px;font-weight:700;color:${color};text-transform:uppercase;letter-spacing:.08em;margin-bottom:8px">${icon} ${label}</div>
+      <div style="color:var(--muted);font-size:12px">Sin ${label.toLowerCase()} este mes.</div></div>`;
+    const segColor = {'A':'var(--green2)','B':'var(--yellow)','C':'var(--muted)'};
     const rows = items.slice(0,10).map(e => {
       const seg = (e.acct['Segmento de cliente (priorización de cliente)']||'').trim();
       const kam = (e.acct['KAM']||'').trim();
       return `<tr style="border-bottom:1px solid var(--border)">
         <td style="padding:6px 10px;font-size:11px;color:var(--muted)">${e.acct['id']||e.uid}</td>
-        <td style="padding:6px 10px;font-size:10px;color:var(--muted);white-space:nowrap">${e.prevPlan||'—'} → <span style="color:${color}">${e.plan||'—'}</span></td>
-        <td style="padding:6px 10px;font-size:10px;text-align:center"><span style="background:${planColor[seg]||'rgba(100,116,139,.2)'};color:#fff;padding:1px 6px;border-radius:10px;font-size:9px">${seg||'—'}</span></td>
+        <td style="padding:6px 10px;font-size:10px;white-space:nowrap"><span style="color:${planColor[e.fromTier]||'var(--muted)'}">${short(e.fromTier)}</span> <span style="color:var(--muted)">→</span> <span style="color:${planColor[e.toTier]||color};font-weight:700">${short(e.toTier)}</span></td>
+        <td style="padding:6px 10px;font-size:10px;text-align:center"><span style="background:${segColor[seg]||'rgba(100,116,139,.2)'};color:#fff;padding:1px 7px;border-radius:10px;font-size:9px">${seg||'—'}</span></td>
         <td style="padding:6px 10px;font-size:10px;color:var(--muted)">${kam||'—'}</td>
       </tr>`;
     }).join('');
     return `<div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px 20px;flex:1;min-width:0">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
-        <div style="font-size:10px;font-weight:700;color:${color};text-transform:uppercase;letter-spacing:.08em">${icon} ${label}</div>
-        <div style="text-align:center">
-          <div style="font-family:'Syne',sans-serif;font-size:20px;font-weight:800;color:${color}">${items.length}</div>
-          <div style="font-size:9px;color:var(--muted)">cuentas</div>
-        </div>
-      </div>
-      <div style="overflow-x:auto">
-        <table style="width:100%;border-collapse:collapse">
-          <thead><tr style="background:rgba(15,23,42,.02)">
-            <th style="padding:5px 10px;font-size:9px;color:var(--muted);text-align:left;border-bottom:1px solid var(--border)">ID</th>
-            <th style="padding:5px 10px;font-size:9px;color:var(--muted);text-align:left;border-bottom:1px solid var(--border)">Movimiento</th>
-            <th style="padding:5px 10px;font-size:9px;color:var(--muted);text-align:center;border-bottom:1px solid var(--border)">Seg</th>
-            <th style="padding:5px 10px;font-size:9px;color:var(--muted);border-bottom:1px solid var(--border)">KAM</th>
-          </tr></thead>
-          <tbody>${rows}</tbody>
-        </table>
-      </div>
-      ${items.length>10?`<div style="font-size:10px;color:var(--muted);margin-top:8px">Mostrando 10 de ${items.length} movimientos</div>`:''}
+      <div style="font-size:10px;font-weight:700;color:${color};text-transform:uppercase;letter-spacing:.08em;margin-bottom:12px">${icon} ${label} <span style="color:var(--muted)">· ${items.length}</span></div>
+      <div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse">
+        <thead><tr style="background:rgba(15,23,42,.02)">
+          <th style="padding:5px 10px;font-size:9px;color:var(--muted);text-align:left;border-bottom:1px solid var(--border)">ID</th>
+          <th style="padding:5px 10px;font-size:9px;color:var(--muted);text-align:left;border-bottom:1px solid var(--border)">Movimiento</th>
+          <th style="padding:5px 10px;font-size:9px;color:var(--muted);text-align:center;border-bottom:1px solid var(--border)">Seg</th>
+          <th style="padding:5px 10px;font-size:9px;color:var(--muted);border-bottom:1px solid var(--border)">KAM</th>
+        </tr></thead><tbody>${rows}</tbody></table></div>
+      ${items.length>10?`<div style="font-size:10px;color:var(--muted);margin-top:8px">Mostrando 10 de ${items.length}</div>`:''}
     </div>`;
   }
 
-  el.innerHTML = `<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
-    ${movTable(ups,  'var(--green)', 'Upgrades',   '▲')}
-    ${movTable(downs,'var(--red)',   'Downgrades',  '▼')}
-  </div>
-  <div style="margin-top:10px;font-size:10px;color:var(--muted)">
-    Basado en tabla payments · pagos del período comparados con el pago anterior del mismo usuario
-  </div>`;
+  el.innerHTML = `
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+      ${summaryCard(ups.length,  'var(--green2)', '▲', 'Upgrades del mes',   upAgg,   'up')}
+      ${summaryCard(downs.length,'var(--red)',    '▼', 'Downgrades del mes', downAgg, 'down')}
+    </div>
+    ${sep('Tendencia mes a mes — últimos 6 meses')}
+    ${trendBlock}
+    ${sep('De qué plan a qué plan')}
+    ${matrixBlock}
+    ${sep('Detalle de cuentas')}
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+      ${movTable(ups,  'var(--green2)', 'Upgrades',   '▲')}
+      ${movTable(downs,'var(--red)',    'Downgrades', '▼')}
+    </div>
+    <div style="margin-top:12px;font-size:10px;color:var(--muted);line-height:1.6">
+      Basado en la tabla payments · el plan se identifica por el precio mensual (Starter ≈$49 · Growth ≈$99 · Advanced ≈$199) y los pagos anuales se reparten entre los meses que cubren · una renovación al mismo plan no cuenta como movimiento.
+    </div>`;
 }
+
 
 function renderChurnDownloadBtns(m) {
   const el = document.getElementById('churnDownloadBtns');
