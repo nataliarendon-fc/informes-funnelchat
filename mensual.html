@@ -583,32 +583,45 @@ function calcMonth(off){
     }
 
   const PD={0:30,1:90,2:180,3:365,4:3};
-  const getConvD=r=>{const ca=getCA(r);if(!ca)return null;const d=new Date(ca);d.setDate(d.getDate()+3);return d;};
-  const convMes=C.filter(r=>{
-    if(!inRange(getConvD(r),range)||!isPaga(r))return false;
-    const ca=getCA(r),pt=parseSpDate(r['payment till'])||parseISO(r['payment till']);
-    if(!ca||!pt)return false;
-    const diff=(pt-ca)/86400000,period=PD[parseInt((r['payment_type']||'0').toString())||0]||30;
-    return diff-period>=1.5&&diff-period<=8;
-  });
+  // Trial conversions from payments table:
+  // A conversion = user who had a Plan Value=0 payment (trial start)
+  // followed by a subsequent payment with Plan Value > 0 (first paid payment = conversion date)
+  const convFromPayments = (() => {
+    const byUser = {};
+    RAW.payments.forEach(p => {
+      const uid = (p['User ID']||'').toString().trim();
+      if (!uid) return;
+      const d   = parseSpanishLong(p['Date']) || parseSpDate(p['Date']) || parseISO(p['Date']);
+      const val = parseFloat((p['Plan Value']||'0').toString().replace(/[^0-9.]/g,'')) || 0;
+      if (!d) return;
+      if (!byUser[uid]) byUser[uid] = [];
+      byUser[uid].push({ d, val });
+    });
+    const conversions = []; // { uid, convDate }
+    Object.entries(byUser).forEach(([uid, pays]) => {
+      const sorted = pays.sort((a,b) => a.d - b.d);
+      const firstZero = sorted.find(p => p.val === 0);
+      if (!firstZero) return; // never had a trial (free) payment
+      // Find the first paid payment AFTER the zero-value payment
+      const firstPaid = sorted.find(p => p.val > 0 && p.d > firstZero.d);
+      if (firstPaid) conversions.push({ uid, convDate: firstPaid.d });
+    });
+    return conversions;
+  })();
+  const convMesArr = convFromPayments.filter(c => inRange(c.convDate, range));
+  const convMes = convMesArr.length;
 
   const mrrActivo=Math.round(vigP.reduce((s,r)=>s+getMRR(r),0));
   const mrrRiesgo=Math.round(atrP.reduce((s,r)=>s+getMRR(r),0));
   const mrrNuevo=Math.round(nuevosMesP.reduce((s,r)=>s+getMRR(r),0));
   const mrrPerdido=Math.round(cancelMes.reduce((s,r)=>s+getMRR(r),0));
-  const mrrConv=Math.round(convMes.reduce((s,r)=>s+getMRR(r),0));
+  const mrrConv=0; // removed (MRR retired)
 
   const prevR=getMonthRange(off-1);
   const prevCancelMesArr=canP.filter(r=>inRange(cancelDate(r),prevR));
   const prevNuevos=C.filter(r=>inRange(getCA(r),prevR)&&isPaga(r)).length;
   const prevCancel=canP.filter(r=>inRange(cancelDate(r),prevR)).length;
-  const prevConv=C.filter(r=>{
-    if(!inRange(getConvD(r),prevR)||!isPaga(r))return false;
-    const ca=getCA(r),pt=parseSpDate(r['payment till'])||parseISO(r['payment till']);
-    if(!ca||!pt)return false;
-    const diff=(pt-ca)/86400000,period=PD[parseInt((r['payment_type']||'0').toString())||0]||30;
-    return diff-period>=1.5&&diff-period<=8;
-  }).length;
+  const prevConv=convFromPayments.filter(c=>inRange(c.convDate,prevR)).length;
 
   // 6-month trend
   const trend6=Array.from({length:6},(_,i)=>{
@@ -1271,7 +1284,7 @@ function calcMonth(off){
     upgrades, downgrades, upMRR:Math.round(upMRR), downMRR:Math.round(downMRR),
     vigP:vigP.length,vigT:vigT.length,activasInicioMes,
     nuevosMesP:nuevosMesP.length,nuevosMesT:nuevosMesT.length,
-    cancelMes:cancelMes.length,convMes:convMes.length,
+    cancelMes:cancelMes.length,convMes:convMes,
     cancelMesArr:cancelMes,cancelMesTrial:cancelMesTrial,
     allCancelP:allCancelP,
     prevCancelMesArr:prevCancelMesArr,atrP:atrP.length,
