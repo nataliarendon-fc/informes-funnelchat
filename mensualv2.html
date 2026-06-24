@@ -550,6 +550,9 @@ function topN(arr,key,n=5){
 // ── Clasificación de plan por PRECIO (payments usa un nombre genérico) ──
 // Orden de niveles para decidir si un movimiento es subida o bajada
 const PLAN_RANK = {'Plan Starter':1,'Plan Growth':2,'Plan Advanced':3,'Advanced Personalizado':4};
+// Precios mensuales de referencia para estimar el cambio en dinero de un movimiento.
+// Aproximación derivada de payments (NO es el MRR oficial de Yasmin). Adv. Pers. es ajustable.
+const PLAN_PRICE = {'Plan Starter':49,'Plan Growth':99,'Plan Advanced':199,'Advanced Personalizado':399};
 // Devuelve el plan a partir del valor mensual normalizado.
 // Bandas tolerantes a cobros de pasarela con unos dólares de menos (ej. 195 sigue siendo Advanced).
 // Referencia de precios mensuales: Starter ≈49 · Growth ≈99 · Advanced ≈199.
@@ -1093,6 +1096,7 @@ function calcMonth(off){
       allMovements.push({
         uid, date: arr[i].d, fromTier: from, toTier: to,
         dir: PLAN_RANK[to] > PLAN_RANK[from] ? 'up' : 'down',
+        delta: (PLAN_PRICE[to]||0) - (PLAN_PRICE[from]||0),
         acct: acctById[uid] || {}
       });
     }
@@ -1404,7 +1408,26 @@ function calcMonth(off){
       data: kamMonths.map(rg => kamAssignKey.filter(x => x.key===k.key && inRange(x.d, rg)).length)
     }))
   };
-  const kam = { data:kamData, trend:kamTrend, totalAdv:advAll.length };
+  // ── Dinero por KAM: crecimiento (upgrades) y decrecimiento (downgrades) ──
+  // Cada movimiento se atribuye al KAM actual de la cuenta (columna KAM).
+  const movKamKey = m => normKam(m.acct).key;
+  const upsMonthAll   = allMovements.filter(mv => mv.dir==='up'   && inRange(mv.date, range));
+  const downsMonthAll = allMovements.filter(mv => mv.dir==='down' && inRange(mv.date, range));
+  const kamMoney = {};
+  kamData.forEach(k => { kamMoney[k.key] = { gained:0, lost:0, upCount:0, downCount:0 }; });
+  upsMonthAll.forEach(mv => { const k=movKamKey(mv); if(kamMoney[k]){ kamMoney[k].gained += mv.delta; kamMoney[k].upCount++; } });
+  downsMonthAll.forEach(mv => { const k=movKamKey(mv); if(kamMoney[k]){ kamMoney[k].lost += Math.abs(mv.delta); kamMoney[k].downCount++; } });
+  // Tendencia 6 meses: dinero NETO por KAM por mes
+  const kamMoneyTrend = {
+    labels: kamMonths.map(rg=>fmtMonthShort(rg.start)),
+    series: kamData.map(k => ({
+      key:k.key, label:k.label,
+      data: kamMonths.map(rg => allMovements
+        .filter(mv => movKamKey(mv)===k.key && inRange(mv.date, rg))
+        .reduce((s,mv)=> s + mv.delta, 0))
+    }))
+  };
+  const kam = { data:kamData, trend:kamTrend, totalAdv:advAll.length, money:kamMoney, moneyTrend:kamMoneyTrend };
 
   return{
     range, off, ahaStats:ahaStatsData, ahaStatsMes,
@@ -3669,6 +3692,8 @@ function renderKamSection(m) {
   const cards = data.map(k => {
     const c = colorFor[k.key];
     const isNone = k.key==='__none__';
+    const mon = (m.kam.money||{})[k.key] || {gained:0,lost:0,upCount:0,downCount:0};
+    const net = mon.gained - mon.lost;
     const segBar = [['A',k.segA],['B',k.segB],['C',k.segC]].filter(([,n])=>n>0).map(([s,n])=>
       `<div style="flex:${n};background:${segColor[s]};height:8px" title="Seg ${s}: ${n}"></div>`).join('') || '<div style="flex:1;background:var(--border);height:8px"></div>';
     return `<div style="background:var(--card);border:1px solid ${isNone?'var(--orange)':'var(--border)'};border-radius:12px;padding:16px 18px;flex:1;min-width:220px">
@@ -3697,14 +3722,27 @@ function renderKamSection(m) {
         ${pct(k.activas,k.total)}% con alguna activación (${k.activas}/${k.total})<br>
         Flows ${pct(k.flowsSi,k.total)}% · API ${pct(k.apiSi,k.total)}% · Business ${pct(k.busSi,k.total)}%
       </div>
+      <div style="margin-top:12px;padding-top:10px;border-top:1px dashed var(--border)">
+        <div style="font-size:9px;color:var(--muted);margin-bottom:5px">Movimiento de dinero del mes (aprox. desde payments)</div>
+        <div style="display:flex;align-items:baseline;gap:4px;margin-bottom:4px">
+          <span style="font-family:'Syne',sans-serif;font-size:18px;font-weight:800;color:${net>0?'var(--green2)':net<0?'var(--red)':'var(--muted)'}">${net>0?'+':net<0?'−':''}$${Math.abs(net).toLocaleString('es-CO')}</span>
+          <span style="font-size:9px;color:var(--muted)">neto / mes</span>
+        </div>
+        <div style="font-size:10px;color:var(--muted)">
+          <span style="color:var(--green2)">▲ +$${mon.gained.toLocaleString('es-CO')}</span> (${mon.upCount} upgrades) ·
+          <span style="color:var(--red)">▼ −$${mon.lost.toLocaleString('es-CO')}</span> (${mon.downCount} downgrades)
+        </div>
+      </div>
     </div>`;
   }).join('');
 
   // ── Tabla comparativa ──
   const th = t => `<th style="padding:7px 10px;font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;border-bottom:1px solid var(--border);text-align:${t.a||'center'}">${t.l}</th>`;
-  const cols = [{l:'KAM',a:'left'},{l:'Cartera'},{l:'Vigentes'},{l:'Atrasadas'},{l:'Canceladas'},{l:'Activación prom.'},{l:'% Activas'},{l:'Flows'},{l:'API'},{l:'Business'}];
+  const cols = [{l:'KAM',a:'left'},{l:'Cartera'},{l:'Vigentes'},{l:'Atrasadas'},{l:'Canceladas'},{l:'Activación prom.'},{l:'% Activas'},{l:'Flows'},{l:'API'},{l:'Business'},{l:'+ $ mes'},{l:'− $ mes'},{l:'Neto $ mes'}];
   const rowsT = data.map(k => {
     const c = colorFor[k.key];
+    const mon = (m.kam.money||{})[k.key] || {gained:0,lost:0};
+    const net = mon.gained - mon.lost;
     return `<tr style="border-bottom:1px solid var(--border)">
       <td style="padding:7px 10px;font-size:11px;font-weight:700;white-space:nowrap"><span style="width:8px;height:8px;border-radius:50%;background:${c};display:inline-block;margin-right:6px"></span>${k.label}</td>
       <td style="padding:7px 10px;font-size:12px;font-weight:800;text-align:center;color:${c}">${k.total}</td>
@@ -3716,6 +3754,9 @@ function renderKamSection(m) {
       <td style="padding:7px 10px;font-size:11px;text-align:center">${pct(k.flowsSi,k.total)}%</td>
       <td style="padding:7px 10px;font-size:11px;text-align:center">${pct(k.apiSi,k.total)}%</td>
       <td style="padding:7px 10px;font-size:11px;text-align:center">${pct(k.busSi,k.total)}%</td>
+      <td style="padding:7px 10px;font-size:11px;text-align:center;color:var(--green2)">+$${mon.gained.toLocaleString('es-CO')}</td>
+      <td style="padding:7px 10px;font-size:11px;text-align:center;color:var(--red)">−$${mon.lost.toLocaleString('es-CO')}</td>
+      <td style="padding:7px 10px;font-size:11px;text-align:center;font-weight:800;color:${net>0?'var(--green2)':net<0?'var(--red)':'var(--muted)'}">${net>0?'+':net<0?'−':''}$${Math.abs(net).toLocaleString('es-CO')}</td>
     </tr>`;
   }).join('');
 
@@ -3728,12 +3769,17 @@ function renderKamSection(m) {
     <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px 20px">
       <div style="height:260px;position:relative"><canvas id="kamGrowthChart"></canvas></div>
     </div>
+    ${sep('Crecimiento vs decrecimiento en dinero — neto por KAM por mes')}
+    <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px 20px">
+      <div style="height:260px;position:relative"><canvas id="kamMoneyChart"></canvas></div>
+      <div style="font-size:10px;color:var(--muted);margin-top:8px;text-align:center">Barras sobre 0 = la cartera creció en dinero ese mes · bajo 0 = decreció (downgrades)</div>
+    </div>
     ${sep('Comparativo de activación y uso por KAM')}
     <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:8px 12px;overflow-x:auto">
       <table style="width:100%;border-collapse:collapse"><thead><tr>${cols.map(th).join('')}</tr></thead><tbody>${rowsT}</tbody></table>
     </div>
     <div style="margin-top:12px;font-size:10px;color:var(--muted);line-height:1.6">
-      Solo cuentas Advanced y superiores · el crecimiento usa la columna <strong>Fecha asignación KAM</strong> · "Activación promedio" descarta valores de implementación corruptos (&gt;100%) para no inflar el dato · grupos se omite por ahora (columna inconsistente).
+      Solo cuentas Advanced y superiores · el crecimiento de cartera usa la columna <strong>Fecha asignación KAM</strong> · los montos en dinero se <strong>estiman desde payments</strong> según el cambio de plan (Starter $49 · Growth $99 · Advanced $199 · Adv. Pers. $399, ajustable) y <strong>no son el MRR oficial de Yasmin</strong> · "Activación promedio" descarta valores de implementación corruptos (&gt;100%) · grupos se omite por ahora (columna inconsistente).
     </div>`;
 
   // ── Gráfica de crecimiento (barras apiladas por KAM) ──
@@ -3750,6 +3796,25 @@ function renderKamSection(m) {
         plugins:{legend:{position:'top',labels:{boxWidth:10,padding:12,color:'#64748b',font:{size:10}}},tooltip:{mode:'index',intersect:false}},
         scales:{x:{stacked:true,grid:{display:false},ticks:{color:'#64748b',font:{size:10}}},
           y:{stacked:true,grid:{color:'rgba(15,23,42,.04)'},ticks:{color:'#64748b',font:{size:9},precision:0},beginAtZero:true}}}
+    });
+  }
+
+  // ── Gráfica de dinero neto por KAM (barras agrupadas, puede ser negativo) ──
+  const mt = m.kam.moneyTrend || {labels:[],series:[]};
+  destroyChart('kamMoneyChart');
+  const cvM = document.getElementById('kamMoneyChart');
+  if (cvM) {
+    charts.kamMoney = new Chart(cvM.getContext('2d'), {
+      type:'bar',
+      data:{ labels: mt.labels, datasets: mt.series.map(s => ({
+        label: s.label, data: s.data,
+        backgroundColor: colorFor[s.key], borderWidth:0, borderRadius:3
+      }))},
+      options:{responsive:true,maintainAspectRatio:false,
+        plugins:{legend:{position:'top',labels:{boxWidth:10,padding:12,color:'#64748b',font:{size:10}}},
+          tooltip:{mode:'index',intersect:false,callbacks:{label:ctx=>`${ctx.dataset.label}: ${ctx.parsed.y>=0?'+':'−'}$${Math.abs(ctx.parsed.y).toLocaleString('es-CO')}`}}},
+        scales:{x:{grid:{display:false},ticks:{color:'#64748b',font:{size:10}}},
+          y:{grid:{color:'rgba(15,23,42,.04)'},ticks:{color:'#64748b',font:{size:9},callback:v=>'$'+v}}}}
     });
   }
 }
