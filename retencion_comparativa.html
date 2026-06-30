@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Retención comparativa — Funnelchat</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,400&display=swap" rel="stylesheet">
+<style>
+:root{
+  --text:#0f172a; --muted:#64748b; --border:rgba(15,23,42,0.10);
+  --card:#ffffff; --navy:#f1f5f9; --teal:#0d9488;
+  --blue:#2563eb; --purple:#7c3aed; --yellow:#b45309;
+  --red:#dc2626; --green2:#15803d; --orange:#c2410c;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'DM Sans',sans-serif;background:#f8fafc;color:var(--text);line-height:1.5;padding:28px 20px 60px}
+main{max-width:1080px;margin:0 auto}
+h1{font-family:'Syne',sans-serif;font-size:26px;font-weight:800;letter-spacing:-.02em}
+.sub{color:var(--muted);font-size:13px;margin-top:4px}
+.note{background:#fff7ed;border:1px solid rgba(194,65,12,.25);color:#9a3412;font-size:12px;border-radius:10px;padding:10px 14px;margin-top:16px;line-height:1.6}
+.block{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:22px 24px;margin-top:22px}
+.sec-label{display:flex;align-items:center;gap:10px;font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.1em;margin-bottom:18px}
+.sec-num{font-family:'Syne',sans-serif;background:var(--text);color:#fff;border-radius:7px;padding:3px 8px;font-size:11px;letter-spacing:0}
+.kpis{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:18px}
+.kpi{border:1px solid var(--border);border-radius:12px;padding:14px 16px}
+.kpi .m{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
+.kpi .v{font-family:'Syne',sans-serif;font-size:30px;font-weight:800;line-height:1.1;margin-top:2px}
+.kpi .d{font-size:11px;color:var(--muted);margin-top:4px}
+table{width:100%;border-collapse:collapse}
+th,td{text-align:center;padding:7px 10px;font-size:12px}
+th{font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;border-bottom:2px solid var(--border)}
+td.lbl,th.lbl{text-align:left;font-weight:600}
+tr.grp td{background:var(--navy);font-size:9px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;text-align:left;padding:6px 10px}
+tbody tr:not(.grp){border-bottom:1px solid var(--border)}
+.cnt{font-size:9px;color:var(--muted)}
+.chart-wrap{height:260px;position:relative}
+.read{font-size:13px;line-height:1.8}
+.read li{margin-bottom:8px}
+.tag{display:inline-block;font-size:9px;font-weight:700;color:#fff;border-radius:9px;padding:1px 7px}
+#loading{position:fixed;inset:0;background:#f8fafc;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;z-index:50}
+#loading .t{font-family:'Syne',sans-serif;font-weight:700}
+#loading .h{font-size:12px;color:var(--muted)}
+.err{color:var(--red);font-size:13px}
+.foot{font-size:10px;color:var(--muted);margin-top:14px;line-height:1.6}
+</style>
+</head>
+<body>
+<div id="loading"><div class="t" id="loadingText">Cargando…</div><div class="h" id="loadingHint"></div></div>
+<main id="app" style="display:none">
+  <h1>Retención comparativa</h1>
+  <div class="sub" id="subtitle"></div>
+  <div class="note">
+    Informe independiente para indagar el perfil de las cancelaciones. Una cancelación se cuenta cuando <strong>payment till + 21 días</strong> cae en el mes (misma regla del mensual), así que el mes refleja cuándo venció el servicio, no cuándo la persona decidió irse. El mes en curso puede estar incompleto. El perfil usa la <strong>foto actual</strong> de cada cuenta (no su estado al momento exacto de cancelar).
+  </div>
+
+  <!-- 1. Pulso de retención neta -->
+  <div class="block">
+    <div class="sec-label"><span class="sec-num">01</span> Retención neta — contexto 6 meses</div>
+    <div class="kpis" id="netKpis"></div>
+    <div class="chart-wrap"><canvas id="netChart"></canvas></div>
+    <div class="foot">Neto = nuevas cuentas pagas del mes − cancelaciones pagas del mes. Sin MRR (este informe no muestra cifras de ingresos).</div>
+  </div>
+
+  <!-- 2. Perfil comparativo -->
+  <div class="block">
+    <div class="sec-label"><span class="sec-num">02</span> Perfil de quién canceló — Abril vs Mayo vs Junio</div>
+    <div style="overflow-x:auto"><table id="profileTable"></table></div>
+    <div class="foot">Cada celda: % sobre el total de cancelados de ese mes (y el conteo abajo). La última columna compara junio contra el promedio de abril-mayo, en puntos porcentuales (pp), para ver dónde cambió el perfil. "Activación" descarta valores de implementación corruptos (&gt;100%). Grupos se omite (columna inconsistente).</div>
+  </div>
+
+  <!-- 3. Motivos -->
+  <div class="block">
+    <div class="sec-label"><span class="sec-num">03</span> Motivos de cancelación declarados</div>
+    <div style="overflow-x:auto"><table id="motiveTable"></table></div>
+  </div>
+
+  <!-- 4. Lectura rápida -->
+  <div class="block">
+    <div class="sec-label"><span class="sec-num">04</span> Lectura rápida — qué cambió en junio</div>
+    <ul class="read" id="readout"></ul>
+    <div class="foot">Diferencias más grandes del perfil de junio frente al promedio de abril-mayo. Son observaciones de datos, no conclusiones de causa: úsalas como pistas para revisar a fondo.</div>
+  </div>
+</main>
+
+<script>
+const API_URL='https://script.google.com/macros/s/AKfycbwNp-Hnmi1imEggg6Qz7xRP_fR57ZvcQb9hFR2WUPn1c-BdsN23x2vrnlU5zY6Rydrlng/exec';
+let RAW={cuentas:[],payments:[]};
+let charts={};
+
+// ── Helpers (idénticos al informe mensual) ──
+function parseISO(s){
+  if(!s||!s.toString().trim())return null;
+  s=s.toString().trim();
+  if(/^\d{4}-\d{2}-\d{2}/.test(s)){const d=new Date(s);return isNaN(d)?null:d;}
+  const m=s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+  if(m){const d=new Date(parseInt(m[3]),parseInt(m[2])-1,parseInt(m[1]));return isNaN(d)?null:d;}
+  try{const d=new Date(s);return isNaN(d)?null:d;}catch{return null;}
+}
+function parseSpanishLong(s){
+  if(!s||!s.toString().trim())return null;
+  const mo={enero:0,febrero:1,marzo:2,abril:3,mayo:4,junio:5,julio:6,agosto:7,septiembre:8,octubre:9,noviembre:10,diciembre:11};
+  const m=s.toString().toLowerCase().match(/([a-záéíóúü]+)\s+(\d{1,2}),\s+(\d{4})/);
+  if(m){const mv=mo[m[1]];if(mv!==undefined)return new Date(parseInt(m[3]),mv,parseInt(m[2]));}
+  return null;
+}
+function parseSpDate(s){
+  if(!s)return null;
+  const m=s.toString().match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+  if(m)return new Date(parseInt(m[3]),parseInt(m[2])-1,parseInt(m[1]));
+  return parseISO(s);
+}
+function getMonthRange(off=0){
+  const t=new Date();
+  const s=new Date(t.getFullYear(),t.getMonth()+off,1);s.setHours(0,0,0,0);
+  const e=new Date(t.getFullYear(),t.getMonth()+off+1,0,23,59,59,999);
+  return{start:s,end:e};
+}
+function inRange(d,r){return d&&d>=r.start&&d<=r.end;}
+function fmtMonthLong(d){const s=d.toLocaleDateString('es-CO',{month:'long',year:'numeric'});return s.charAt(0).toUpperCase()+s.slice(1);}
+function fmtMonthShort(d){return d.toLocaleDateString('es-CO',{month:'short',year:'2-digit'});}
+function cancelDate(r){const pt=parseSpDate(r['payment till']);if(!pt)return null;const d=new Date(pt);d.setDate(d.getDate()+21);return d;}
+function isPaga(r){const t=(r['trial']||'').toString().trim().toUpperCase();return t!=='TRUE'&&t!=='1'&&t!=='SI'&&t!=='SÍ';}
+function getCA(r){return parseISO(r['created_at'])||parseISO(r['Fecha creación']);}
+const pct=(n,d)=>d>0?Math.round(n/d*100):0;
+
+// ── Clasificadores de perfil ──
+function planOf(r){
+  const p=(r['Planes Funnelchat']||'').toString().toLowerCase();
+  if(/personaliz/.test(p))return 'Advanced Pers.';
+  if(/advanced/.test(p))return 'Advanced';
+  if(/growth/.test(p))return 'Growth';
+  if(/starter|básico|basico/.test(p))return 'Starter';
+  return 'Otro / sin dato';
+}
+function conKam(r){const v=(r['KAM']||'').toString().trim();return !!v && !/sin\s*kam/i.test(v);}
+function conOnb(r){return (r['Onboarding']||'').trim()==='Con onboarding';}
+function usoFlows(r){const n=parseInt((r['Usa flows']||'0').toString().replace(/[^0-9]/g,''),10);return !isNaN(n)&&n>0;}
+function usoWA(r){return (r['Usa API?']||'').trim()==='Sí' || (r['Usa Business?']||'').trim()==='Sí';}
+function asistioSes(r){return (r['Sesiones en vivo']||'').trim()==='Asistió';}
+function implGuarded(r){const raw=parseFloat((r['% Nivel de implementación']||'').toString().replace('%','').trim());return (isNaN(raw)||raw<0||raw>100)?null:raw;}
+function aliveDays(r){const ca=getCA(r),cd=cancelDate(r);if(!ca||!cd)return null;return Math.round((cd-ca)/86400000);}
+function antiqBucket(r){const d=aliveDays(r);if(d===null)return 'Sin dato';if(d<90)return '< 3 meses';if(d<180)return '3–6 meses';if(d<365)return '6–12 meses';return '> 12 meses';}
+
+// Cuentas "vaivén": 2+ temporadas de pago separadas por gap ≥60 días
+function buildVaivenSet(){
+  const byUser={};
+  RAW.payments.forEach(p=>{
+    const uid=(p['User ID']||'').toString().trim();if(!uid)return;
+    const d=parseSpanishLong(p['Date'])||parseSpDate(p['Date'])||parseISO(p['Date']);if(!d)return;
+    (byUser[uid]=byUser[uid]||[]).push(d);
+  });
+  const set=new Set();
+  Object.entries(byUser).forEach(([uid,ds])=>{
+    ds.sort((a,b)=>a-b);
+    let seasons=1;
+    for(let i=1;i<ds.length;i++){if((ds[i]-ds[i-1])/86400000>=60)seasons++;}
+    if(seasons>=2)set.add(uid);
+  });
+  return set;
+}
+
+async function loadAll(){
+  const setMsg=(t,h='')=>{document.getElementById('loadingText').textContent=t;document.getElementById('loadingHint').textContent=h;};
+  setMsg('Conectando con Google Sheets…','Puede tardar hasta 30 segundos');
+  const timeout=new Promise((_,rej)=>setTimeout(()=>rej(new Error('Tiempo agotado. Recarga la página.')),35000));
+  const fetchData=fetch(API_URL).then(async res=>{
+    setMsg('Descargando datos…','');
+    if(!res.ok)throw new Error('HTTP '+res.status);
+    const text=await res.text();
+    setMsg('Procesando…','');
+    let json;try{json=JSON.parse(text);}catch(e){throw new Error('Respuesta inválida del Apps Script.');}
+    return json;
+  });
+  const json=await Promise.race([fetchData,timeout]);
+  RAW.cuentas=(json.cuentas||[]).filter(r=>Object.keys(r).length>1);
+  RAW.payments=(json.payments||[]).filter(r=>Object.keys(r).length>0);
+  if(!RAW.cuentas.length)throw new Error('Hoja de cuentas vacía.');
+}
+
+// ── Cálculo de un mes ──
+function calcMonth(off, vaivenSet){
+  const C=RAW.cuentas;
+  const range=getMonthRange(off);
+  const canP=C.filter(r=>(r['Vigencia del servicio']||'').trim()==='Cancelado'&&isPaga(r));
+  const cancel=canP.filter(r=>inRange(cancelDate(r),range));
+  const nuevas=C.filter(r=>inRange(getCA(r),range)&&isPaga(r));
+  const n=cancel.length;
+  const distrib=(fn,keys)=>{const c={};keys.forEach(k=>c[k]=0);cancel.forEach(r=>{const k=fn(r);if(c[k]===undefined)c[k]=0;c[k]++;});return c;};
+  const implVals=cancel.map(implGuarded);
+  const implAvg=n?Math.round(cancel.reduce((s,r)=>s+(implGuarded(r)||0),0)/n):0;
+  return {
+    off, range, label:fmtMonthShort(range.start), labelLong:fmtMonthLong(range.start),
+    nuevas:nuevas.length, cancel:n, neto:nuevas.length-n,
+    seg: distrib(r=>(r['Segmento de cliente (priorización de cliente)']||'').trim()||'Sin dato',['A','B','C']),
+    plan: distrib(planOf,['Starter','Growth','Advanced','Advanced Pers.']),
+    kam: { 'Con KAM':cancel.filter(conKam).length, 'Sin KAM':cancel.filter(r=>!conKam(r)).length },
+    onb: { 'Con onboarding':cancel.filter(conOnb).length, 'Sin onboarding':cancel.filter(r=>!conOnb(r)).length },
+    antig: distrib(antiqBucket,['< 3 meses','3–6 meses','6–12 meses','> 12 meses']),
+    implAvg,
+    activ: { '0% activación':cancel.filter(r=>(implGuarded(r)||0)===0).length,
+             '1–49%':cancel.filter(r=>{const v=implGuarded(r)||0;return v>0&&v<50;}).length,
+             '≥ 50%':cancel.filter(r=>(implGuarded(r)||0)>=50).length },
+    adop: { 'Usó flows':cancel.filter(usoFlows).length, 'Usó WhatsApp (API/Business)':cancel.filter(usoWA).length, 'Asistió a sesiones':cancel.filter(asistioSes).length },
+    vaiven: cancel.filter(r=>vaivenSet.has((r['id']||'').toString().trim())).length,
+    motivos: (()=>{const c={};cancel.forEach(r=>{const mv=(r['Motivo Cancelación']||'').trim();if(mv&&mv.toUpperCase()!=='NA')c[mv]=(c[mv]||0)+1;});return c;})(),
+    cancelRows: cancel
+  };
+}
+
+// ── Render ──
+function render(){
+  const vaivenSet=buildVaivenSet();
+  const ctx6=Array.from({length:6},(_,i)=>calcMonth(-5+i, vaivenSet)); // 6 meses para contexto
+  const A=calcMonth(-2,vaivenSet), M=calcMonth(-1,vaivenSet), J=calcMonth(0,vaivenSet); // foco
+  const focus=[A,M,J];
+
+  document.getElementById('subtitle').textContent =
+    `${A.labelLong} · ${M.labelLong} · ${J.labelLong} — perfil de cancelaciones pagas`;
+
+  // 1. KPIs netos (3 meses foco)
+  document.getElementById('netKpis').innerHTML = focus.map(mo=>{
+    const col = mo.neto>=0?'var(--green2)':'var(--red)';
+    return `<div class="kpi"><div class="m">${mo.labelLong}</div>
+      <div class="v" style="color:${col}">${mo.neto>=0?'+':'−'}${Math.abs(mo.neto)}</div>
+      <div class="d">${mo.nuevas} nuevas · ${mo.cancel} cancelaron</div></div>`;
+  }).join('');
+
+  // 1b. Chart contexto 6 meses
+  new Chart(document.getElementById('netChart').getContext('2d'),{
+    type:'bar',
+    data:{labels:ctx6.map(x=>x.label),datasets:[
+      {label:'Nuevas pagas',data:ctx6.map(x=>x.nuevas),backgroundColor:'rgba(13,148,136,.75)',borderRadius:4,order:2},
+      {label:'Cancelaciones',data:ctx6.map(x=>x.cancel),backgroundColor:'rgba(220,38,38,.75)',borderRadius:4,order:2},
+      {label:'Neto',type:'line',data:ctx6.map(x=>x.neto),borderColor:'#0f172a',backgroundColor:'#0f172a',borderWidth:2,tension:.3,pointRadius:3,order:1}
+    ]},
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{position:'top',labels:{boxWidth:10,padding:12,color:'#64748b',font:{size:10}}},tooltip:{mode:'index',intersect:false}},
+      scales:{x:{grid:{display:false},ticks:{color:'#64748b',font:{size:10}}},y:{grid:{color:'rgba(15,23,42,.04)'},ticks:{color:'#64748b',font:{size:9}},beginAtZero:true}}}
+  });
+
+  // 2. Tabla de perfil comparativo
+  const cell=(mo,grp,key)=>{const v=mo[grp][key]||0;return `<td>${pct(v,mo.cancel)}%<div class="cnt">${v}</div></td>`;};
+  const deltaCell=(grp,key)=>{
+    const jp=pct(J[grp][key]||0,J.cancel);
+    const ap=(pct(A[grp][key]||0,A.cancel)+pct(M[grp][key]||0,M.cancel))/2;
+    const d=Math.round(jp-ap);
+    const col=d>0?'var(--red)':d<0?'var(--green2)':'var(--muted)';
+    return `<td style="color:${col};font-weight:700">${d>0?'+':''}${d} pp</td>`;
+  };
+  const grpRows=(title,grp,keys)=>{
+    let h=`<tr class="grp"><td colspan="5">${title}</td></tr>`;
+    keys.forEach(k=>{
+      h+=`<tr><td class="lbl">${k}</td>${cell(A,grp,k)}${cell(M,grp,k)}${cell(J,grp,k)}${deltaCell(grp,k)}</tr>`;
+    });
+    return h;
+  };
+  let pt=`<thead><tr><th class="lbl">Perfil del cancelado</th><th>${A.label}</th><th>${M.label}</th><th>${J.label}</th><th>Δ Jun vs Abr-May</th></tr></thead><tbody>`;
+  pt+=`<tr class="grp"><td colspan="5">Volumen</td></tr>`;
+  pt+=`<tr><td class="lbl">Total cancelados (pagas)</td><td><strong>${A.cancel}</strong></td><td><strong>${M.cancel}</strong></td><td><strong>${J.cancel}</strong></td><td>—</td></tr>`;
+  pt+=`<tr><td class="lbl">Activación promedio al cancelar</td><td>${A.implAvg}%</td><td>${M.implAvg}%</td><td>${J.implAvg}%</td><td>${(()=>{const d=J.implAvg-(A.implAvg+M.implAvg)/2;const c=d<0?'var(--red)':d>0?'var(--green2)':'var(--muted)';return `<span style="color:${c};font-weight:700">${d>0?'+':''}${Math.round(d)} pp</span>`;})()}</td></tr>`;
+  pt+=grpRows('Segmento','seg',['A','B','C']);
+  pt+=grpRows('Plan','plan',['Starter','Growth','Advanced','Advanced Pers.']);
+  pt+=grpRows('Gestión KAM','kam',['Con KAM','Sin KAM']);
+  pt+=grpRows('Onboarding','onb',['Con onboarding','Sin onboarding']);
+  pt+=grpRows('Antigüedad al cancelar','antig',['< 3 meses','3–6 meses','6–12 meses','> 12 meses']);
+  pt+=grpRows('Activación al cancelar','activ',['0% activación','1–49%','≥ 50%']);
+  pt+=grpRows('Adopción de funcionalidades','adop',['Usó flows','Usó WhatsApp (API/Business)','Asistió a sesiones']);
+  pt+=`<tr class="grp"><td colspan="5">Reincidencia</td></tr>`;
+  pt+=`<tr><td class="lbl">Cuentas "vaivén" (ya habían ido y vuelto)</td>${cell({vv:{x:A.vaiven},cancel:A.cancel},'vv','x')}${cell({vv:{x:M.vaiven},cancel:M.cancel},'vv','x')}${cell({vv:{x:J.vaiven},cancel:J.cancel},'vv','x')}${(()=>{const jp=pct(J.vaiven,J.cancel),ap=(pct(A.vaiven,A.cancel)+pct(M.vaiven,M.cancel))/2,d=Math.round(jp-ap),c=d>0?'var(--red)':d<0?'var(--green2)':'var(--muted)';return `<td style="color:${c};font-weight:700">${d>0?'+':''}${d} pp</td>`;})()}</tr>`;
+  pt+=`</tbody>`;
+  document.getElementById('profileTable').innerHTML=pt;
+
+  // 3. Motivos
+  const allMotives=[...new Set(focus.flatMap(mo=>Object.keys(mo.motivos)))];
+  const motiveTotals=allMotives.map(mv=>({mv,t:focus.reduce((s,mo)=>s+(mo.motivos[mv]||0),0)})).sort((a,b)=>b.t-a.t);
+  let mt=`<thead><tr><th class="lbl">Motivo declarado</th><th>${A.label}</th><th>${M.label}</th><th>${J.label}</th></tr></thead><tbody>`;
+  if(!motiveTotals.length){
+    mt+=`<tr><td class="lbl" colspan="4" style="color:var(--muted)">Sin motivos declarados en estos meses (columna Motivo Cancelación vacía).</td></tr>`;
+  } else {
+    motiveTotals.forEach(({mv})=>{
+      mt+=`<tr><td class="lbl">${mv}</td>`;
+      focus.forEach(mo=>{const v=mo.motivos[mv]||0;mt+=`<td>${v?`${v} <span class="cnt">(${pct(v,mo.cancel)}%)</span>`:'—'}</td>`;});
+      mt+=`</tr>`;
+    });
+  }
+  mt+=`</tbody>`;
+  document.getElementById('motiveTable').innerHTML=mt;
+
+  // 4. Lectura rápida — mayores diferencias de junio vs promedio abr-may
+  const dims=[];
+  const pushDim=(label,grp,key,higherIsConcern)=>{
+    const jp=pct(J[grp][key]||0,J.cancel);
+    const ap=(pct(A[grp][key]||0,A.cancel)+pct(M[grp][key]||0,M.cancel))/2;
+    dims.push({label,jp,ap,d:jp-ap,higherIsConcern});
+  };
+  ['A','B','C'].forEach(k=>pushDim(`segmento ${k}`,'seg',k,null));
+  ['Starter','Growth','Advanced','Advanced Pers.'].forEach(k=>pushDim(`plan ${k}`,'plan',k,null));
+  pushDim('sin KAM','kam','Sin KAM',true);
+  pushDim('sin onboarding','onb','Sin onboarding',true);
+  ['< 3 meses','3–6 meses','6–12 meses','> 12 meses'].forEach(k=>pushDim(`antigüedad ${k}`,'antig',k,null));
+  pushDim('0% de activación','activ','0% activación',true);
+  // adopción inversa (no usó)
+  [['flows','Usó flows'],['WhatsApp','Usó WhatsApp (API/Business)']].forEach(([n,key])=>{
+    const jp=100-pct(J.adop[key]||0,J.cancel);
+    const ap=100-((pct(A.adop[key]||0,A.cancel)+pct(M.adop[key]||0,M.cancel))/2);
+    dims.push({label:`que no usó ${n}`,jp,ap,d:jp-ap,higherIsConcern:true});
+  });
+  const top=dims.filter(x=>!isNaN(x.d)).sort((a,b)=>Math.abs(b.d)-Math.abs(a.d)).slice(0,5);
+  const ro=document.getElementById('readout');
+  const volTxt=`Junio cerró en <strong>${J.neto>=0?'+':'−'}${Math.abs(J.neto)}</strong> (${J.nuevas} nuevas, ${J.cancel} bajas), frente a ${A.label} (${A.neto>=0?'+':''}${A.neto}) y ${M.label} (${M.neto>=0?'+':''}${M.neto}). El deterioro viene de menos altas y más bajas a la vez.`;
+  let items=`<li>${volTxt}</li>`;
+  top.forEach(x=>{
+    if(Math.round(x.d)===0)return;
+    const dir=x.d>0?'más':'menos';
+    const arrow=x.d>0?'▲':'▼';
+    items+=`<li>${arrow} En junio, <strong>${Math.round(x.jp)}%</strong> de los cancelados eran cuentas <strong>${x.label}</strong>, ${dir} que el ${Math.round(x.ap)}% promedio de abril-mayo (Δ ${x.d>0?'+':''}${Math.round(x.d)} pp).</li>`;
+  });
+  ro.innerHTML=items;
+}
+
+(async()=>{
+  try{
+    await loadAll();
+    render();
+    document.getElementById('loading').style.display='none';
+    document.getElementById('app').style.display='block';
+  }catch(e){
+    document.getElementById('loadingText').textContent='No se pudo cargar';
+    document.getElementById('loadingText').className='t err';
+    document.getElementById('loadingHint').textContent=e.message||String(e);
+  }
+})();
+</script>
+</body>
+</html>
