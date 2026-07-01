@@ -335,6 +335,12 @@ body{background:var(--navy);color:var(--text);font-family:'DM Sans',sans-serif;f
       </table>
     </div>
   </div>
+
+  <!-- BLOQUE 7: GESTIÓN RAM / KAM -->
+  <div class="block">
+    <div class="sec-label"><span class="sec-num">07</span> Gestión RAM / KAM <span class="sec-desc">· Cartera por KAM · solo cuentas Advanced y superiores</span></div>
+    <div id="kamSection"></div>
+  </div>
 </main>
 
 <script>
@@ -398,6 +404,28 @@ function parseNivel(r) {
   const n = parseFloat(v);
   return isNaN(n) ? null : Math.min(100, Math.max(0, n));
 }
+// ── Helpers sección RAM / KAM ──
+// KAM aplica solo a cuentas Advanced y superiores
+function isAdvanced(r){ return /advanced/i.test((r['Planes Funnelchat']||'').toString()); }
+// Normaliza el nombre del KAM (agrupa "OWNER NICOLAS", "Nicolás", "Nicolas" en uno solo)
+const KAM_LABELS = { nicolas:'Nicolás', natalia:'Natalia' };
+function normKam(r){
+  let v=(r['KAM']||'').toString().trim();
+  if(!v || /sin\s*kam/i.test(v)) return { key:'__none__', label:'Sin asignar' };
+  v=v.replace(/^owner\s+/i,'').trim();
+  const key=v.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+  const label=KAM_LABELS[key] || (v.charAt(0).toUpperCase()+v.slice(1).toLowerCase());
+  return { key, label };
+}
+function getKamAssignDate(r){
+  return parseSpDate(r['Fecha asignación KAM']) || parseISO(r['Fecha asignación KAM']) || parseSpanishLong(r['Fecha asignación KAM']) || null;
+}
+// Implementación, pero ignorando valores corruptos (>100%) para no inflar el promedio del KAM
+function kamNivel(r){
+  const raw=parseFloat((r['% Nivel de implementación']||'').toString().replace('%','').trim());
+  return (isNaN(raw)||raw<0||raw>100) ? null : raw;
+}
+function kamFlowsN(r){ const n=parseInt((r['Usa flows']||'0').toString().replace(/[^0-9]/g,''),10); return isNaN(n)?0:n; }
 function getOnbPrimaryDate(r){
   // Fecha asignación etiqueta = primary date for ALL onb filtering
   return parseSpDate(r['Fecha asignación etiqueta'])
@@ -522,6 +550,9 @@ function topN(arr,key,n=5){
 // ── Clasificación de plan por PRECIO (payments usa un nombre genérico) ──
 // Orden de niveles para decidir si un movimiento es subida o bajada
 const PLAN_RANK = {'Plan Starter':1,'Plan Growth':2,'Plan Advanced':3,'Advanced Personalizado':4};
+// Precios mensuales de referencia para estimar el cambio en dinero de un movimiento.
+// Aproximación derivada de payments (NO es el MRR oficial de Yasmin). Adv. Pers. es ajustable.
+const PLAN_PRICE = {'Plan Starter':49,'Plan Growth':99,'Plan Advanced':199,'Advanced Personalizado':399};
 // Devuelve el plan a partir del valor mensual normalizado.
 // Bandas tolerantes a cobros de pasarela con unos dólares de menos (ej. 195 sigue siendo Advanced).
 // Referencia de precios mensuales: Starter ≈49 · Growth ≈99 · Advanced ≈199.
@@ -1065,6 +1096,7 @@ function calcMonth(off){
       allMovements.push({
         uid, date: arr[i].d, fromTier: from, toTier: to,
         dir: PLAN_RANK[to] > PLAN_RANK[from] ? 'up' : 'down',
+        delta: (PLAN_PRICE[to]||0) - (PLAN_PRICE[from]||0),
         acct: acctById[uid] || {}
       });
     }
@@ -1339,10 +1371,68 @@ function calcMonth(off){
     return months;
   })();
 
+  // ── Gestión RAM / KAM — solo cuentas Advanced y superiores, TODAS (incl. canceladas) ──
+  const advAll = C.filter(isAdvanced);
+  const kamGroups = {};
+  advAll.forEach(r => {
+    const { key, label } = normKam(r);
+    if (!kamGroups[key]) kamGroups[key] = { key, label, rows: [] };
+    kamGroups[key].rows.push(r);
+  });
+  const vigOf = r => (r['Vigencia del servicio']||'').trim();
+  const segOf = r => (r['Segmento de cliente (priorización de cliente)']||'').trim();
+  const kamData = Object.values(kamGroups).map(g => {
+    const rows = g.rows, total = rows.length;
+    return {
+      key:g.key, label:g.label, total,
+      vig: rows.filter(r=>vigOf(r)==='Vigente').length,
+      atr: rows.filter(r=>vigOf(r)==='Atrasado').length,
+      can: rows.filter(r=>vigOf(r)==='Cancelado').length,
+      segA: rows.filter(r=>segOf(r)==='A').length,
+      segB: rows.filter(r=>segOf(r)==='B').length,
+      segC: rows.filter(r=>segOf(r)==='C').length,
+      implAvg: total ? Math.round(rows.reduce((s,r)=>s+(kamNivel(r)||0),0)/total) : 0,
+      activas: rows.filter(r=>(kamNivel(r)||0)>0).length,
+      flowsSi: rows.filter(r=>kamFlowsN(r)>0).length,
+      apiSi:   rows.filter(r=>(r['Usa API?']||'').trim()==='Sí').length,
+      busSi:   rows.filter(r=>(r['Usa Business?']||'').trim()==='Sí').length,
+    };
+  }).sort((a,b) => (a.key==='__none__') - (b.key==='__none__') || b.total - a.total); // Sin asignar al final
+  // Crecimiento mes a mes: nuevas asignaciones por mes y por KAM (columna Fecha asignación KAM)
+  const kamMonths = Array.from({length:6},(_,i)=>getMonthRange(off-5+i));
+  const kamAssignKey = advAll.map(r => ({ key: normKam(r).key, d: getKamAssignDate(r) }));
+  const kamTrend = {
+    labels: kamMonths.map(rg=>fmtMonthShort(rg.start)),
+    series: kamData.map(k => ({
+      key:k.key, label:k.label,
+      data: kamMonths.map(rg => kamAssignKey.filter(x => x.key===k.key && inRange(x.d, rg)).length)
+    }))
+  };
+  // ── Dinero por KAM: crecimiento (upgrades) y decrecimiento (downgrades) ──
+  // Cada movimiento se atribuye al KAM actual de la cuenta (columna KAM).
+  const movKamKey = m => normKam(m.acct).key;
+  const upsMonthAll   = allMovements.filter(mv => mv.dir==='up'   && inRange(mv.date, range));
+  const downsMonthAll = allMovements.filter(mv => mv.dir==='down' && inRange(mv.date, range));
+  const kamMoney = {};
+  kamData.forEach(k => { kamMoney[k.key] = { gained:0, lost:0, upCount:0, downCount:0 }; });
+  upsMonthAll.forEach(mv => { const k=movKamKey(mv); if(kamMoney[k]){ kamMoney[k].gained += mv.delta; kamMoney[k].upCount++; } });
+  downsMonthAll.forEach(mv => { const k=movKamKey(mv); if(kamMoney[k]){ kamMoney[k].lost += Math.abs(mv.delta); kamMoney[k].downCount++; } });
+  // Tendencia 6 meses: dinero NETO por KAM por mes
+  const kamMoneyTrend = {
+    labels: kamMonths.map(rg=>fmtMonthShort(rg.start)),
+    series: kamData.map(k => ({
+      key:k.key, label:k.label,
+      data: kamMonths.map(rg => allMovements
+        .filter(mv => movKamKey(mv)===k.key && inRange(mv.date, rg))
+        .reduce((s,mv)=> s + mv.delta, 0))
+    }))
+  };
+  const kam = { data:kamData, trend:kamTrend, totalAdv:advAll.length, money:kamMoney, moneyTrend:kamMoneyTrend };
+
   return{
     range, off, ahaStats:ahaStatsData, ahaStatsMes,
     reposoN:reposoAll.length, reposoMRR:Math.round(reposoAll.reduce((s,r)=>s+getMRR(r),0)),
-    upgrades, downgrades, upAgg, downAgg, movTrend6,
+    upgrades, downgrades, upAgg, downAgg, movTrend6, kam,
     vigP:vigP.length,vigT:vigT.length,activasInicioMes,
     nuevosMesP:nuevosMesP.length,nuevosMesT:nuevosMesT.length,
     cancelMes:cancelMes.length,convMes:convMes,convMesNuevas:convMesNuevas,convMesPrevias:convMesPrevias,
@@ -1963,6 +2053,7 @@ function render(m){
 
   // Upgrades / Downgrades section
   renderUpgDown(m);
+  renderKamSection(m);
 }
 
 // Global toggle function for 4 dimensions
@@ -3581,6 +3672,152 @@ function renderUpgDown(m) {
   }
 }
 
+
+function renderKamSection(m) {
+  const el = document.getElementById('kamSection');
+  if (!el || !m.kam) return;
+  const data = m.kam.data || [];
+  const trend = m.kam.trend || {labels:[],series:[]};
+  // Paleta por KAM (Sin asignar siempre gris)
+  const PALETTE = ['#2563eb','#7c3aed','#0d9488','#b45309','#db2777','#0891b2'];
+  const colorFor = {};
+  let ci=0;
+  data.forEach(k => { colorFor[k.key] = k.key==='__none__' ? '#94a3b8' : PALETTE[ci++ % PALETTE.length]; });
+  const segColor = {A:'var(--green2)',B:'var(--yellow)',C:'var(--muted)'};
+  const pct = (n,d) => d>0 ? Math.round(n/d*100) : 0;
+
+  if (!data.length) { el.innerHTML = '<div style="color:var(--muted);font-size:12px;padding:12px 0">Sin cuentas Advanced en la base.</div>'; return; }
+
+  // ── Tarjetas por KAM ──
+  const cards = data.map(k => {
+    const c = colorFor[k.key];
+    const isNone = k.key==='__none__';
+    const mon = (m.kam.money||{})[k.key] || {gained:0,lost:0,upCount:0,downCount:0};
+    const net = mon.gained - mon.lost;
+    const segBar = [['A',k.segA],['B',k.segB],['C',k.segC]].filter(([,n])=>n>0).map(([s,n])=>
+      `<div style="flex:${n};background:${segColor[s]};height:8px" title="Seg ${s}: ${n}"></div>`).join('') || '<div style="flex:1;background:var(--border);height:8px"></div>';
+    return `<div style="background:var(--card);border:1px solid ${isNone?'var(--orange)':'var(--border)'};border-radius:12px;padding:16px 18px;flex:1;min-width:220px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+        <div style="display:flex;align-items:center;gap:8px">
+          <span style="width:10px;height:10px;border-radius:50%;background:${c};display:inline-block"></span>
+          <span style="font-size:13px;font-weight:800;color:var(--text)">${k.label}</span>
+          ${isNone?'<span style="font-size:9px;color:var(--orange);font-weight:700;background:rgba(194,65,12,.1);padding:1px 6px;border-radius:8px">⚠ Advanced sin KAM</span>':''}
+        </div>
+        <div style="text-align:right"><span style="font-family:'Syne',sans-serif;font-size:26px;font-weight:800;color:${c}">${k.total}</span><div style="font-size:9px;color:var(--muted);margin-top:-2px">cuentas</div></div>
+      </div>
+      <div style="display:flex;gap:6px;font-size:10px;margin-bottom:12px">
+        <span style="color:var(--green2)">● ${k.vig} vigentes</span>
+        <span style="color:var(--orange)">● ${k.atr} atrasadas</span>
+        <span style="color:var(--red)">● ${k.can} canceladas</span>
+      </div>
+      <div style="font-size:9px;color:var(--muted);margin-bottom:4px">Segmento (A/B/C)</div>
+      <div style="display:flex;border-radius:4px;overflow:hidden;margin-bottom:4px">${segBar}</div>
+      <div style="display:flex;gap:8px;font-size:9px;color:var(--muted);margin-bottom:12px"><span>A:${k.segA}</span><span>B:${k.segB}</span><span>C:${k.segC}</span></div>
+      <div style="font-size:9px;color:var(--muted);margin-bottom:4px">Activación promedio de la cartera</div>
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+        <div style="flex:1;height:8px;background:var(--border);border-radius:4px;overflow:hidden"><div style="width:${k.implAvg}%;height:100%;background:${c}"></div></div>
+        <span style="font-size:12px;font-weight:800;color:${c}">${k.implAvg}%</span>
+      </div>
+      <div style="font-size:9px;color:var(--muted);line-height:1.7">
+        ${pct(k.activas,k.total)}% con alguna activación (${k.activas}/${k.total})<br>
+        Flows ${pct(k.flowsSi,k.total)}% · API ${pct(k.apiSi,k.total)}% · Business ${pct(k.busSi,k.total)}%
+      </div>
+      <div style="margin-top:12px;padding-top:10px;border-top:1px dashed var(--border)">
+        <div style="font-size:9px;color:var(--muted);margin-bottom:5px">Movimiento de dinero del mes (aprox. desde payments)</div>
+        <div style="display:flex;align-items:baseline;gap:4px;margin-bottom:4px">
+          <span style="font-family:'Syne',sans-serif;font-size:18px;font-weight:800;color:${net>0?'var(--green2)':net<0?'var(--red)':'var(--muted)'}">${net>0?'+':net<0?'−':''}$${Math.abs(net).toLocaleString('es-CO')}</span>
+          <span style="font-size:9px;color:var(--muted)">neto / mes</span>
+        </div>
+        <div style="font-size:10px;color:var(--muted)">
+          <span style="color:var(--green2)">▲ +$${mon.gained.toLocaleString('es-CO')}</span> (${mon.upCount} upgrades) ·
+          <span style="color:var(--red)">▼ −$${mon.lost.toLocaleString('es-CO')}</span> (${mon.downCount} downgrades)
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+
+  // ── Tabla comparativa ──
+  const th = t => `<th style="padding:7px 10px;font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;border-bottom:1px solid var(--border);text-align:${t.a||'center'}">${t.l}</th>`;
+  const cols = [{l:'KAM',a:'left'},{l:'Cartera'},{l:'Vigentes'},{l:'Atrasadas'},{l:'Canceladas'},{l:'Activación prom.'},{l:'% Activas'},{l:'Flows'},{l:'API'},{l:'Business'},{l:'+ $ mes'},{l:'− $ mes'},{l:'Neto $ mes'}];
+  const rowsT = data.map(k => {
+    const c = colorFor[k.key];
+    const mon = (m.kam.money||{})[k.key] || {gained:0,lost:0};
+    const net = mon.gained - mon.lost;
+    return `<tr style="border-bottom:1px solid var(--border)">
+      <td style="padding:7px 10px;font-size:11px;font-weight:700;white-space:nowrap"><span style="width:8px;height:8px;border-radius:50%;background:${c};display:inline-block;margin-right:6px"></span>${k.label}</td>
+      <td style="padding:7px 10px;font-size:12px;font-weight:800;text-align:center;color:${c}">${k.total}</td>
+      <td style="padding:7px 10px;font-size:11px;text-align:center;color:var(--green2)">${k.vig}</td>
+      <td style="padding:7px 10px;font-size:11px;text-align:center;color:var(--orange)">${k.atr}</td>
+      <td style="padding:7px 10px;font-size:11px;text-align:center;color:var(--red)">${k.can}</td>
+      <td style="padding:7px 10px;font-size:11px;text-align:center;font-weight:700">${k.implAvg}%</td>
+      <td style="padding:7px 10px;font-size:11px;text-align:center">${pct(k.activas,k.total)}%</td>
+      <td style="padding:7px 10px;font-size:11px;text-align:center">${pct(k.flowsSi,k.total)}%</td>
+      <td style="padding:7px 10px;font-size:11px;text-align:center">${pct(k.apiSi,k.total)}%</td>
+      <td style="padding:7px 10px;font-size:11px;text-align:center">${pct(k.busSi,k.total)}%</td>
+      <td style="padding:7px 10px;font-size:11px;text-align:center;color:var(--green2)">+$${mon.gained.toLocaleString('es-CO')}</td>
+      <td style="padding:7px 10px;font-size:11px;text-align:center;color:var(--red)">−$${mon.lost.toLocaleString('es-CO')}</td>
+      <td style="padding:7px 10px;font-size:11px;text-align:center;font-weight:800;color:${net>0?'var(--green2)':net<0?'var(--red)':'var(--muted)'}">${net>0?'+':net<0?'−':''}$${Math.abs(net).toLocaleString('es-CO')}</td>
+    </tr>`;
+  }).join('');
+
+  const sep = label => `<div style="font-size:9px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.12em;margin:18px 0 12px;display:flex;align-items:center;gap:10px"><span>${label}</span><div style="flex:1;height:1px;background:var(--border)"></div></div>`;
+
+  el.innerHTML = `
+    <div style="font-size:11px;color:var(--muted);margin-bottom:14px">${m.kam.totalAdv} cuentas Advanced en total, repartidas por KAM. La cartera incluye todas las cuentas (vigentes, atrasadas y canceladas).</div>
+    <div style="display:flex;gap:16px;flex-wrap:wrap">${cards}</div>
+    ${sep('Crecimiento de la cartera — nuevas asignaciones por mes')}
+    <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px 20px">
+      <div style="height:260px;position:relative"><canvas id="kamGrowthChart"></canvas></div>
+    </div>
+    ${sep('Crecimiento vs decrecimiento en dinero — neto por KAM por mes')}
+    <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px 20px">
+      <div style="height:260px;position:relative"><canvas id="kamMoneyChart"></canvas></div>
+      <div style="font-size:10px;color:var(--muted);margin-top:8px;text-align:center">Barras sobre 0 = la cartera creció en dinero ese mes · bajo 0 = decreció (downgrades)</div>
+    </div>
+    ${sep('Comparativo de activación y uso por KAM')}
+    <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:8px 12px;overflow-x:auto">
+      <table style="width:100%;border-collapse:collapse"><thead><tr>${cols.map(th).join('')}</tr></thead><tbody>${rowsT}</tbody></table>
+    </div>
+    <div style="margin-top:12px;font-size:10px;color:var(--muted);line-height:1.6">
+      Solo cuentas Advanced y superiores · el crecimiento de cartera usa la columna <strong>Fecha asignación KAM</strong> · los montos en dinero se <strong>estiman desde payments</strong> según el cambio de plan (Starter $49 · Growth $99 · Advanced $199 · Adv. Pers. $399, ajustable) y <strong>no son el MRR oficial de Yasmin</strong> · "Activación promedio" descarta valores de implementación corruptos (&gt;100%) · grupos se omite por ahora (columna inconsistente).
+    </div>`;
+
+  // ── Gráfica de crecimiento (barras apiladas por KAM) ──
+  destroyChart('kamGrowthChart');
+  const cv = document.getElementById('kamGrowthChart');
+  if (cv) {
+    charts.kamGrowth = new Chart(cv.getContext('2d'), {
+      type:'bar',
+      data:{ labels: trend.labels, datasets: trend.series.map(s => ({
+        label: s.label, data: s.data,
+        backgroundColor: colorFor[s.key], borderWidth:0, borderRadius:3, stack:'kam'
+      }))},
+      options:{responsive:true,maintainAspectRatio:false,
+        plugins:{legend:{position:'top',labels:{boxWidth:10,padding:12,color:'#64748b',font:{size:10}}},tooltip:{mode:'index',intersect:false}},
+        scales:{x:{stacked:true,grid:{display:false},ticks:{color:'#64748b',font:{size:10}}},
+          y:{stacked:true,grid:{color:'rgba(15,23,42,.04)'},ticks:{color:'#64748b',font:{size:9},precision:0},beginAtZero:true}}}
+    });
+  }
+
+  // ── Gráfica de dinero neto por KAM (barras agrupadas, puede ser negativo) ──
+  const mt = m.kam.moneyTrend || {labels:[],series:[]};
+  destroyChart('kamMoneyChart');
+  const cvM = document.getElementById('kamMoneyChart');
+  if (cvM) {
+    charts.kamMoney = new Chart(cvM.getContext('2d'), {
+      type:'bar',
+      data:{ labels: mt.labels, datasets: mt.series.map(s => ({
+        label: s.label, data: s.data,
+        backgroundColor: colorFor[s.key], borderWidth:0, borderRadius:3
+      }))},
+      options:{responsive:true,maintainAspectRatio:false,
+        plugins:{legend:{position:'top',labels:{boxWidth:10,padding:12,color:'#64748b',font:{size:10}}},
+          tooltip:{mode:'index',intersect:false,callbacks:{label:ctx=>`${ctx.dataset.label}: ${ctx.parsed.y>=0?'+':'−'}$${Math.abs(ctx.parsed.y).toLocaleString('es-CO')}`}}},
+        scales:{x:{grid:{display:false},ticks:{color:'#64748b',font:{size:10}}},
+          y:{grid:{color:'rgba(15,23,42,.04)'},ticks:{color:'#64748b',font:{size:9},callback:v=>'$'+v}}}}
+    });
+  }
+}
 
 function renderChurnDownloadBtns(m) {
   const el = document.getElementById('churnDownloadBtns');
