@@ -338,7 +338,7 @@ body{background:var(--navy);color:var(--text);font-family:'DM Sans',sans-serif;f
 
   <!-- BLOQUE 7: GESTIÓN RAM / KAM -->
   <div class="block">
-    <div class="sec-label"><span class="sec-num">07</span> Gestión RAM / KAM <span class="sec-desc">· Cartera por KAM · solo cuentas Advanced y superiores</span></div>
+    <div class="sec-label"><span class="sec-num">07</span> Gestión RAM <span class="sec-desc">· Cartera por RAM · solo cuentas Advanced y superiores</span></div>
     <div id="kamSection"></div>
   </div>
 </main>
@@ -405,22 +405,24 @@ function parseNivel(r) {
   return isNaN(n) ? null : Math.min(100, Math.max(0, n));
 }
 // ── Helpers sección RAM / KAM ──
-// KAM aplica solo a cuentas Advanced y superiores
+// El rol aplica solo a cuentas Advanced y superiores
 function isAdvanced(r){ return /advanced/i.test((r['Planes Funnelchat']||'').toString()); }
-// Normaliza el nombre del KAM (agrupa "OWNER NICOLAS", "Nicolás", "Nicolas" en uno solo)
+// Normaliza el nombre del RAM (agrupa "OWNER NICOLAS", "Nicolás", "Nicolas" en uno solo)
 const KAM_LABELS = { nicolas:'Nicolás', natalia:'Natalia' };
 function normKam(r){
-  let v=(r['KAM']||'').toString().trim();
-  if(!v || /sin\s*kam/i.test(v)) return { key:'__none__', label:'Sin asignar' };
+  let v=(r['RAM']||'').toString().trim();
+  if(!v || /sin\s*(ram|kam)/i.test(v)) return { key:'__none__', label:'Sin asignar' };
   v=v.replace(/^owner\s+/i,'').trim();
   const key=v.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
   const label=KAM_LABELS[key] || (v.charAt(0).toUpperCase()+v.slice(1).toLowerCase());
   return { key, label };
 }
 function getKamAssignDate(r){
-  return parseSpDate(r['Fecha asignación KAM']) || parseISO(r['Fecha asignación KAM']) || parseSpanishLong(r['Fecha asignación KAM']) || null;
+  // Fecha de asignación del RAM (con respaldo a la columna del KAM si no existe la de RAM)
+  const raw = r['Fecha asignación RAM'] != null && r['Fecha asignación RAM'] !== '' ? r['Fecha asignación RAM'] : r['Fecha asignación KAM'];
+  return parseSpDate(raw) || parseISO(raw) || parseSpanishLong(raw) || null;
 }
-// Implementación, pero ignorando valores corruptos (>100%) para no inflar el promedio del KAM
+// Implementación, pero ignorando valores corruptos (>100%) para no inflar el promedio del RAM
 function kamNivel(r){
   const raw=parseFloat((r['% Nivel de implementación']||'').toString().replace('%','').trim());
   return (isNaN(raw)||raw<0||raw>100) ? null : raw;
@@ -1398,7 +1400,7 @@ function calcMonth(off){
       busSi:   rows.filter(r=>(r['Usa Business?']||'').trim()==='Sí').length,
     };
   }).sort((a,b) => (a.key==='__none__') - (b.key==='__none__') || b.total - a.total); // Sin asignar al final
-  // Crecimiento mes a mes: nuevas asignaciones por mes y por KAM (columna Fecha asignación KAM)
+  // Crecimiento mes a mes: nuevas asignaciones por mes y por RAM (columna Fecha asignación RAM)
   const kamMonths = Array.from({length:6},(_,i)=>getMonthRange(off-5+i));
   const kamAssignKey = advAll.map(r => ({ key: normKam(r).key, d: getKamAssignDate(r) }));
   const kamTrend = {
@@ -1409,7 +1411,7 @@ function calcMonth(off){
     }))
   };
   // ── Dinero por KAM: crecimiento (upgrades) y decrecimiento (downgrades) ──
-  // Cada movimiento se atribuye al KAM actual de la cuenta (columna KAM).
+  // Cada movimiento se atribuye al RAM actual de la cuenta (columna RAM).
   const movKamKey = m => normKam(m.acct).key;
   const upsMonthAll   = allMovements.filter(mv => mv.dir==='up'   && inRange(mv.date, range));
   const downsMonthAll = allMovements.filter(mv => mv.dir==='down' && inRange(mv.date, range));
@@ -3701,7 +3703,7 @@ function renderKamSection(m) {
         <div style="display:flex;align-items:center;gap:8px">
           <span style="width:10px;height:10px;border-radius:50%;background:${c};display:inline-block"></span>
           <span style="font-size:13px;font-weight:800;color:var(--text)">${k.label}</span>
-          ${isNone?'<span style="font-size:9px;color:var(--orange);font-weight:700;background:rgba(194,65,12,.1);padding:1px 6px;border-radius:8px">⚠ Advanced sin KAM</span>':''}
+          ${isNone?'<span style="font-size:9px;color:var(--orange);font-weight:700;background:rgba(194,65,12,.1);padding:1px 6px;border-radius:8px">⚠ Advanced sin RAM</span>':''}
         </div>
         <div style="text-align:right"><span style="font-family:'Syne',sans-serif;font-size:26px;font-weight:800;color:${c}">${k.total}</span><div style="font-size:9px;color:var(--muted);margin-top:-2px">cuentas</div></div>
       </div>
@@ -3738,7 +3740,7 @@ function renderKamSection(m) {
 
   // ── Tabla comparativa ──
   const th = t => `<th style="padding:7px 10px;font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;border-bottom:1px solid var(--border);text-align:${t.a||'center'}">${t.l}</th>`;
-  const cols = [{l:'KAM',a:'left'},{l:'Cartera'},{l:'Vigentes'},{l:'Atrasadas'},{l:'Canceladas'},{l:'Activación prom.'},{l:'% Activas'},{l:'Flows'},{l:'API'},{l:'Business'},{l:'+ $ mes'},{l:'− $ mes'},{l:'Neto $ mes'}];
+  const cols = [{l:'RAM',a:'left'},{l:'Cartera'},{l:'Vigentes'},{l:'Atrasadas'},{l:'Canceladas'},{l:'Activación prom.'},{l:'% Activas'},{l:'Flows'},{l:'API'},{l:'Business'},{l:'+ $ mes'},{l:'− $ mes'},{l:'Neto $ mes'}];
   const rowsT = data.map(k => {
     const c = colorFor[k.key];
     const mon = (m.kam.money||{})[k.key] || {gained:0,lost:0};
@@ -3779,7 +3781,7 @@ function renderKamSection(m) {
       <table style="width:100%;border-collapse:collapse"><thead><tr>${cols.map(th).join('')}</tr></thead><tbody>${rowsT}</tbody></table>
     </div>
     <div style="margin-top:12px;font-size:10px;color:var(--muted);line-height:1.6">
-      Solo cuentas Advanced y superiores · el crecimiento de cartera usa la columna <strong>Fecha asignación KAM</strong> · los montos en dinero se <strong>estiman desde payments</strong> según el cambio de plan (Starter $49 · Growth $99 · Advanced $199 · Adv. Pers. $399, ajustable) y <strong>no son el MRR oficial de Yasmin</strong> · "Activación promedio" descarta valores de implementación corruptos (&gt;100%) · grupos se omite por ahora (columna inconsistente).
+      Solo cuentas Advanced y superiores · el crecimiento de cartera usa la columna <strong>Fecha asignación RAM</strong> · los montos en dinero se <strong>estiman desde payments</strong> según el cambio de plan (Starter $49 · Growth $99 · Advanced $199 · Adv. Pers. $399, ajustable) y <strong>no son el MRR oficial de Yasmin</strong> · "Activación promedio" descarta valores de implementación corruptos (&gt;100%) · grupos se omite por ahora (columna inconsistente).
     </div>`;
 
   // ── Gráfica de crecimiento (barras apiladas por KAM) ──
