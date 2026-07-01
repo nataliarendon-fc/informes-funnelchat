@@ -65,27 +65,50 @@ tbody tr{border-bottom:1px solid var(--border)}
     <div class="chart-wrap"><canvas id="arrivalChart"></canvas></div>
   </div>
 
-  <!-- 2. Quién llega -->
+  <!-- 2. Composición mes a mes -->
   <div class="block">
-    <div class="sec-label"><span class="sec-num">02</span> ¿Quién llega? — composición de las cuentas nuevas</div>
-    <div class="distgrid" id="composition"></div>
+    <div class="sec-label"><span class="sec-num">02</span> Composición mes a mes — ¿cambia el tipo de cuenta que llega?</div>
+    <div style="font-size:11px;color:var(--muted);margin-bottom:14px">Cada barra es un mes y los segmentos suman 100%, para ver si la mezcla cambia. El tooltip y la tabla muestran el conteo real de cuentas.</div>
+
+    <h4 style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px">Por plan de llegada</h4>
+    <div class="chart-wrap" style="height:230px"><canvas id="planCompChart"></canvas></div>
+    <div style="overflow-x:auto;margin:8px 0 26px"><table id="planCompTable"></table></div>
+
+    <h4 style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px">Por nicho (Tipo de negocio)</h4>
+    <div class="chart-wrap" style="height:230px"><canvas id="nichoCompChart"></canvas></div>
+    <div style="overflow-x:auto;margin:8px 0 26px"><table id="nichoCompTable"></table></div>
+
+    <h4 style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px">Por objetivo con el que llegan</h4>
+    <div class="chart-wrap" style="height:230px"><canvas id="objCompChart"></canvas></div>
+    <div style="overflow-x:auto;margin:8px 0 0"><table id="objCompTable"></table></div>
   </div>
 
-  <!-- 3. Cómo se activan por objetivo -->
+  <!-- 2b. Otras dimensiones (mes a mes) -->
   <div class="block">
-    <div class="sec-label"><span class="sec-num">03</span> Cómo se activan según el objetivo con el que llegan</div>
+    <div class="sec-label"><span class="sec-num">03</span> Otras dimensiones de llegada — mes a mes</div>
+    <h4 style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px">Tamaño de empresa</h4>
+    <div class="chart-wrap" style="height:210px"><canvas id="tamCompChart"></canvas></div>
+    <h4 style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;margin:22px 0 8px">Experiencia automatizando</h4>
+    <div class="chart-wrap" style="height:210px"><canvas id="expCompChart"></canvas></div>
+  </div>
+
+  <!-- 4. Cómo se activan por objetivo -->
+  <div class="block">
+    <div class="sec-label"><span class="sec-num">04</span> Cómo se activan según el objetivo con el que llegan</div>
+    <div style="font-size:11px;color:var(--muted);margin-bottom:8px">Activación de cada cohorte mensual (cuentas que llegaron ese mes):</div>
+    <div class="chart-wrap" style="height:200px;margin-bottom:22px"><canvas id="actTrendChart"></canvas></div>
     <div style="overflow-x:auto"><table id="objTable"></table></div>
-    <div class="foot">Por cada objetivo declarado al llegar: cuántas cuentas y qué % activó cada funcionalidad. La celda resaltada en verde es la funcionalidad que corresponde a ese objetivo. "Hito" = alcanzó un AHA. "Activada" = hito + alguna funcionalidad. Grupos es aproximado (columna inconsistente).</div>
+    <div class="foot">La tabla por objetivo es <strong>acumulada de los 6 meses</strong> a propósito: por mes, cada objetivo tendría muy pocas cuentas y el dato sería ruido. Por cada objetivo: cuántas cuentas y qué % activó cada funcionalidad. La celda resaltada en verde es la funcionalidad que corresponde a ese objetivo. "Hito" = alcanzó un AHA. "Activada" = hito + alguna funcionalidad. Grupos es aproximado (columna inconsistente).</div>
   </div>
 
-  <!-- 4. Activación por funcionalidad y por plan -->
+  <!-- 5. Activación por funcionalidad y por plan -->
   <div class="block">
-    <div class="sec-label"><span class="sec-num">04</span> Activación por funcionalidad y por plan</div>
+    <div class="sec-label"><span class="sec-num">05</span> Activación por funcionalidad y por plan</div>
     <div class="distgrid">
       <div class="distblock"><h4>Por funcionalidad (todas las llegadas)</h4><div id="byFunc"></div></div>
       <div class="distblock"><h4>Activación por plan de llegada</h4><div id="byPlan"></div></div>
     </div>
-    <div class="foot">"% activada" = alcanzó el hito de valor y usa al menos una funcionalidad.</div>
+    <div class="foot">"% activada" = alcanzó el hito de valor y usa al menos una funcionalidad. Acumulado de la ventana.</div>
   </div>
 </main>
 
@@ -163,6 +186,49 @@ function rateList(items){ // items: [{label,n,act,color}]
   return items.map(it=>{const p=pct(it.act,it.n);return `<div class="row"><div class="lb">${it.label}</div><div class="track"><div class="fill" style="width:${p}%;background:${it.color||'var(--green2)'}"></div></div><div class="val">${p}% · ${it.act}/${it.n}</div></div>`;}).join('');
 }
 
+// Datos por mes: top N categorías (+ 'Otros'), con conteo por mes y total del mes
+function catData(arr,fn,months,topN){
+  const totals={};
+  arr.forEach(r=>{const k=fn(r)||'Sin dato';totals[k]=(totals[k]||0)+1;});
+  let cats=Object.entries(totals).sort((a,b)=>b[1]-a[1]).map(e=>e[0]);
+  let hasOtros=false;
+  if(cats.length>topN){cats=cats.slice(0,topN);hasOtros=true;}
+  const perMonth=months.map(mr=>{
+    const inM=arr.filter(r=>inRange(getCA(r),mr));
+    const row={_total:inM.length};
+    cats.forEach(c=>row[c]=0); if(hasOtros)row['Otros']=0;
+    inM.forEach(r=>{const k=fn(r)||'Sin dato';if(cats.includes(k))row[k]++;else if(hasOtros)row['Otros']++;});
+    return row;
+  });
+  return {cats:hasOtros?[...cats,'Otros']:cats, perMonth};
+}
+const PALETTE=['#2563eb','#7c3aed','#0d9488','#b45309','#db2777','#0891b2','#65a30d','#e11d48'];
+// Gráfica 100% apilada por mes (+ tabla opcional con conteos reales)
+function renderComp(canvasId,tableId,arr,months,fn,colorMap,topN){
+  const {cats,perMonth}=catData(arr,fn,months,topN);
+  const colorOf=(c,i)=>(colorMap&&colorMap[c])||(c==='Otros'?'#cbd5e1':PALETTE[i%PALETTE.length]);
+  const datasets=cats.map((c,i)=>({label:c.length>26?c.slice(0,24)+'…':c,data:perMonth.map(m=>pct(m[c],m._total)),_counts:perMonth.map(m=>m[c]),backgroundColor:colorOf(c,i),borderRadius:2,stack:'s'}));
+  new Chart(document.getElementById(canvasId).getContext('2d'),{
+    type:'bar',
+    data:{labels:months.map(mr=>fmtMonthShort(mr.start)),datasets},
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{position:'bottom',labels:{boxWidth:9,padding:8,color:'#64748b',font:{size:9}}},
+        tooltip:{callbacks:{label:ctx=>`${ctx.dataset.label}: ${ctx.dataset._counts[ctx.dataIndex]} (${ctx.parsed.y}%)`}}},
+      scales:{x:{stacked:true,grid:{display:false},ticks:{color:'#64748b',font:{size:10}}},
+        y:{stacked:true,max:100,grid:{color:'rgba(15,23,42,.04)'},ticks:{color:'#64748b',font:{size:9},callback:v=>v+'%'}}}}
+  });
+  if(tableId){
+    let h=`<thead><tr><th class="lbl">Categoría</th>${months.map(mr=>`<th>${fmtMonthShort(mr.start)}</th>`).join('')}</tr></thead><tbody>`;
+    cats.forEach((c,i)=>{
+      h+=`<tr><td class="lbl" title="${c.replace(/"/g,'')}"><span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:${colorOf(c,i)};margin-right:6px"></span>${c.length>32?c.slice(0,30)+'…':c}</td>`;
+      perMonth.forEach(m=>{h+=`<td>${m[c]||0}<div class="cnt">${pct(m[c]||0,m._total)}%</div></td>`;});
+      h+=`</tr>`;
+    });
+    h+=`<tr><td class="lbl" style="color:var(--muted)">Total del mes</td>${perMonth.map(m=>`<td><strong>${m._total}</strong></td>`).join('')}</tr></tbody>`;
+    document.getElementById(tableId).innerHTML=h;
+  }
+}
+
 function render(){
   // Ventana: últimos 6 meses COMPLETOS (excluye mes en curso)
   const months=Array.from({length:6},(_,i)=>getMonthRange(-6+i));
@@ -192,17 +258,25 @@ function render(){
       scales:{x:{stacked:true,grid:{display:false},ticks:{color:'#64748b',font:{size:10}}},y:{stacked:true,grid:{color:'rgba(15,23,42,.04)'},ticks:{color:'#64748b',font:{size:9}},beginAtZero:true}}}
   });
 
-  // Composición
-  const comp=[
-    ['Plan al llegar', r=>planOf(r), k=>PLAN_COLOR[k]||'#2563eb'],
-    ['Objetivo con Funnelchat', r=>clean(r['Objetivo con Funnelchat']), null],
-    ['Nicho (Tipo de negocio)', r=>clean(r['Tipo de negocio']), null],
-    ['Tamaño de empresa', r=>clean(r['Personas que trabajan en la empresa']), ()=>'#0d9488'],
-    ['Experiencia automatizando', r=>clean(r['Experiencia automatizando']), ()=>'#7c3aed'],
-    ['País', r=>clean(r['country_name']), ()=>'#c2410c'],
-  ];
-  document.getElementById('composition').innerHTML=comp.map(([title,fn,colorFn])=>
-    `<div class="distblock"><h4>${title}</h4>${distList(arrivals,fn,colorFn)}</div>`).join('');
+  // ── Composición mes a mes (100% apilado) ──
+  renderComp('planCompChart','planCompTable',arrivals,months,r=>planOf(r),PLAN_COLOR,5);
+  renderComp('nichoCompChart','nichoCompTable',arrivals,months,r=>clean(r['Tipo de negocio']),null,7);
+  renderComp('objCompChart','objCompTable',arrivals,months,r=>clean(r['Objetivo con Funnelchat']),null,6);
+  renderComp('tamCompChart',null,arrivals,months,r=>clean(r['Personas que trabajan en la empresa']),null,6);
+  renderComp('expCompChart',null,arrivals,months,r=>clean(r['Experiencia automatizando']),null,6);
+
+  // ── Activación mes a mes (cohorte de cada mes) ──
+  const actAct=months.map(mr=>{const inM=arrivals.filter(r=>inRange(getCA(r),mr));return pct(inM.filter(activada).length,inM.length);});
+  const actHito=months.map(mr=>{const inM=arrivals.filter(r=>inRange(getCA(r),mr));return pct(inM.filter(hitoValor).length,inM.length);});
+  new Chart(document.getElementById('actTrendChart').getContext('2d'),{type:'line',
+    data:{labels:months.map(mr=>fmtMonthShort(mr.start)),datasets:[
+      {label:'% activadas',data:actAct,borderColor:'#15803d',backgroundColor:'rgba(21,128,61,.10)',tension:.3,fill:true,pointRadius:3},
+      {label:'% alcanzó hito de valor',data:actHito,borderColor:'#0d9488',borderDash:[5,4],tension:.3,fill:false,pointRadius:3}
+    ]},
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{position:'top',labels:{boxWidth:10,padding:12,color:'#64748b',font:{size:10}}}},
+      scales:{x:{grid:{display:false},ticks:{color:'#64748b',font:{size:10}}},y:{max:100,beginAtZero:true,grid:{color:'rgba(15,23,42,.04)'},ticks:{color:'#64748b',font:{size:9},callback:v=>v+'%'}}}}
+  });
 
   // Objetivo × activación
   const objGroups={};
