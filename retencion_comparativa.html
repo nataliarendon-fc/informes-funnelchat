@@ -66,7 +66,7 @@ tbody tr:not(.grp){border-bottom:1px solid var(--border)}
   <div class="block">
     <div class="sec-label"><span class="sec-num">02</span> Perfil de quién canceló — comparativo de los últimos 3 meses completos</div>
     <div style="overflow-x:auto"><table id="profileTable"></table></div>
-    <div class="foot">Cada celda: % sobre el total de cancelados de ese mes (y el conteo abajo). La última columna compara el último mes contra el promedio de los dos previos, en puntos porcentuales (pp), para ver dónde cambió el perfil. "Ciclo de facturación" es el tipo de plan de la cuenta (columna payment_type): mensual, trimestral, semestral o anual; "Sin dato" = cuentas sin plan pago activo registrado. Un pico de "Anual" en un mes indica una camada de planes anuales que llegó a su vencimiento junta. "Activación" descarta valores de implementación corruptos (&gt;100%). Grupos se omite (columna inconsistente).</div>
+    <div class="foot">Cada celda: % sobre el total de cancelados de ese mes (y el conteo abajo). La última columna compara el último mes contra el promedio de los dos previos, en puntos porcentuales (pp), para ver dónde cambió el perfil. "Ciclo de facturación" se calcula desde payments: la duración del último pago real de cada cuenta (Expiration − Date) — mensual ≈1 mes, anual ≈12 meses. "Sin dato" = cuentas sin un pago con fechas válidas cruzable en payments. Un pico de "Anual" en un mes indica una camada de planes anuales que llegó a su vencimiento junta. "Activación" descarta valores de implementación corruptos (&gt;100%). Grupos se omite (columna inconsistente).</div>
   </div>
 
   <!-- 3. Nicho -->
@@ -93,6 +93,7 @@ tbody tr:not(.grp){border-bottom:1px solid var(--border)}
 <script>
 const API_URL='https://script.google.com/macros/s/AKfycbwNp-Hnmi1imEggg6Qz7xRP_fR57ZvcQb9hFR2WUPn1c-BdsN23x2vrnlU5zY6Rydrlng/exec';
 let RAW={cuentas:[],payments:[]};
+let billingMap={}; // uid -> ciclo de facturación (se llena en render desde payments)
 let charts={};
 
 // ── Helpers (idénticos al informe mensual) ──
@@ -167,6 +168,30 @@ function buildVaivenSet(){
   return set;
 }
 
+// Ciclo de facturación desde payments: duración (Expiration − Date) del ÚLTIMO pago real (value>0) de cada cuenta.
+// uid -> 'Mensual' | 'Trimestral' | 'Semestral' | 'Anual'. Sin pago pagado con fechas válidas => no aparece (Sin dato).
+function buildBillingMap(){
+  const byUser={};
+  RAW.payments.forEach(p=>{
+    const uid=(p['User ID']||'').toString().trim(); if(!uid) return;
+    const val=parseFloat((p['Plan Value']||'0').toString().replace(/[^0-9.]/g,''))||0;
+    if(val<=0) return; // ignoramos trials / pagos en 0 (tienen vigencia de pocos días)
+    const d=parseSpanishLong(p['Date'])||parseSpDate(p['Date'])||parseISO(p['Date']);
+    const e=parseSpanishLong(p['Expiration'])||parseSpDate(p['Expiration'])||parseISO(p['Expiration']);
+    if(!d||!e) return;
+    const days=Math.round((e-d)/86400000);
+    if(days<=0) return;
+    (byUser[uid]=byUser[uid]||[]).push({d,days});
+  });
+  const map={};
+  Object.entries(byUser).forEach(([uid,arr])=>{
+    arr.sort((a,b)=>b.d-a.d);        // el pago más reciente
+    const days=arr[0].days;
+    map[uid]= days<45 ? 'Mensual' : days<135 ? 'Trimestral' : days<270 ? 'Semestral' : 'Anual';
+  });
+  return map;
+}
+
 async function loadAll(){
   const setMsg=(t,h='')=>{document.getElementById('loadingText').textContent=t;document.getElementById('loadingHint').textContent=h;};
   setMsg('Conectando con Google Sheets…','Puede tardar hasta 30 segundos');
@@ -194,8 +219,8 @@ function calcMonth(off, vaivenSet){
   const nuevas=C.filter(r=>inRange(getCA(r),range)&&isPaga(r));
   const n=cancel.length;
   const distrib=(fn,keys)=>{const c={};keys.forEach(k=>c[k]=0);cancel.forEach(r=>{const k=fn(r);if(c[k]===undefined)c[k]=0;c[k]++;});return c;};
-  // Ciclo de facturación desde la columna payment_type de la propia cuenta (0=mensual…3=anual, 4=sin plan)
-  const cicloOf=r=>{const t=(r['payment_type']||'').toString().trim();return t==='0'?'Mensual':t==='1'?'Trimestral':t==='2'?'Semestral':t==='3'?'Anual':'Sin dato';};
+  // Ciclo de facturación desde payments (duración del último pago real). Ver buildBillingMap.
+  const cicloOf=r=>billingMap[(r['id']||'').toString().trim()]||'Sin dato';
   const implVals=cancel.map(implGuarded);
   const implAvg=n?Math.round(cancel.reduce((s,r)=>s+(implGuarded(r)||0),0)/n):0;
   return {
@@ -222,6 +247,7 @@ function calcMonth(off, vaivenSet){
 // ── Render ──
 function render(){
   const vaivenSet=buildVaivenSet();
+  billingMap=buildBillingMap();
   const ctx6=Array.from({length:6},(_,i)=>calcMonth(-6+i, vaivenSet)); // últimos 6 meses COMPLETOS (excluye mes en curso)
   const A=calcMonth(-3,vaivenSet), M=calcMonth(-2,vaivenSet), J=calcMonth(-1,vaivenSet); // foco: últimos 3 meses completos
   const focus=[A,M,J];
