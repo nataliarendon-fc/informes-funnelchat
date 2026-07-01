@@ -69,15 +69,22 @@ tbody tr:not(.grp){border-bottom:1px solid var(--border)}
     <div class="foot">Cada celda: % sobre el total de cancelados de ese mes (y el conteo abajo). La última columna compara junio contra el promedio de abril-mayo, en puntos porcentuales (pp), para ver dónde cambió el perfil. "Activación" descarta valores de implementación corruptos (&gt;100%). Grupos se omite (columna inconsistente).</div>
   </div>
 
-  <!-- 3. Motivos -->
+  <!-- 3. Nicho -->
   <div class="block">
-    <div class="sec-label"><span class="sec-num">03</span> Motivos de cancelación declarados</div>
+    <div class="sec-label"><span class="sec-num">03</span> Nicho de negocio — ¿se fue un nicho en particular?</div>
+    <div style="overflow-x:auto"><table id="nichoTable"></table></div>
+    <div class="foot">Nicho = columna <strong>Tipo de negocio</strong>. Cada celda: cuántas cuentas de ese nicho cancelaron ese mes (y su % sobre el total del mes). Ordenado por volumen total de bajas. La Δ compara la participación de junio contra el promedio de abril-mayo.</div>
+  </div>
+
+  <!-- 4. Motivos -->
+  <div class="block">
+    <div class="sec-label"><span class="sec-num">04</span> Motivos de cancelación declarados</div>
     <div style="overflow-x:auto"><table id="motiveTable"></table></div>
   </div>
 
-  <!-- 4. Lectura rápida -->
+  <!-- 5. Lectura rápida -->
   <div class="block">
-    <div class="sec-label"><span class="sec-num">04</span> Lectura rápida — qué cambió en junio</div>
+    <div class="sec-label"><span class="sec-num">05</span> Lectura rápida — qué cambió en junio</div>
     <ul class="read" id="readout"></ul>
     <div class="foot">Diferencias más grandes del perfil de junio frente al promedio de abril-mayo. Son observaciones de datos, no conclusiones de causa: úsalas como pistas para revisar a fondo.</div>
   </div>
@@ -203,6 +210,7 @@ function calcMonth(off, vaivenSet){
              '≥ 50%':cancel.filter(r=>(implGuarded(r)||0)>=50).length },
     adop: { 'Usó flows':cancel.filter(usoFlows).length, 'Usó WhatsApp (API/Business)':cancel.filter(usoWA).length, 'Asistió a sesiones':cancel.filter(asistioSes).length },
     vaiven: cancel.filter(r=>vaivenSet.has((r['id']||'').toString().trim())).length,
+    nicho: (()=>{const c={};cancel.forEach(r=>{const v=(r['Tipo de negocio']||'').toString().trim()||'Sin dato';c[v]=(c[v]||0)+1;});return c;})(),
     motivos: (()=>{const c={};cancel.forEach(r=>{const mv=(r['Motivo Cancelación']||'').trim();if(mv&&mv.toUpperCase()!=='NA')c[mv]=(c[mv]||0)+1;});return c;})(),
     cancelRows: cancel
   };
@@ -287,12 +295,43 @@ function render(){
   mt+=`</tbody>`;
   document.getElementById('motiveTable').innerHTML=mt;
 
+  // 3b. Nicho (Tipo de negocio)
+  const allNichos=[...new Set(focus.flatMap(mo=>Object.keys(mo.nicho)))];
+  const nichoRank=allNichos.map(nv=>({nv,t:focus.reduce((s,mo)=>s+(mo.nicho[nv]||0),0)})).sort((a,b)=>b.t-a.t);
+  const TOPN=10;
+  const topNichos=nichoRank.slice(0,TOPN);
+  const restNichos=nichoRank.slice(TOPN);
+  const nCell=(mo,nv)=>{const v=mo.nicho[nv]||0;return `<td><strong>${v}</strong> <span class="cnt">${v?pct(v,mo.cancel)+'%':''}</span></td>`;};
+  const nDelta=(nv)=>{const jp=pct(J.nicho[nv]||0,J.cancel),ap=(pct(A.nicho[nv]||0,A.cancel)+pct(M.nicho[nv]||0,M.cancel))/2,d=Math.round(jp-ap),c=d>0?'var(--red)':d<0?'var(--green2)':'var(--muted)';return `<td style="color:${c};font-weight:700">${d>0?'+':''}${d} pp</td>`;};
+  const shortNv=nv=>nv.length>46?nv.slice(0,44)+'…':nv;
+  let nt=`<thead><tr><th class="lbl">Nicho (Tipo de negocio)</th><th>${A.label}</th><th>${M.label}</th><th>${J.label}</th><th>Δ Jun vs Abr-May</th></tr></thead><tbody>`;
+  if(!nichoRank.length){
+    nt+=`<tr><td class="lbl" colspan="5" style="color:var(--muted)">Sin dato de nicho en estos meses.</td></tr>`;
+  } else {
+    topNichos.forEach(({nv})=>{
+      nt+=`<tr><td class="lbl" title="${nv.replace(/"/g,'')}">${shortNv(nv)}</td>${nCell(A,nv)}${nCell(M,nv)}${nCell(J,nv)}${nDelta(nv)}</tr>`;
+    });
+    if(restNichos.length){
+      const sumMo=mo=>restNichos.reduce((s,{nv})=>s+(mo.nicho[nv]||0),0);
+      const ra=sumMo(A),rm=sumMo(M),rj=sumMo(J);
+      const jp=pct(rj,J.cancel),ap=(pct(ra,A.cancel)+pct(rm,M.cancel))/2,d=Math.round(jp-ap);
+      nt+=`<tr><td class="lbl" style="color:var(--muted)">Otros ${restNichos.length} nichos</td><td>${ra}</td><td>${rm}</td><td>${rj}</td><td style="color:var(--muted)">${d>0?'+':''}${d} pp</td></tr>`;
+    }
+  }
+  nt+=`</tbody>`;
+  document.getElementById('nichoTable').innerHTML=nt;
+
   // 4. Lectura rápida — mayores diferencias de junio vs promedio abr-may
   const dims=[];
   const pushDim=(label,grp,key,higherIsConcern)=>{
     const jp=pct(J[grp][key]||0,J.cancel);
     const ap=(pct(A[grp][key]||0,A.cancel)+pct(M[grp][key]||0,M.cancel))/2;
     dims.push({label,jp,ap,d:jp-ap,higherIsConcern});
+  };
+  const pushVals=(label,jc,ac,mc)=>{
+    const jp=pct(jc,J.cancel);
+    const ap=(pct(ac,A.cancel)+pct(mc,M.cancel))/2;
+    dims.push({label,jp,ap,d:jp-ap});
   };
   ['A','B','C'].forEach(k=>pushDim(`segmento ${k}`,'seg',k,null));
   ['Starter','Growth','Advanced','Advanced Pers.'].forEach(k=>pushDim(`plan ${k}`,'plan',k,null));
@@ -305,6 +344,10 @@ function render(){
     const jp=100-pct(J.adop[key]||0,J.cancel);
     const ap=100-((pct(A.adop[key]||0,A.cancel)+pct(M.adop[key]||0,M.cancel))/2);
     dims.push({label:`que no usó ${n}`,jp,ap,d:jp-ap,higherIsConcern:true});
+  });
+  // Nichos con más bajas como candidatos de la lectura
+  nichoRank.slice(0,8).forEach(({nv})=>{
+    pushVals(`del nicho "${shortNv(nv)}"`, J.nicho[nv]||0, A.nicho[nv]||0, M.nicho[nv]||0);
   });
   const top=dims.filter(x=>!isNaN(x.d)).sort((a,b)=>Math.abs(b.d)-Math.abs(a.d)).slice(0,5);
   const ro=document.getElementById('readout');
