@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Perfil de adquisición · Área de Clientes · Funnelchat</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,400&display=swap" rel="stylesheet">
+<style>
+:root{
+  --text:#0f172a; --muted:#64748b; --border:rgba(15,23,42,0.10);
+  --card:#ffffff; --navy:#f1f5f9; --teal:#0d9488;
+  --blue:#2563eb; --purple:#7c3aed; --yellow:#b45309;
+  --red:#dc2626; --green2:#15803d; --orange:#c2410c;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'DM Sans',sans-serif;background:#f8fafc;color:var(--text);line-height:1.5;padding:28px 20px 60px}
+main{max-width:1080px;margin:0 auto}
+h1{font-family:'Syne',sans-serif;font-size:26px;font-weight:800;letter-spacing:-.02em}
+.sub{color:var(--muted);font-size:13px;margin-top:4px}
+.note{background:#fff7ed;border:1px solid rgba(194,65,12,.25);color:#9a3412;font-size:12px;border-radius:10px;padding:10px 14px;margin-top:16px;line-height:1.6}
+.block{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:22px 24px;margin-top:22px}
+.sec-label{display:flex;align-items:center;gap:10px;font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.1em;margin-bottom:18px}
+.sec-num{font-family:'Syne',sans-serif;background:var(--text);color:#fff;border-radius:7px;padding:3px 8px;font-size:11px;letter-spacing:0}
+.kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:18px}
+.kpi{border:1px solid var(--border);border-radius:12px;padding:14px 16px}
+.kpi .m{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
+.kpi .v{font-family:'Syne',sans-serif;font-size:28px;font-weight:800;line-height:1.1;margin-top:2px}
+.kpi .d{font-size:11px;color:var(--muted);margin-top:4px}
+.chart-wrap{height:260px;position:relative}
+.distgrid{display:grid;grid-template-columns:1fr 1fr;gap:22px}
+.distblock h4{font-size:11px;font-weight:700;color:var(--text);text-transform:uppercase;letter-spacing:.05em;margin-bottom:10px}
+.row{display:flex;align-items:center;gap:8px;margin-bottom:7px}
+.row .lb{font-size:11px;color:var(--text);width:44%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.row .track{flex:1;height:14px;background:rgba(15,23,42,.05);border-radius:7px;overflow:hidden}
+.row .fill{height:100%;border-radius:7px}
+.row .val{font-size:10px;color:var(--muted);width:78px;text-align:right;white-space:nowrap}
+table{width:100%;border-collapse:collapse}
+th,td{text-align:center;padding:7px 9px;font-size:12px}
+th{font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;border-bottom:2px solid var(--border)}
+td.lbl,th.lbl{text-align:left;font-weight:600}
+tbody tr{border-bottom:1px solid var(--border)}
+.cnt{font-size:9px;color:var(--muted)}
+.foot{font-size:10px;color:var(--muted);margin-top:14px;line-height:1.6}
+.hi{background:rgba(34,197,94,.10);font-weight:700}
+#loading{position:fixed;inset:0;background:#f8fafc;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;z-index:50}
+#loading .t{font-family:'Syne',sans-serif;font-weight:700}
+#loading .h{font-size:12px;color:var(--muted)}
+.err{color:var(--red);font-size:13px}
+</style>
+</head>
+<body>
+<div id="loading"><div class="t" id="loadingText">Cargando…</div><div class="h" id="loadingHint"></div></div>
+<main id="app" style="display:none">
+  <h1>Perfil de adquisición</h1>
+  <div class="sub" id="subtitle"></div>
+  <div class="note">
+    Analiza las cuentas <strong>nuevas de los últimos 6 meses completos</strong> (por fecha de creación) para entender qué tipo de cliente llega y cómo arranca. "Activada" = alcanzó el <strong>hito de valor (AHA)</strong> y activó al menos una funcionalidad. La activación de <strong>grupos</strong> se estima con parseo protegido porque esas columnas están inconsistentes (reportado a programación); tómala como aproximada.
+  </div>
+
+  <!-- 1. Volumen de llegada -->
+  <div class="block">
+    <div class="sec-label"><span class="sec-num">01</span> Volumen de llegada — cuentas nuevas por mes y plan</div>
+    <div class="kpis" id="kpis"></div>
+    <div class="chart-wrap"><canvas id="arrivalChart"></canvas></div>
+  </div>
+
+  <!-- 2. Quién llega -->
+  <div class="block">
+    <div class="sec-label"><span class="sec-num">02</span> ¿Quién llega? — composición de las cuentas nuevas</div>
+    <div class="distgrid" id="composition"></div>
+  </div>
+
+  <!-- 3. Cómo se activan por objetivo -->
+  <div class="block">
+    <div class="sec-label"><span class="sec-num">03</span> Cómo se activan según el objetivo con el que llegan</div>
+    <div style="overflow-x:auto"><table id="objTable"></table></div>
+    <div class="foot">Por cada objetivo declarado al llegar: cuántas cuentas y qué % activó cada funcionalidad. La celda resaltada en verde es la funcionalidad que corresponde a ese objetivo. "Hito" = alcanzó un AHA. "Activada" = hito + alguna funcionalidad. Grupos es aproximado (columna inconsistente).</div>
+  </div>
+
+  <!-- 4. Activación por funcionalidad y por plan -->
+  <div class="block">
+    <div class="sec-label"><span class="sec-num">04</span> Activación por funcionalidad y por plan</div>
+    <div class="distgrid">
+      <div class="distblock"><h4>Por funcionalidad (todas las llegadas)</h4><div id="byFunc"></div></div>
+      <div class="distblock"><h4>Activación por plan de llegada</h4><div id="byPlan"></div></div>
+    </div>
+    <div class="foot">"% activada" = alcanzó el hito de valor y usa al menos una funcionalidad.</div>
+  </div>
+</main>
+
+<script>
+const API_URL='https://script.google.com/macros/s/AKfycbwNp-Hnmi1imEggg6Qz7xRP_fR57ZvcQb9hFR2WUPn1c-BdsN23x2vrnlU5zY6Rydrlng/exec';
+let RAW={cuentas:[]};
+
+// ── Helpers ──
+function parseISO(s){if(!s||!s.toString().trim())return null;s=s.toString().trim();if(/^\d{4}-\d{2}-\d{2}/.test(s)){const d=new Date(s);return isNaN(d)?null:d;}const m=s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);if(m){const d=new Date(parseInt(m[3]),parseInt(m[2])-1,parseInt(m[1]));return isNaN(d)?null:d;}try{const d=new Date(s);return isNaN(d)?null:d;}catch{return null;}}
+function parseSpDate(s){if(!s)return null;const m=s.toString().match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);if(m)return new Date(parseInt(m[3]),parseInt(m[2])-1,parseInt(m[1]));return parseISO(s);}
+function getMonthRange(off=0){const t=new Date();const s=new Date(t.getFullYear(),t.getMonth()+off,1);s.setHours(0,0,0,0);const e=new Date(t.getFullYear(),t.getMonth()+off+1,0,23,59,59,999);return{start:s,end:e};}
+function inRange(d,r){return d&&d>=r.start&&d<=r.end;}
+function fmtMonthShort(d){return d.toLocaleDateString('es-CO',{month:'short',year:'2-digit'});}
+function fmtMonthLong(d){const s=d.toLocaleDateString('es-CO',{month:'long',year:'numeric'});return s.charAt(0).toUpperCase()+s.slice(1);}
+function getCA(r){return parseISO(r['created_at'])||parseISO(r['Fecha creación']);}
+const pct=(n,d)=>d>0?Math.round(n/d*100):0;
+const clean=v=>(v||'').toString().trim();
+
+function planOf(r){const p=clean(r['Planes Funnelchat']).toLowerCase();if(/personaliz/.test(p))return 'Advanced Pers.';if(/advanced/.test(p))return 'Advanced';if(/growth/.test(p))return 'Growth';if(/starter|básico|basico/.test(p))return 'Starter';return 'Otro / sin dato';}
+const PLAN_COLOR={'Starter':'#2563eb','Growth':'#7c3aed','Advanced':'#0d9488','Advanced Pers.':'#b45309','Otro / sin dato':'#94a3b8'};
+
+// ── Señales de activación ──
+function ahaValid(r,col){const ca=getCA(r);const d=parseSpDate(r[col])||parseISO(r[col]);return !!(ca&&d&&d>=ca);}
+function actFlows(r){return ahaValid(r,'AHA flows')||(parseInt(clean(r['Usa flows']).replace(/[^0-9]/g,''))||0)>0;} // 1 a 1
+function gruposUso(r){ // columnas dañadas: sólo aceptamos enteros pequeños 1..9, ignoramos 0 y seriales de fecha
+  for(const col of ['Usa grupos?','Usa grupos 5','Usa grupos']){
+    const n=parseFloat(clean(r[col]).replace(/[^0-9.]/g,''));
+    if(!isNaN(n)&&n>=1&&n<=9)return n;
+  }
+  return 0;
+}
+function actGrupos(r){return ahaValid(r,'AHA grupos')||gruposUso(r)>0;}
+function actApi(r){return clean(r['Usa API?'])==='Sí';}
+function actBusiness(r){return clean(r['Usa Business?'])==='Sí';}
+function hitoValor(r){return ahaValid(r,'AHA WA')||ahaValid(r,'AHA flows')||ahaValid(r,'AHA grupos');}
+function activada(r){return hitoValor(r)&&(actFlows(r)||actGrupos(r)||actApi(r)||actBusiness(r));}
+
+// Objetivo -> funcionalidad "respectiva" (para resaltar)
+function funcDeObjetivo(obj){
+  const o=obj.toLowerCase();
+  if(/grupo|comunidad/.test(o))return 'grupos';
+  if(/masivo|disparar|difus|campañ|campan/.test(o))return 'api';
+  if(/flujo|flow|automat|1 a 1|uno a uno|conversa|agente|atención|atencion/.test(o))return 'flows';
+  return null;
+}
+
+async function loadAll(){
+  const setMsg=(t,h='')=>{document.getElementById('loadingText').textContent=t;document.getElementById('loadingHint').textContent=h;};
+  setMsg('Conectando con Google Sheets…','Puede tardar hasta 30 segundos');
+  const timeout=new Promise((_,rej)=>setTimeout(()=>rej(new Error('Tiempo agotado. Recarga la página.')),35000));
+  const fetchData=fetch(API_URL).then(async res=>{setMsg('Descargando datos…','');if(!res.ok)throw new Error('HTTP '+res.status);const text=await res.text();setMsg('Procesando…','');let json;try{json=JSON.parse(text);}catch(e){throw new Error('Respuesta inválida del Apps Script.');}return json;});
+  const json=await Promise.race([fetchData,timeout]);
+  RAW.cuentas=(json.cuentas||[]).filter(r=>Object.keys(r).length>1);
+  if(!RAW.cuentas.length)throw new Error('Hoja de cuentas vacía.');
+}
+
+// Distribución (lista de barras) a partir de una función clasificadora
+function distList(arr,fn,colorFn,topN=8){
+  const c={};
+  arr.forEach(r=>{const k=fn(r)||'Sin dato';c[k]=(c[k]||0)+1;});
+  let entries=Object.entries(c).sort((a,b)=>b[1]-a[1]);
+  let rest=0;
+  if(entries.length>topN){rest=entries.slice(topN).reduce((s,[,n])=>s+n,0);entries=entries.slice(0,topN);}
+  const total=arr.length;
+  let html=entries.map(([k,n])=>{
+    const p=pct(n,total);
+    const col=colorFn?colorFn(k):'#2563eb';
+    return `<div class="row"><div class="lb" title="${k.replace(/"/g,'')}">${k}</div><div class="track"><div class="fill" style="width:${p}%;background:${col}"></div></div><div class="val">${n} · ${p}%</div></div>`;
+  }).join('');
+  if(rest>0)html+=`<div class="row"><div class="lb" style="color:var(--muted)">Otros</div><div class="track"><div class="fill" style="width:${pct(rest,total)}%;background:#cbd5e1"></div></div><div class="val">${rest} · ${pct(rest,total)}%</div></div>`;
+  return html;
+}
+// Lista de barras para tasas de activación (label + %)
+function rateList(items){ // items: [{label,n,act,color}]
+  return items.map(it=>{const p=pct(it.act,it.n);return `<div class="row"><div class="lb">${it.label}</div><div class="track"><div class="fill" style="width:${p}%;background:${it.color||'var(--green2)'}"></div></div><div class="val">${p}% · ${it.act}/${it.n}</div></div>`;}).join('');
+}
+
+function render(){
+  // Ventana: últimos 6 meses COMPLETOS (excluye mes en curso)
+  const months=Array.from({length:6},(_,i)=>getMonthRange(-6+i));
+  const winStart=months[0].start, winEnd=months[5].end;
+  const arrivals=RAW.cuentas.filter(r=>{const ca=getCA(r);return ca&&ca>=winStart&&ca<=winEnd;});
+
+  document.getElementById('subtitle').textContent=`Cuentas nuevas de ${fmtMonthLong(winStart)} a ${fmtMonthLong(winEnd)} — ${arrivals.length} cuentas`;
+
+  // KPIs
+  const nAct=arrivals.filter(activada).length;
+  const nHito=arrivals.filter(hitoValor).length;
+  const planMode=(()=>{const c={};arrivals.forEach(r=>{const p=planOf(r);c[p]=(c[p]||0)+1;});const e=Object.entries(c).sort((a,b)=>b[1]-a[1]);return e.length?e[0][0]:'—';})();
+  document.getElementById('kpis').innerHTML=`
+    <div class="kpi"><div class="m">Cuentas nuevas</div><div class="v">${arrivals.length}</div><div class="d">últimos 6 meses</div></div>
+    <div class="kpi"><div class="m">Plan más frecuente</div><div class="v" style="font-size:20px;color:${PLAN_COLOR[planMode]||'var(--text)'}">${planMode}</div><div class="d">al llegar</div></div>
+    <div class="kpi"><div class="m">Alcanzó hito de valor</div><div class="v" style="color:var(--teal)">${pct(nHito,arrivals.length)}%</div><div class="d">${nHito} cuentas</div></div>
+    <div class="kpi"><div class="m">Activadas</div><div class="v" style="color:var(--green2)">${pct(nAct,arrivals.length)}%</div><div class="d">hito + funcionalidad</div></div>`;
+
+  // Gráfica: llegada por mes, apilada por plan
+  const planKeys=['Starter','Growth','Advanced','Advanced Pers.','Otro / sin dato'];
+  const datasets=planKeys.map(pk=>({label:pk,data:months.map(mr=>arrivals.filter(r=>planOf(r)===pk&&inRange(getCA(r),mr)).length),backgroundColor:PLAN_COLOR[pk],borderRadius:3,stack:'p'}));
+  new Chart(document.getElementById('arrivalChart').getContext('2d'),{
+    type:'bar',
+    data:{labels:months.map(mr=>fmtMonthShort(mr.start)),datasets},
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{position:'top',labels:{boxWidth:10,padding:12,color:'#64748b',font:{size:10}}},tooltip:{mode:'index',intersect:false}},
+      scales:{x:{stacked:true,grid:{display:false},ticks:{color:'#64748b',font:{size:10}}},y:{stacked:true,grid:{color:'rgba(15,23,42,.04)'},ticks:{color:'#64748b',font:{size:9}},beginAtZero:true}}}
+  });
+
+  // Composición
+  const comp=[
+    ['Plan al llegar', r=>planOf(r), k=>PLAN_COLOR[k]||'#2563eb'],
+    ['Objetivo con Funnelchat', r=>clean(r['Objetivo con Funnelchat']), null],
+    ['Nicho (Tipo de negocio)', r=>clean(r['Tipo de negocio']), null],
+    ['Tamaño de empresa', r=>clean(r['Personas que trabajan en la empresa']), ()=>'#0d9488'],
+    ['Experiencia automatizando', r=>clean(r['Experiencia automatizando']), ()=>'#7c3aed'],
+    ['País', r=>clean(r['country_name']), ()=>'#c2410c'],
+  ];
+  document.getElementById('composition').innerHTML=comp.map(([title,fn,colorFn])=>
+    `<div class="distblock"><h4>${title}</h4>${distList(arrivals,fn,colorFn)}</div>`).join('');
+
+  // Objetivo × activación
+  const objGroups={};
+  arrivals.forEach(r=>{const o=clean(r['Objetivo con Funnelchat'])||'Sin dato';(objGroups[o]=objGroups[o]||[]).push(r);});
+  let objEntries=Object.entries(objGroups).sort((a,b)=>b[1].length-a[1].length);
+  const TOPO=8; const rest=objEntries.slice(TOPO); objEntries=objEntries.slice(0,TOPO);
+  const funcCols=[['flows','1 a 1'],['grupos','Grupos'],['api','WA API'],['business','WA Business']];
+  const rateOf=(rows,fn)=>pct(rows.filter(fn).length,rows.length);
+  let ot=`<thead><tr><th class="lbl">Objetivo al llegar</th><th>N</th><th>Hito</th>${funcCols.map(([,l])=>`<th>${l}</th>`).join('')}<th>Activada</th></tr></thead><tbody>`;
+  const rowFor=(label,rows,respFunc)=>{
+    const cells=funcCols.map(([key])=>{
+      const fn=key==='flows'?actFlows:key==='grupos'?actGrupos:key==='api'?actApi:actBusiness;
+      const r=rateOf(rows,fn);
+      return `<td class="${respFunc===key?'hi':''}">${r}%</td>`;
+    }).join('');
+    return `<tr><td class="lbl" title="${label.replace(/"/g,'')}">${label.length>40?label.slice(0,38)+'…':label}</td><td><strong>${rows.length}</strong></td><td>${rateOf(rows,hitoValor)}%</td>${cells}<td style="font-weight:700;color:var(--green2)">${rateOf(rows,activada)}%</td></tr>`;
+  };
+  objEntries.forEach(([o,rows])=>{ot+=rowFor(o,rows,funcDeObjetivo(o));});
+  if(rest.length){const rr=rest.flatMap(([,rows])=>rows);ot+=rowFor(`Otros ${rest.length} objetivos`,rr,null);}
+  ot+=rowFor('— Total —',arrivals,null);
+  ot+=`</tbody>`;
+  document.getElementById('objTable').innerHTML=ot;
+
+  // Activación por funcionalidad (todas las llegadas)
+  document.getElementById('byFunc').innerHTML=rateList([
+    {label:'1 a 1 (flows)',n:arrivals.length,act:arrivals.filter(actFlows).length,color:'#7c3aed'},
+    {label:'Grupos (aprox.)',n:arrivals.length,act:arrivals.filter(actGrupos).length,color:'#b45309'},
+    {label:'WhatsApp API',n:arrivals.length,act:arrivals.filter(actApi).length,color:'#0d9488'},
+    {label:'WhatsApp Business',n:arrivals.length,act:arrivals.filter(actBusiness).length,color:'#2563eb'},
+    {label:'Hito de valor (AHA)',n:arrivals.length,act:arrivals.filter(hitoValor).length,color:'#15803d'},
+  ]);
+
+  // Activación por plan
+  const planItems=planKeys.map(pk=>{const rows=arrivals.filter(r=>planOf(r)===pk);return {label:pk,n:rows.length,act:rows.filter(activada).length,color:PLAN_COLOR[pk]};}).filter(x=>x.n>0);
+  document.getElementById('byPlan').innerHTML=rateList(planItems);
+}
+
+(async()=>{
+  try{await loadAll();render();document.getElementById('loading').style.display='none';document.getElementById('app').style.display='block';}
+  catch(e){document.getElementById('loadingText').textContent='No se pudo cargar';document.getElementById('loadingText').className='t err';document.getElementById('loadingHint').textContent=e.message||String(e);}
+})();
+</script>
+</body>
+</html>
