@@ -64,16 +64,16 @@ tbody tr:not(.grp){border-bottom:1px solid var(--border)}
 
   <!-- 2. Perfil comparativo -->
   <div class="block">
-    <div class="sec-label"><span class="sec-num">02</span> Perfil de quién canceló — Abril vs Mayo vs Junio</div>
+    <div class="sec-label"><span class="sec-num">02</span> Perfil de quién canceló — comparativo de los últimos 3 meses completos</div>
     <div style="overflow-x:auto"><table id="profileTable"></table></div>
-    <div class="foot">Cada celda: % sobre el total de cancelados de ese mes (y el conteo abajo). La última columna compara junio contra el promedio de abril-mayo, en puntos porcentuales (pp), para ver dónde cambió el perfil. "Ciclo de facturación" es la duración del último pago de cada cuenta (Expiration − Date en payments): mensual ≈1 mes, anual ≈12 meses; un pico de "Anual" en un mes indica una camada de planes anuales que llegó a su vencimiento junta. "Activación" descarta valores de implementación corruptos (&gt;100%). Grupos se omite (columna inconsistente).</div>
+    <div class="foot">Cada celda: % sobre el total de cancelados de ese mes (y el conteo abajo). La última columna compara el último mes contra el promedio de los dos previos, en puntos porcentuales (pp), para ver dónde cambió el perfil. "Ciclo de facturación" es el tipo de plan de la cuenta (columna payment_type): mensual, trimestral, semestral o anual; "Sin dato" = cuentas sin plan pago activo registrado. Un pico de "Anual" en un mes indica una camada de planes anuales que llegó a su vencimiento junta. "Activación" descarta valores de implementación corruptos (&gt;100%). Grupos se omite (columna inconsistente).</div>
   </div>
 
   <!-- 3. Nicho -->
   <div class="block">
     <div class="sec-label"><span class="sec-num">03</span> Nicho de negocio — ¿se fue un nicho en particular?</div>
     <div style="overflow-x:auto"><table id="nichoTable"></table></div>
-    <div class="foot">Nicho = columna <strong>Tipo de negocio</strong>. Cada celda: cuántas cuentas de ese nicho cancelaron ese mes (y su % sobre el total del mes). Ordenado por volumen total de bajas. La Δ compara la participación de junio contra el promedio de abril-mayo.</div>
+    <div class="foot">Nicho = columna <strong>Tipo de negocio</strong>. Cada celda: cuántas cuentas de ese nicho cancelaron ese mes (y su % sobre el total del mes). Ordenado por volumen total de bajas. La Δ compara la participación del último mes contra el promedio de los dos previos.</div>
   </div>
 
   <!-- 4. Motivos -->
@@ -84,9 +84,9 @@ tbody tr:not(.grp){border-bottom:1px solid var(--border)}
 
   <!-- 5. Lectura rápida -->
   <div class="block">
-    <div class="sec-label"><span class="sec-num">05</span> Lectura rápida — qué cambió en junio</div>
+    <div class="sec-label"><span class="sec-num">05</span> Lectura rápida — qué cambió en el último mes</div>
     <ul class="read" id="readout"></ul>
-    <div class="foot">Diferencias más grandes del perfil de junio frente al promedio de abril-mayo. Son observaciones de datos, no conclusiones de causa: úsalas como pistas para revisar a fondo.</div>
+    <div class="foot">Diferencias más grandes del perfil del último mes frente al promedio de los dos previos. Son observaciones de datos, no conclusiones de causa: úsalas como pistas para revisar a fondo.</div>
   </div>
 </main>
 
@@ -167,28 +167,6 @@ function buildVaivenSet(){
   return set;
 }
 
-// Ciclo de facturación del ÚLTIMO pago real (value>0) de cada cuenta, según Expiration − Date.
-// Devuelve un mapa uid -> 'Mensual' | 'Trimestral' | 'Semestral' | 'Anual'. Sin pago pagado => no aparece.
-function buildBillingMap(){
-  const byUser={};
-  RAW.payments.forEach(p=>{
-    const uid=(p['User ID']||'').toString().trim();if(!uid)return;
-    const val=parseFloat((p['Plan Value']||'0').toString().replace(/[^0-9.]/g,''))||0;
-    if(val<=0)return; // ignoramos pagos gratis / trial
-    const d=parseSpanishLong(p['Date'])||parseSpDate(p['Date'])||parseISO(p['Date']);
-    const e=parseSpanishLong(p['Expiration'])||parseSpDate(p['Expiration'])||parseISO(p['Expiration']);
-    if(!d||!e)return;
-    (byUser[uid]=byUser[uid]||[]).push({d,days:Math.round((e-d)/86400000)});
-  });
-  const map={};
-  Object.entries(byUser).forEach(([uid,arr])=>{
-    arr.sort((a,b)=>b.d-a.d); // el pago más reciente
-    const days=arr[0].days;
-    map[uid] = days<45 ? 'Mensual' : days<135 ? 'Trimestral' : days<270 ? 'Semestral' : 'Anual';
-  });
-  return map;
-}
-
 async function loadAll(){
   const setMsg=(t,h='')=>{document.getElementById('loadingText').textContent=t;document.getElementById('loadingHint').textContent=h;};
   setMsg('Conectando con Google Sheets…','Puede tardar hasta 30 segundos');
@@ -208,7 +186,7 @@ async function loadAll(){
 }
 
 // ── Cálculo de un mes ──
-function calcMonth(off, vaivenSet, billingMap){
+function calcMonth(off, vaivenSet){
   const C=RAW.cuentas;
   const range=getMonthRange(off);
   const canP=C.filter(r=>(r['Vigencia del servicio']||'').trim()==='Cancelado'&&isPaga(r));
@@ -216,7 +194,8 @@ function calcMonth(off, vaivenSet, billingMap){
   const nuevas=C.filter(r=>inRange(getCA(r),range)&&isPaga(r));
   const n=cancel.length;
   const distrib=(fn,keys)=>{const c={};keys.forEach(k=>c[k]=0);cancel.forEach(r=>{const k=fn(r);if(c[k]===undefined)c[k]=0;c[k]++;});return c;};
-  const cicloOf=r=>billingMap[(r['id']||'').toString().trim()]||'Sin dato';
+  // Ciclo de facturación desde la columna payment_type de la propia cuenta (0=mensual…3=anual, 4=sin plan)
+  const cicloOf=r=>{const t=(r['payment_type']||'').toString().trim();return t==='0'?'Mensual':t==='1'?'Trimestral':t==='2'?'Semestral':t==='3'?'Anual':'Sin dato';};
   const implVals=cancel.map(implGuarded);
   const implAvg=n?Math.round(cancel.reduce((s,r)=>s+(implGuarded(r)||0),0)/n):0;
   return {
@@ -243,9 +222,8 @@ function calcMonth(off, vaivenSet, billingMap){
 // ── Render ──
 function render(){
   const vaivenSet=buildVaivenSet();
-  const billingMap=buildBillingMap();
-  const ctx6=Array.from({length:6},(_,i)=>calcMonth(-5+i, vaivenSet, billingMap)); // 6 meses para contexto
-  const A=calcMonth(-2,vaivenSet,billingMap), M=calcMonth(-1,vaivenSet,billingMap), J=calcMonth(0,vaivenSet,billingMap); // foco
+  const ctx6=Array.from({length:6},(_,i)=>calcMonth(-6+i, vaivenSet)); // últimos 6 meses COMPLETOS (excluye mes en curso)
+  const A=calcMonth(-3,vaivenSet), M=calcMonth(-2,vaivenSet), J=calcMonth(-1,vaivenSet); // foco: últimos 3 meses completos
   const focus=[A,M,J];
 
   document.getElementById('subtitle').textContent =
@@ -288,7 +266,7 @@ function render(){
     });
     return h;
   };
-  let pt=`<thead><tr><th class="lbl">Perfil del cancelado</th><th>${A.label}</th><th>${M.label}</th><th>${J.label}</th><th>Δ Jun vs Abr-May</th></tr></thead><tbody>`;
+  let pt=`<thead><tr><th class="lbl">Perfil del cancelado</th><th>${A.label}</th><th>${M.label}</th><th>${J.label}</th><th>Δ ${J.label} vs ${A.label}/${M.label}</th></tr></thead><tbody>`;
   pt+=`<tr class="grp"><td colspan="5">Volumen</td></tr>`;
   pt+=`<tr><td class="lbl">Total cancelados (pagas)</td><td><strong>${A.cancel}</strong></td><td><strong>${M.cancel}</strong></td><td><strong>${J.cancel}</strong></td><td>—</td></tr>`;
   pt+=`<tr><td class="lbl">Activación promedio al cancelar</td><td>${A.implAvg}%</td><td>${M.implAvg}%</td><td>${J.implAvg}%</td><td>${(()=>{const d=J.implAvg-(A.implAvg+M.implAvg)/2;const c=d<0?'var(--red)':d>0?'var(--green2)':'var(--muted)';return `<span style="color:${c};font-weight:700">${d>0?'+':''}${Math.round(d)} pp</span>`;})()}</td></tr>`;
@@ -330,7 +308,7 @@ function render(){
   const nCell=(mo,nv)=>{const v=mo.nicho[nv]||0;return `<td><strong>${v}</strong> <span class="cnt">${v?pct(v,mo.cancel)+'%':''}</span></td>`;};
   const nDelta=(nv)=>{const jp=pct(J.nicho[nv]||0,J.cancel),ap=(pct(A.nicho[nv]||0,A.cancel)+pct(M.nicho[nv]||0,M.cancel))/2,d=Math.round(jp-ap),c=d>0?'var(--red)':d<0?'var(--green2)':'var(--muted)';return `<td style="color:${c};font-weight:700">${d>0?'+':''}${d} pp</td>`;};
   const shortNv=nv=>nv.length>46?nv.slice(0,44)+'…':nv;
-  let nt=`<thead><tr><th class="lbl">Nicho (Tipo de negocio)</th><th>${A.label}</th><th>${M.label}</th><th>${J.label}</th><th>Δ Jun vs Abr-May</th></tr></thead><tbody>`;
+  let nt=`<thead><tr><th class="lbl">Nicho (Tipo de negocio)</th><th>${A.label}</th><th>${M.label}</th><th>${J.label}</th><th>Δ ${J.label} vs ${A.label}/${M.label}</th></tr></thead><tbody>`;
   if(!nichoRank.length){
     nt+=`<tr><td class="lbl" colspan="5" style="color:var(--muted)">Sin dato de nicho en estos meses.</td></tr>`;
   } else {
@@ -378,13 +356,13 @@ function render(){
   });
   const top=dims.filter(x=>!isNaN(x.d)).sort((a,b)=>Math.abs(b.d)-Math.abs(a.d)).slice(0,5);
   const ro=document.getElementById('readout');
-  const volTxt=`Junio cerró en <strong>${J.neto>=0?'+':'−'}${Math.abs(J.neto)}</strong> (${J.nuevas} nuevas, ${J.cancel} bajas), frente a ${A.label} (${A.neto>=0?'+':''}${A.neto}) y ${M.label} (${M.neto>=0?'+':''}${M.neto}). El deterioro viene de menos altas y más bajas a la vez.`;
+  const volTxt=`${J.labelLong} cerró en <strong>${J.neto>=0?'+':'−'}${Math.abs(J.neto)}</strong> (${J.nuevas} nuevas, ${J.cancel} bajas), frente a ${A.labelLong} (${A.neto>=0?'+':''}${A.neto}) y ${M.labelLong} (${M.neto>=0?'+':''}${M.neto}).`;
   let items=`<li>${volTxt}</li>`;
   top.forEach(x=>{
     if(Math.round(x.d)===0)return;
     const dir=x.d>0?'más':'menos';
     const arrow=x.d>0?'▲':'▼';
-    items+=`<li>${arrow} En junio, <strong>${Math.round(x.jp)}%</strong> de los cancelados eran cuentas <strong>${x.label}</strong>, ${dir} que el ${Math.round(x.ap)}% promedio de abril-mayo (Δ ${x.d>0?'+':''}${Math.round(x.d)} pp).</li>`;
+    items+=`<li>${arrow} En ${J.labelLong}, <strong>${Math.round(x.jp)}%</strong> de los cancelados eran cuentas <strong>${x.label}</strong>, ${dir} que el ${Math.round(x.ap)}% promedio de los dos meses previos (Δ ${x.d>0?'+':''}${Math.round(x.d)} pp).</li>`;
   });
   ro.innerHTML=items;
 }
