@@ -66,7 +66,7 @@ tbody tr:not(.grp){border-bottom:1px solid var(--border)}
   <div class="block">
     <div class="sec-label"><span class="sec-num">02</span> Perfil de quién canceló — Abril vs Mayo vs Junio</div>
     <div style="overflow-x:auto"><table id="profileTable"></table></div>
-    <div class="foot">Cada celda: % sobre el total de cancelados de ese mes (y el conteo abajo). La última columna compara junio contra el promedio de abril-mayo, en puntos porcentuales (pp), para ver dónde cambió el perfil. "Activación" descarta valores de implementación corruptos (&gt;100%). Grupos se omite (columna inconsistente).</div>
+    <div class="foot">Cada celda: % sobre el total de cancelados de ese mes (y el conteo abajo). La última columna compara junio contra el promedio de abril-mayo, en puntos porcentuales (pp), para ver dónde cambió el perfil. "Ciclo de facturación" es la duración del último pago de cada cuenta (Expiration − Date en payments): mensual ≈1 mes, anual ≈12 meses; un pico de "Anual" en un mes indica una camada de planes anuales que llegó a su vencimiento junta. "Activación" descarta valores de implementación corruptos (&gt;100%). Grupos se omite (columna inconsistente).</div>
   </div>
 
   <!-- 3. Nicho -->
@@ -167,6 +167,28 @@ function buildVaivenSet(){
   return set;
 }
 
+// Ciclo de facturación del ÚLTIMO pago real (value>0) de cada cuenta, según Expiration − Date.
+// Devuelve un mapa uid -> 'Mensual' | 'Trimestral' | 'Semestral' | 'Anual'. Sin pago pagado => no aparece.
+function buildBillingMap(){
+  const byUser={};
+  RAW.payments.forEach(p=>{
+    const uid=(p['User ID']||'').toString().trim();if(!uid)return;
+    const val=parseFloat((p['Plan Value']||'0').toString().replace(/[^0-9.]/g,''))||0;
+    if(val<=0)return; // ignoramos pagos gratis / trial
+    const d=parseSpanishLong(p['Date'])||parseSpDate(p['Date'])||parseISO(p['Date']);
+    const e=parseSpanishLong(p['Expiration'])||parseSpDate(p['Expiration'])||parseISO(p['Expiration']);
+    if(!d||!e)return;
+    (byUser[uid]=byUser[uid]||[]).push({d,days:Math.round((e-d)/86400000)});
+  });
+  const map={};
+  Object.entries(byUser).forEach(([uid,arr])=>{
+    arr.sort((a,b)=>b.d-a.d); // el pago más reciente
+    const days=arr[0].days;
+    map[uid] = days<45 ? 'Mensual' : days<135 ? 'Trimestral' : days<270 ? 'Semestral' : 'Anual';
+  });
+  return map;
+}
+
 async function loadAll(){
   const setMsg=(t,h='')=>{document.getElementById('loadingText').textContent=t;document.getElementById('loadingHint').textContent=h;};
   setMsg('Conectando con Google Sheets…','Puede tardar hasta 30 segundos');
@@ -186,7 +208,7 @@ async function loadAll(){
 }
 
 // ── Cálculo de un mes ──
-function calcMonth(off, vaivenSet){
+function calcMonth(off, vaivenSet, billingMap){
   const C=RAW.cuentas;
   const range=getMonthRange(off);
   const canP=C.filter(r=>(r['Vigencia del servicio']||'').trim()==='Cancelado'&&isPaga(r));
@@ -194,6 +216,7 @@ function calcMonth(off, vaivenSet){
   const nuevas=C.filter(r=>inRange(getCA(r),range)&&isPaga(r));
   const n=cancel.length;
   const distrib=(fn,keys)=>{const c={};keys.forEach(k=>c[k]=0);cancel.forEach(r=>{const k=fn(r);if(c[k]===undefined)c[k]=0;c[k]++;});return c;};
+  const cicloOf=r=>billingMap[(r['id']||'').toString().trim()]||'Sin dato';
   const implVals=cancel.map(implGuarded);
   const implAvg=n?Math.round(cancel.reduce((s,r)=>s+(implGuarded(r)||0),0)/n):0;
   return {
@@ -204,6 +227,7 @@ function calcMonth(off, vaivenSet){
     kam: { 'Con KAM':cancel.filter(conKam).length, 'Sin KAM':cancel.filter(r=>!conKam(r)).length },
     onb: { 'Con onboarding':cancel.filter(conOnb).length, 'Sin onboarding':cancel.filter(r=>!conOnb(r)).length },
     antig: distrib(antiqBucket,['< 3 meses','3–6 meses','6–12 meses','> 12 meses']),
+    ciclo: distrib(cicloOf,['Mensual','Trimestral','Semestral','Anual','Sin dato']),
     implAvg,
     activ: { '0% activación':cancel.filter(r=>(implGuarded(r)||0)===0).length,
              '1–49%':cancel.filter(r=>{const v=implGuarded(r)||0;return v>0&&v<50;}).length,
@@ -219,8 +243,9 @@ function calcMonth(off, vaivenSet){
 // ── Render ──
 function render(){
   const vaivenSet=buildVaivenSet();
-  const ctx6=Array.from({length:6},(_,i)=>calcMonth(-5+i, vaivenSet)); // 6 meses para contexto
-  const A=calcMonth(-2,vaivenSet), M=calcMonth(-1,vaivenSet), J=calcMonth(0,vaivenSet); // foco
+  const billingMap=buildBillingMap();
+  const ctx6=Array.from({length:6},(_,i)=>calcMonth(-5+i, vaivenSet, billingMap)); // 6 meses para contexto
+  const A=calcMonth(-2,vaivenSet,billingMap), M=calcMonth(-1,vaivenSet,billingMap), J=calcMonth(0,vaivenSet,billingMap); // foco
   const focus=[A,M,J];
 
   document.getElementById('subtitle').textContent =
@@ -272,6 +297,7 @@ function render(){
   pt+=grpRows('Gestión KAM','kam',['Con KAM','Sin KAM']);
   pt+=grpRows('Onboarding','onb',['Con onboarding','Sin onboarding']);
   pt+=grpRows('Antigüedad al cancelar','antig',['< 3 meses','3–6 meses','6–12 meses','> 12 meses']);
+  pt+=grpRows('Ciclo de facturación (último pago)','ciclo',['Mensual','Trimestral','Semestral','Anual','Sin dato']);
   pt+=grpRows('Activación al cancelar','activ',['0% activación','1–49%','≥ 50%']);
   pt+=grpRows('Adopción de funcionalidades','adop',['Usó flows','Usó WhatsApp (API/Business)','Asistió a sesiones']);
   pt+=`<tr class="grp"><td colspan="5">Reincidencia</td></tr>`;
@@ -339,6 +365,7 @@ function render(){
   pushDim('sin onboarding','onb','Sin onboarding',true);
   ['< 3 meses','3–6 meses','6–12 meses','> 12 meses'].forEach(k=>pushDim(`antigüedad ${k}`,'antig',k,null));
   pushDim('0% de activación','activ','0% activación',true);
+  pushDim('de plan anual (se les venció el año)','ciclo','Anual',true);
   // adopción inversa (no usó)
   [['flows','Usó flows'],['WhatsApp','Usó WhatsApp (API/Business)']].forEach(([n,key])=>{
     const jp=100-pct(J.adop[key]||0,J.cancel);
