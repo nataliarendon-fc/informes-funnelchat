@@ -47,6 +47,12 @@ tbody tr{border-bottom:1px solid var(--border)}
 #loading .t{font-family:'Syne',sans-serif;font-weight:700}
 #loading .h{font-size:12px;color:var(--muted)}
 .err{color:var(--red);font-size:13px}
+.filters{display:flex;gap:8px;margin-top:14px;flex-wrap:wrap}
+.fbtn{font-family:'DM Sans',sans-serif;font-size:12px;font-weight:600;color:var(--muted);background:#fff;border:1px solid var(--border);border-radius:999px;padding:7px 16px;cursor:pointer;transition:all .15s;display:inline-flex;align-items:center;gap:7px}
+.fbtn:hover{border-color:var(--teal);color:var(--text)}
+.fbtn.active{background:var(--text);color:#fff;border-color:var(--text)}
+.fbtn span{font-size:11px;font-weight:700;opacity:.7;background:rgba(0,0,0,.08);border-radius:6px;padding:1px 7px}
+.fbtn.active span{background:rgba(255,255,255,.2);opacity:1}
 </style>
 </head>
 <body>
@@ -54,6 +60,7 @@ tbody tr{border-bottom:1px solid var(--border)}
 <main id="app" style="display:none">
   <h1>Perfil de adquisición</h1>
   <div class="sub" id="subtitle"></div>
+  <div class="filters" id="filters"></div>
   <div class="note">
     Analiza las cuentas <strong>nuevas de los últimos 6 meses completos</strong> (por fecha de creación) para entender qué tipo de cliente llega y cómo arranca. "Activada" = alcanzó el <strong>hito de valor (AHA)</strong> y activó al menos una funcionalidad. La activación de <strong>grupos</strong> se estima con parseo protegido porque esas columnas están inconsistentes (reportado a programación); tómala como aproximada.
   </div>
@@ -115,6 +122,8 @@ tbody tr{border-bottom:1px solid var(--border)}
 <script>
 const API_URL='https://script.google.com/macros/s/AKfycbwNp-Hnmi1imEggg6Qz7xRP_fR57ZvcQb9hFR2WUPn1c-BdsN23x2vrnlU5zY6Rydrlng/exec';
 let RAW={cuentas:[]};
+let FILTER='todas';   // 'todas' | 'pagas' | 'trial'
+let CHARTS=[];        // instancias Chart.js activas (se destruyen al refiltrar)
 
 // ── Helpers ──
 function parseISO(s){if(!s||!s.toString().trim())return null;s=s.toString().trim();if(/^\d{4}-\d{2}-\d{2}/.test(s)){const d=new Date(s);return isNaN(d)?null:d;}const m=s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);if(m){const d=new Date(parseInt(m[3]),parseInt(m[2])-1,parseInt(m[1]));return isNaN(d)?null:d;}try{const d=new Date(s);return isNaN(d)?null:d;}catch{return null;}}
@@ -126,6 +135,7 @@ function fmtMonthLong(d){const s=d.toLocaleDateString('es-CO',{month:'long',year
 function getCA(r){return parseISO(r['created_at'])||parseISO(r['Fecha creación']);}
 const pct=(n,d)=>d>0?Math.round(n/d*100):0;
 const clean=v=>(v||'').toString().trim();
+function isPaga(r){const t=clean(r['trial']).toUpperCase();return t!=='TRUE'&&t!=='1'&&t!=='SI'&&t!=='SÍ';}
 
 function planOf(r){const p=clean(r['Planes Funnelchat']).toLowerCase();if(/personaliz/.test(p))return 'Advanced Pers.';if(/advanced/.test(p))return 'Advanced';if(/growth/.test(p))return 'Growth';if(/starter|básico|basico/.test(p))return 'Starter';return 'Otro / sin dato';}
 const PLAN_COLOR={'Starter':'#2563eb','Growth':'#7c3aed','Advanced':'#0d9488','Advanced Pers.':'#b45309','Otro / sin dato':'#94a3b8'};
@@ -208,7 +218,7 @@ function renderComp(canvasId,tableId,arr,months,fn,colorMap,topN){
   const {cats,perMonth}=catData(arr,fn,months,topN);
   const colorOf=(c,i)=>(colorMap&&colorMap[c])||(c==='Otros'?'#cbd5e1':PALETTE[i%PALETTE.length]);
   const datasets=cats.map((c,i)=>({label:c.length>26?c.slice(0,24)+'…':c,data:perMonth.map(m=>pct(m[c],m._total)),_counts:perMonth.map(m=>m[c]),backgroundColor:colorOf(c,i),borderRadius:2,stack:'s'}));
-  new Chart(document.getElementById(canvasId).getContext('2d'),{
+  CHARTS.push(new Chart(document.getElementById(canvasId).getContext('2d'),{
     type:'bar',
     data:{labels:months.map(mr=>fmtMonthShort(mr.start)),datasets},
     options:{responsive:true,maintainAspectRatio:false,
@@ -216,7 +226,7 @@ function renderComp(canvasId,tableId,arr,months,fn,colorMap,topN){
         tooltip:{callbacks:{label:ctx=>`${ctx.dataset.label}: ${ctx.dataset._counts[ctx.dataIndex]} (${ctx.parsed.y}%)`}}},
       scales:{x:{stacked:true,grid:{display:false},ticks:{color:'#64748b',font:{size:10}}},
         y:{stacked:true,max:100,grid:{color:'rgba(15,23,42,.04)'},ticks:{color:'#64748b',font:{size:9},callback:v=>v+'%'}}}}
-  });
+  }));
   if(tableId){
     let h=`<thead><tr><th class="lbl">Categoría</th>${months.map(mr=>`<th>${fmtMonthShort(mr.start)}</th>`).join('')}</tr></thead><tbody>`;
     cats.forEach((c,i)=>{
@@ -229,13 +239,28 @@ function renderComp(canvasId,tableId,arr,months,fn,colorMap,topN){
   }
 }
 
+function setFilter(f){FILTER=f;render();}
+
 function render(){
+  // Limpia gráficas previas (al refiltrar)
+  CHARTS.forEach(c=>{try{c.destroy();}catch(e){}});CHARTS=[];
+
   // Ventana: últimos 6 meses COMPLETOS (excluye mes en curso)
   const months=Array.from({length:6},(_,i)=>getMonthRange(-6+i));
   const winStart=months[0].start, winEnd=months[5].end;
-  const arrivals=RAW.cuentas.filter(r=>{const ca=getCA(r);return ca&&ca>=winStart&&ca<=winEnd;});
+  const allArrivals=RAW.cuentas.filter(r=>{const ca=getCA(r);return ca&&ca>=winStart&&ca<=winEnd;});
 
-  document.getElementById('subtitle').textContent=`Cuentas nuevas de ${fmtMonthLong(winStart)} a ${fmtMonthLong(winEnd)} — ${arrivals.length} cuentas`;
+  // Filtro pagas / trial
+  const pagasN=allArrivals.filter(isPaga).length, trialN=allArrivals.length-pagasN;
+  const btns=[['todas','Todas',allArrivals.length],['pagas','Pagas',pagasN],['trial','Trial',trialN]];
+  document.getElementById('filters').innerHTML=btns.map(([k,l,n])=>
+    `<button class="fbtn${FILTER===k?' active':''}" onclick="setFilter('${k}')">${l} <span>${n}</span></button>`).join('');
+  const arrivals = FILTER==='pagas' ? allArrivals.filter(isPaga)
+                 : FILTER==='trial' ? allArrivals.filter(r=>!isPaga(r))
+                 : allArrivals;
+
+  const filtLabel = FILTER==='pagas'?' · solo cuentas pagas':FILTER==='trial'?' · solo cuentas en trial':'';
+  document.getElementById('subtitle').textContent=`Cuentas nuevas de ${fmtMonthLong(winStart)} a ${fmtMonthLong(winEnd)} — ${arrivals.length} cuentas${filtLabel}`;
 
   // KPIs
   const nAct=arrivals.filter(activada).length;
@@ -250,13 +275,13 @@ function render(){
   // Gráfica: llegada por mes, apilada por plan
   const planKeys=['Starter','Growth','Advanced','Advanced Pers.','Otro / sin dato'];
   const datasets=planKeys.map(pk=>({label:pk,data:months.map(mr=>arrivals.filter(r=>planOf(r)===pk&&inRange(getCA(r),mr)).length),backgroundColor:PLAN_COLOR[pk],borderRadius:3,stack:'p'}));
-  new Chart(document.getElementById('arrivalChart').getContext('2d'),{
+  CHARTS.push(new Chart(document.getElementById('arrivalChart').getContext('2d'),{
     type:'bar',
     data:{labels:months.map(mr=>fmtMonthShort(mr.start)),datasets},
     options:{responsive:true,maintainAspectRatio:false,
       plugins:{legend:{position:'top',labels:{boxWidth:10,padding:12,color:'#64748b',font:{size:10}}},tooltip:{mode:'index',intersect:false}},
       scales:{x:{stacked:true,grid:{display:false},ticks:{color:'#64748b',font:{size:10}}},y:{stacked:true,grid:{color:'rgba(15,23,42,.04)'},ticks:{color:'#64748b',font:{size:9}},beginAtZero:true}}}
-  });
+  }));
 
   // ── Composición mes a mes (100% apilado) ──
   renderComp('planCompChart','planCompTable',arrivals,months,r=>planOf(r),PLAN_COLOR,5);
@@ -268,7 +293,7 @@ function render(){
   // ── Activación mes a mes (cohorte de cada mes) ──
   const actAct=months.map(mr=>{const inM=arrivals.filter(r=>inRange(getCA(r),mr));return pct(inM.filter(activada).length,inM.length);});
   const actHito=months.map(mr=>{const inM=arrivals.filter(r=>inRange(getCA(r),mr));return pct(inM.filter(hitoValor).length,inM.length);});
-  new Chart(document.getElementById('actTrendChart').getContext('2d'),{type:'line',
+  CHARTS.push(new Chart(document.getElementById('actTrendChart').getContext('2d'),{type:'line',
     data:{labels:months.map(mr=>fmtMonthShort(mr.start)),datasets:[
       {label:'% activadas',data:actAct,borderColor:'#15803d',backgroundColor:'rgba(21,128,61,.10)',tension:.3,fill:true,pointRadius:3},
       {label:'% alcanzó hito de valor',data:actHito,borderColor:'#0d9488',borderDash:[5,4],tension:.3,fill:false,pointRadius:3}
@@ -276,7 +301,7 @@ function render(){
     options:{responsive:true,maintainAspectRatio:false,
       plugins:{legend:{position:'top',labels:{boxWidth:10,padding:12,color:'#64748b',font:{size:10}}}},
       scales:{x:{grid:{display:false},ticks:{color:'#64748b',font:{size:10}}},y:{max:100,beginAtZero:true,grid:{color:'rgba(15,23,42,.04)'},ticks:{color:'#64748b',font:{size:9},callback:v=>v+'%'}}}}
-  });
+  }));
 
   // Objetivo × activación
   const objGroups={};
