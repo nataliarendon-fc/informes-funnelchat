@@ -62,7 +62,7 @@ tbody tr{border-bottom:1px solid var(--border)}
   <div class="sub" id="subtitle"></div>
   <div class="filters" id="filters"></div>
   <div class="note">
-    Analiza las cuentas <strong>nuevas de los últimos 6 meses completos</strong> (por fecha de creación) para entender qué tipo de cliente llega y cómo arranca. "Activada" = alcanzó el <strong>hito de valor (AHA)</strong> y activó al menos una funcionalidad. La activación de <strong>grupos</strong> se estima con parseo protegido porque esas columnas están inconsistentes (reportado a programación); tómala como aproximada.
+    Analiza las cuentas <strong>nuevas de las últimas 12 semanas</strong> (por fecha de creación) para entender qué tipo de cliente llega y cómo arranca. "Activada" = alcanzó el <strong>hito de valor (AHA)</strong> y activó al menos una funcionalidad. La activación de <strong>grupos</strong> se estima con parseo protegido porque esas columnas están inconsistentes (reportado a programación); tómala como aproximada.
   </div>
 
   <!-- 1. Volumen de llegada -->
@@ -72,10 +72,10 @@ tbody tr{border-bottom:1px solid var(--border)}
     <div class="chart-wrap"><canvas id="arrivalChart"></canvas></div>
   </div>
 
-  <!-- 2. Composición mes a mes -->
+  <!-- 2. Composición semana a semana -->
   <div class="block">
-    <div class="sec-label"><span class="sec-num">02</span> Composición mes a mes — ¿cambia el tipo de cuenta que llega?</div>
-    <div style="font-size:11px;color:var(--muted);margin-bottom:14px">Cada barra es un mes y los segmentos suman 100%, para ver si la mezcla cambia. El tooltip y la tabla muestran el conteo real de cuentas.</div>
+    <div class="sec-label"><span class="sec-num">02</span> Composición semana a semana — ¿cambia el tipo de cuenta que llega?</div>
+    <div style="font-size:11px;color:var(--muted);margin-bottom:14px">Cada barra es una semana y los segmentos suman 100%, para ver si la mezcla cambia. El tooltip y la tabla muestran el conteo real de cuentas.</div>
 
     <h4 style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px">Por plan de llegada</h4>
     <div class="chart-wrap" style="height:230px"><canvas id="planCompChart"></canvas></div>
@@ -90,9 +90,9 @@ tbody tr{border-bottom:1px solid var(--border)}
     <div style="overflow-x:auto;margin:8px 0 0"><table id="objCompTable"></table></div>
   </div>
 
-  <!-- 2b. Otras dimensiones (mes a mes) -->
+  <!-- 2b. Otras dimensiones (semana a semana) -->
   <div class="block">
-    <div class="sec-label"><span class="sec-num">03</span> Otras dimensiones de llegada — mes a mes</div>
+    <div class="sec-label"><span class="sec-num">03</span> Otras dimensiones de llegada — semana a semana</div>
     <h4 style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px">Tamaño de empresa</h4>
     <div class="chart-wrap" style="height:210px"><canvas id="tamCompChart"></canvas></div>
     <h4 style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;margin:22px 0 8px">Experiencia automatizando</h4>
@@ -102,10 +102,10 @@ tbody tr{border-bottom:1px solid var(--border)}
   <!-- 4. Cómo se activan por objetivo -->
   <div class="block">
     <div class="sec-label"><span class="sec-num">04</span> Cómo se activan según el objetivo con el que llegan</div>
-    <div style="font-size:11px;color:var(--muted);margin-bottom:8px">Activación de cada cohorte mensual (cuentas que llegaron ese mes):</div>
+    <div style="font-size:11px;color:var(--muted);margin-bottom:8px">Activación de cada cohorte semanal (cuentas que llegaron esa semana):</div>
     <div class="chart-wrap" style="height:200px;margin-bottom:22px"><canvas id="actTrendChart"></canvas></div>
     <div style="overflow-x:auto"><table id="objTable"></table></div>
-    <div class="foot">La tabla por objetivo es <strong>acumulada de los 6 meses</strong> a propósito: por mes, cada objetivo tendría muy pocas cuentas y el dato sería ruido. Por cada objetivo: cuántas cuentas y qué % activó cada funcionalidad. La celda resaltada en verde es la funcionalidad que corresponde a ese objetivo. "Hito" = alcanzó un AHA. "Activada" = hito + alguna funcionalidad. Grupos es aproximado (columna inconsistente).</div>
+    <div class="foot">La tabla por objetivo es <strong>acumulada de las 12 semanas</strong> a propósito: por semana, cada objetivo tendría muy pocas cuentas y el dato sería ruido. Por cada objetivo: cuántas cuentas y qué % activó cada funcionalidad. La celda resaltada en verde es la funcionalidad que corresponde a ese objetivo. "Hito" = alcanzó un AHA. "Activada" = hito + alguna funcionalidad. Grupos es aproximado (columna inconsistente).</div>
   </div>
 
   <!-- 5. Activación por funcionalidad y por plan -->
@@ -128,10 +128,16 @@ let CHARTS=[];        // instancias Chart.js activas (se destruyen al refiltrar)
 // ── Helpers ──
 function parseISO(s){if(!s||!s.toString().trim())return null;s=s.toString().trim();if(/^\d{4}-\d{2}-\d{2}/.test(s)){const d=new Date(s);return isNaN(d)?null:d;}const m=s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);if(m){const d=new Date(parseInt(m[3]),parseInt(m[2])-1,parseInt(m[1]));return isNaN(d)?null:d;}try{const d=new Date(s);return isNaN(d)?null:d;}catch{return null;}}
 function parseSpDate(s){if(!s)return null;const m=s.toString().match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);if(m)return new Date(parseInt(m[3]),parseInt(m[2])-1,parseInt(m[1]));return parseISO(s);}
-function getMonthRange(off=0){const t=new Date();const s=new Date(t.getFullYear(),t.getMonth()+off,1);s.setHours(0,0,0,0);const e=new Date(t.getFullYear(),t.getMonth()+off+1,0,23,59,59,999);return{start:s,end:e};}
+function getMonthRange(off=0){ // VARIANTE SEMANAL: off = semanas desde la semana actual (lunes–domingo)
+  const t=new Date();
+  const day=(t.getDay()+6)%7; // 0=lunes … 6=domingo
+  const s=new Date(t.getFullYear(),t.getMonth(),t.getDate()-day+off*7); s.setHours(0,0,0,0);
+  const e=new Date(s.getFullYear(),s.getMonth(),s.getDate()+6,23,59,59,999);
+  return{start:s,end:e};
+}
 function inRange(d,r){return d&&d>=r.start&&d<=r.end;}
-function fmtMonthShort(d){return d.toLocaleDateString('es-CO',{month:'short',year:'2-digit'});}
-function fmtMonthLong(d){const s=d.toLocaleDateString('es-CO',{month:'long',year:'numeric'});return s.charAt(0).toUpperCase()+s.slice(1);}
+function fmtMonthShort(d){return d.toLocaleDateString('es-CO',{day:'numeric',month:'short'});} // etiqueta corta = lunes de la semana
+function fmtMonthLong(d){return d.toLocaleDateString('es-CO',{day:'numeric',month:'long'});}
 function getCA(r){return parseISO(r['created_at'])||parseISO(r['Fecha creación']);}
 const pct=(n,d)=>d>0?Math.round(n/d*100):0;
 const clean=v=>(v||'').toString().trim();
@@ -196,7 +202,7 @@ function rateList(items){ // items: [{label,n,act,color}]
   return items.map(it=>{const p=pct(it.act,it.n);return `<div class="row"><div class="lb">${it.label}</div><div class="track"><div class="fill" style="width:${p}%;background:${it.color||'var(--green2)'}"></div></div><div class="val">${p}% · ${it.act}/${it.n}</div></div>`;}).join('');
 }
 
-// Datos por mes: top N categorías (+ 'Otros'), con conteo por mes y total del mes
+// Datos por semana: top N categorías (+ 'Otros'), con conteo por semana y total de la semana
 function catData(arr,fn,months,topN){
   const totals={};
   arr.forEach(r=>{const k=fn(r)||'Sin dato';totals[k]=(totals[k]||0)+1;});
@@ -234,7 +240,7 @@ function renderComp(canvasId,tableId,arr,months,fn,colorMap,topN){
       perMonth.forEach(m=>{h+=`<td>${m[c]||0}<div class="cnt">${pct(m[c]||0,m._total)}%</div></td>`;});
       h+=`</tr>`;
     });
-    h+=`<tr><td class="lbl" style="color:var(--muted)">Total del mes</td>${perMonth.map(m=>`<td><strong>${m._total}</strong></td>`).join('')}</tr></tbody>`;
+    h+=`<tr><td class="lbl" style="color:var(--muted)">Total de la semana</td>${perMonth.map(m=>`<td><strong>${m._total}</strong></td>`).join('')}</tr></tbody>`;
     document.getElementById(tableId).innerHTML=h;
   }
 }
@@ -245,8 +251,8 @@ function render(){
   // Limpia gráficas previas (al refiltrar)
   CHARTS.forEach(c=>{try{c.destroy();}catch(e){}});CHARTS=[];
 
-  // Ventana: últimos 6 meses COMPLETOS (excluye mes en curso)
-  const months=Array.from({length:6},(_,i)=>getMonthRange(-6+i));
+  // Ventana: últimas 12 semanas, incluyendo la semana en curso (para reflejar lo más reciente)
+  const months=Array.from({length:12},(_,i)=>getMonthRange(-11+i));
   const winStart=months[0].start, winEnd=months[5].end;
   const allArrivals=RAW.cuentas.filter(r=>{const ca=getCA(r);return ca&&ca>=winStart&&ca<=winEnd;});
 
@@ -260,14 +266,14 @@ function render(){
                  : allArrivals;
 
   const filtLabel = FILTER==='pagas'?' · solo cuentas pagas':FILTER==='trial'?' · solo cuentas en trial':'';
-  document.getElementById('subtitle').textContent=`Cuentas nuevas de ${fmtMonthLong(winStart)} a ${fmtMonthLong(winEnd)} — ${arrivals.length} cuentas${filtLabel}`;
+  document.getElementById('subtitle').textContent=`Cuentas nuevas · semana del ${fmtMonthLong(winStart)} a ${fmtMonthLong(winEnd)} — ${arrivals.length} cuentas${filtLabel}`;
 
   // KPIs
   const nAct=arrivals.filter(activada).length;
   const nHito=arrivals.filter(hitoValor).length;
   const planMode=(()=>{const c={};arrivals.forEach(r=>{const p=planOf(r);c[p]=(c[p]||0)+1;});const e=Object.entries(c).sort((a,b)=>b[1]-a[1]);return e.length?e[0][0]:'—';})();
   document.getElementById('kpis').innerHTML=`
-    <div class="kpi"><div class="m">Cuentas nuevas</div><div class="v">${arrivals.length}</div><div class="d">últimos 6 meses</div></div>
+    <div class="kpi"><div class="m">Cuentas nuevas</div><div class="v">${arrivals.length}</div><div class="d">últimas 12 semanas</div></div>
     <div class="kpi"><div class="m">Plan más frecuente</div><div class="v" style="font-size:20px;color:${PLAN_COLOR[planMode]||'var(--text)'}">${planMode}</div><div class="d">al llegar</div></div>
     <div class="kpi"><div class="m">Alcanzó hito de valor</div><div class="v" style="color:var(--teal)">${pct(nHito,arrivals.length)}%</div><div class="d">${nHito} cuentas</div></div>
     <div class="kpi"><div class="m">Activadas</div><div class="v" style="color:var(--green2)">${pct(nAct,arrivals.length)}%</div><div class="d">hito + funcionalidad</div></div>`;
@@ -283,14 +289,14 @@ function render(){
       scales:{x:{stacked:true,grid:{display:false},ticks:{color:'#64748b',font:{size:10}}},y:{stacked:true,grid:{color:'rgba(15,23,42,.04)'},ticks:{color:'#64748b',font:{size:9}},beginAtZero:true}}}
   }));
 
-  // ── Composición mes a mes (100% apilado) ──
+  // ── Composición semana a semana (100% apilado) ──
   renderComp('planCompChart','planCompTable',arrivals,months,r=>planOf(r),PLAN_COLOR,5);
   renderComp('nichoCompChart','nichoCompTable',arrivals,months,r=>clean(r['Tipo de negocio']),null,7);
   renderComp('objCompChart','objCompTable',arrivals,months,r=>clean(r['Objetivo con Funnelchat']),null,6);
   renderComp('tamCompChart',null,arrivals,months,r=>clean(r['Personas que trabajan en la empresa']),null,6);
   renderComp('expCompChart',null,arrivals,months,r=>clean(r['Experiencia automatizando']),null,6);
 
-  // ── Activación mes a mes (cohorte de cada mes) ──
+  // ── Activación semana a semana (cohorte de cada semana) ──
   const actAct=months.map(mr=>{const inM=arrivals.filter(r=>inRange(getCA(r),mr));return pct(inM.filter(activada).length,inM.length);});
   const actHito=months.map(mr=>{const inM=arrivals.filter(r=>inRange(getCA(r),mr));return pct(inM.filter(hitoValor).length,inM.length);});
   CHARTS.push(new Chart(document.getElementById('actTrendChart').getContext('2d'),{type:'line',
