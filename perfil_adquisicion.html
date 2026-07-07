@@ -253,7 +253,7 @@ function render(){
 
   // Ventana: últimas 12 semanas, incluyendo la semana en curso (para reflejar lo más reciente)
   const months=Array.from({length:12},(_,i)=>getMonthRange(-11+i));
-  const winStart=months[0].start, winEnd=months[5].end;
+  const winStart=months[0].start, winEnd=months[months.length-1].end;
   const allArrivals=RAW.cuentas.filter(r=>{const ca=getCA(r);return ca&&ca>=winStart&&ca<=winEnd;});
 
   // Filtro pagas / trial
