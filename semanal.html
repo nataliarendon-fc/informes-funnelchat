@@ -2275,6 +2275,52 @@ function renderGruposModal() {
     </div>`;
   }).join('');
 
+  // ── Evolución mes a mes de los indicadores (mismo objetivo, cohorte de cada mes) ──
+  const evoMonths = hist6.map((h, i) => {
+    const off6 = -(5-i);
+    const mR = getMonthRange ? getMonthRange(m.off !== undefined ? m.off + off6 : off6) : null;
+    const cohort = mR ? allC.filter(r => {
+      const cd = cancelDate(r);
+      return cd && cd >= mR.start && cd <= mR.end && (r['Objetivo con Funnelchat']||'').trim() === TARGET;
+    }) : [];
+    const n = cohort.length;
+    const nm = {}; cohort.forEach(r => { const x=getNiche(r); nm[x]=(nm[x]||0)+1; });
+    const top = Object.entries(nm).sort((a,b)=>b[1]-a[1])[0];
+    return {
+      lbl: h.lbl, n,
+      avgLT:   n ? Math.round(cohort.reduce((s,r)=>s+getLT(r),0)/n) : 0,
+      pFlow:   pct(cohort.filter(usaFlow).length, n),
+      pGrupos: pct(cohort.filter(usaGrupos).length, n),
+      pWA:     pct(cohort.filter(usaWA).length, n),
+      pOnb:    pct(cohort.filter(r=>getOnb(r)==='Con onboarding').length, n),
+      topNiche:    top ? top[0] : '—',
+      topNichePct: top ? pct(top[1], n) : 0,
+    };
+  });
+  const evoLast = evoMonths.length-1;
+  const evoTh = evoMonths.map((e,i)=>`<th style="padding:5px 6px;font-size:9px;font-weight:700;color:${i===evoLast?'var(--orange)':'var(--muted)'};text-align:center;white-space:nowrap">${e.lbl}</th>`).join('');
+  const evoRow = (label, fmtFn) => `<tr style="border-top:1px solid rgba(15,23,42,.05)">
+      <td style="padding:5px 8px;font-size:10px;color:#334155;white-space:nowrap">${label}</td>
+      ${evoMonths.map((e,i)=>`<td style="padding:5px 6px;font-size:10px;text-align:center;font-weight:${i===evoLast?'700':'400'};color:${i===evoLast?'#0f172a':'#475569'}">${e.n?fmtFn(e):'—'}</td>`).join('')}
+    </tr>`;
+  const evoTable = `
+    <div style="background:rgba(15,23,42,.02);border:1px solid rgba(15,23,42,.07);border-radius:10px;padding:14px;margin-bottom:20px;overflow-x:auto">
+      <div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:4px">📊 Evolución semana a semana · este objetivo</div>
+      <div style="font-size:9px;color:var(--muted);margin-bottom:10px">Cómo cambia el perfil de quienes cancelan con este objetivo, tomando la cohorte de cada semana. Última columna = semana actual. "—" = sin cancelados esa semana.</div>
+      <table style="width:100%;border-collapse:collapse">
+        <thead><tr><th style="padding:5px 8px;font-size:9px;color:var(--muted);text-align:left">Indicador</th>${evoTh}</tr></thead>
+        <tbody>
+          ${evoRow('Cancelaciones (n)', e=>e.n)}
+          ${evoRow('LT medio (días)',   e=>e.avgLT+'d')}
+          ${evoRow('% usó flow',        e=>e.pFlow+'%')}
+          ${evoRow('% usó grupos',      e=>e.pGrupos+'%')}
+          ${evoRow('% conectó WA',      e=>e.pWA+'%')}
+          ${evoRow('% con onboarding',  e=>e.pOnb+'%')}
+          ${evoRow('Nicho más común',   e=>`${e.topNiche.length>16?e.topNiche.slice(0,15)+'…':e.topNiche} <span style="color:var(--muted)">· ${e.topNichePct}%</span>`)}
+        </tbody>
+      </table>
+    </div>`;
+
   // ── 2. LT buckets ────────────────────────────────────
   const lt0_30   = seg.filter(r => getLT(r) <= 30).length;
   const lt31_90  = seg.filter(r => getLT(r) > 30  && getLT(r) <= 90).length;
@@ -2387,6 +2433,9 @@ function renderGruposModal() {
         ).join('')}
       </div>
     </div>
+
+    <!-- EVOLUCIÓN SEMANA A SEMANA -->
+    ${evoTable}
 
     <!-- USO PLATAFORMA + PLANES -->
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:20px">
