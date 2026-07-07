@@ -2138,14 +2138,17 @@ function renderPerfilTable() {
     return ` <span style="font-size:9px;color:${c}">${curr>prev?'▲':'▼'}${ds}pp</span>`;
   }
 
+  // Polaridad de color (inv): con inv:true, BAJAR = verde. Con inv:false, SUBIR = verde.
+  // 'Cancelaciones' inv:true (bajar es bueno). Las filas '% Sin [activación]' van inv:false:
+  // si el % Sin BAJA significa que se están yendo más clientes YA ACTIVADOS → es malo (rojo).
   const rows = [
     {label:'Cancelaciones pagas',      values:H.map(h=>h.canM||0),            inv:true,  fmt:'n'},
-    {label:'% Sin onboarding',         values:H.map(h=>h.pSinOnb),  inv:true,  fmt:'%'},
-    {label:'% Sin flow activo',        values:H.map(h=>h.pSinFlow), inv:true,  fmt:'%'},
-    {label:'% Sin WA conectado',       values:H.map(h=>h.pSinWA),   inv:true,  fmt:'%'},
-    {label:'% Sin sesión en vivo',     values:H.map(h=>h.pSinSes),  inv:true,  fmt:'%'},
-    {label:'% Sin grupos activos',     values:H.map(h=>h.pSinGrupos),inv:true, fmt:'%'},
-    {label:'% Sin flow en trial',      values:H.map(h=>h.pSinTrial),inv:true,  fmt:'%'},
+    {label:'% Sin onboarding',         values:H.map(h=>h.pSinOnb),  inv:false, fmt:'%'},
+    {label:'% Sin flow activo',        values:H.map(h=>h.pSinFlow), inv:false, fmt:'%'},
+    {label:'% Sin WA conectado',       values:H.map(h=>h.pSinWA),   inv:false, fmt:'%'},
+    {label:'% Sin sesión en vivo',     values:H.map(h=>h.pSinSes),  inv:false, fmt:'%'},
+    {label:'% Sin grupos activos',     values:H.map(h=>h.pSinGrupos),inv:false, fmt:'%'},
+    {label:'% Sin flow en trial',      values:H.map(h=>h.pSinTrial),inv:false, fmt:'%'},
   ];
 
   const hdrs = H.map((h,i)=>
@@ -2176,7 +2179,7 @@ function renderPerfilTable() {
       <tbody>${body}</tbody>
     </table>
   </div>
-  <div style="font-size:10px;color:var(--muted);margin-top:8px">% calculado sobre el total de cancelados pagas del mes · verde = mejora (baja) · rojo = empeora (sube)</div>`;
+  <div style="font-size:10px;color:var(--muted);margin-top:8px">% sobre el total de cancelados pagas del mes. Verde = evolución favorable, rojo = desfavorable. En "Cancelaciones" bajar es favorable. En el perfil de activación (onboarding, flow, WA, sesión, grupos), que el "% Sin" <strong>baje</strong> significa que se están yendo clientes que <strong>sí estaban activados</strong> → desfavorable (rojo); que suba significa que la fuga se concentra en no activados → favorable (verde).</div>`;
 }
 
 function openGruposModal(preselect) {
@@ -2523,11 +2526,12 @@ function renderQuienesMes(mode) {
         }
       }
 
-      // Signal llegadas vs salidas
-      const signal = mesPct > 0 && newPct > 0
-        ? (mesPct - newPct > 10 ? '⚠ más cancel. que llegadas' : mesPct - newPct < -10 ? '✓ llegan más' : '≈ equilibrio')
+      // Llegadas vs salidas EN ESTA CATEGORÍA, en CONTEO ABSOLUTO (no en % de poblaciones distintas)
+      const cCount = mc?.count||0, nCount = nc?.count||0;
+      const signal = (cCount||nCount)
+        ? (nCount>cCount ? '✓ llegan más' : nCount<cCount ? '⚠ se van más' : '≈ equilibrio')
         : '';
-      const signalColor = mesPct - newPct > 10 ? 'var(--red)' : mesPct - newPct < -10 ? 'var(--green2)' : 'var(--muted)';
+      const signalColor = nCount>cCount ? 'var(--green2)' : nCount<cCount ? 'var(--red)' : 'var(--muted)';
 
       return `<div style="margin-bottom:14px">
         <div style="display:flex;justify-content:space-between;margin-bottom:3px;align-items:center;gap:4px">
@@ -2543,7 +2547,7 @@ function renderQuienesMes(mode) {
           <div style="width:${mesPct}%;height:100%;background:${color};border-radius:4px;position:absolute"></div>
         </div>
         <div style="display:flex;justify-content:space-between;margin-top:3px;align-items:center">
-          <span style="font-size:9px;color:var(--muted)">Nuevas: <strong style="color:var(--teal)">${newPct}%</strong> (${nc?.count||0})</span>
+          <span style="font-size:9px;color:var(--muted)">Salieron <strong style="color:${color}">${cCount}</strong> · llegaron <strong style="color:var(--teal)">${nCount}</strong></span>
           ${signal?`<span style="font-size:9px;color:${signalColor};font-weight:600">${signal}</span>`:''}
         </div>
       </div>`;
