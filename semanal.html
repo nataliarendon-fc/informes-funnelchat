@@ -244,6 +244,13 @@ body{background:var(--navy);color:var(--text);font-family:'DM Sans',sans-serif;f
     </div>
   </div>
 
+  <!-- BLOQUE: DESGLOSE NICHO OTROS (texto abierto clasificado) -->
+  <div class="card" style="margin-top:14px">
+    <div class="chart-title" style="margin-bottom:2px;font-size:13px">Desglose del nicho "Otros" · texto abierto clasificado</div>
+    <div style="font-size:10px;color:var(--muted);margin-bottom:12px" id="otrosNichoHint">De los cancelados pagas (histórico) que escribieron su nicho en texto abierto, agrupados por categoría con un clasificador por palabras clave.</div>
+    <div id="otrosNichoBox"></div>
+  </div>
+
     <div id="hist6_s2" style="margin-top:14px;margin-bottom:28px"></div>
 
   <!-- BLOQUE: CUENTAS VAIVÉN -->
@@ -406,6 +413,27 @@ function cancelDate(r){
 function isPaga(r){const t=(r['trial']||'').toString().trim().toUpperCase();return t!=='TRUE'&&t!=='1'&&t!=='SI'&&t!=='SÍ';}
 function isTrial(r){return!isPaga(r);}
 function getCA(r){return parseISO(r['created_at'])||parseISO(r['Fecha creación']);}
+// Clasificador de nicho en texto abierto (columna 'nicho otro'). Devuelve categoría o null si vacío.
+const NICHO_RULES=[
+  ['Ruido / inválido', /^(k|n|as|lina|593|otro|otra cosa|ninguno|recomendacion|dinamicas|publicaciones|soy el mejor|prueba.*|\.+)$/],
+  ['Veterinaria y mascotas', /veterinari|mascota|esteriliza|animales/],
+  ['Seguros y finanzas', /seguro|finanz|trading|inversion|fondo de deuda|crowfunding|crowdfunding|financ|contab|empeno|credito|pronosticos deportivos/],
+  ['Inmobiliaria', /inmobiliari|bienes raices|raices/],
+  ['Tecnología y software', /software|informatic|telecomunicac|tecnologia|fibra|fiber|desarrollo de tecnologia|saas|plataforma/],
+  ['Belleza y estética', /belleza|estetic|capilar|barber|salon|depilaci|laser|cosmet|unas|aparatologia|protesis/],
+  ['Salud y bienestar', /salud|medic|clinic|consultorio|odontolog|dental|fisio|nutricion|suplement|farmacia|terapeut|terapia|psicolog|psic\.|bienestar|wellness|masaj|spa|holistic|meditacion|ice bath|estimulacion temprana|funerari/],
+  ['Fitness y deporte', /fitness|gym|gimnasio|gimancio|musculacion|pilates|entrenamiento fisic|futbol|academia deportiva|deport/],
+  ['Turismo y viajes', /turismo|turistic|viajes|hotel|posada|complejo rural|migratoria/],
+  ['Automotriz y motos', /automotriz|taller|mecanic|repuesto|(^| )moto|vehiculo|lubricante|conces|aire acondicionado/],
+  ['Alimentos y restaurantes', /restaurante|comida|aliment|viandas|gastronom|pollo|delivery|mar y despensa|chocolate/],
+  ['Educación, coaching y desarrollo', /educacion|formacion|curso|academia|escuela|mentor|coach|couching|desarrollo personal|constelaciones|interventora|instructora/],
+  ['Infoproductos y negocios digitales', /infoproduct|producto digital|productos digitales|ebook|ebooxs|afiliad|hotmart|emprendimiento digital|negocios digitales|franquicia digital|activos digitales|trafico digital|automatizacion|ecomerce|ecommerce|dropship/],
+  ['Eventos y entretenimiento', /evento|music|artista|concierto|danza|sorteo|rifa|club|parque|playground|entretenimiento|fotografia/],
+  ['Política, ONG y comunidad', /politic|campana|ong|sin animo de lucro|iglesia|cooperativa|gremio|camara de comercio|comunidad|sindicato/],
+  ['Retail y comercio', /tienda|ropa|calzado|zapatilla|joyeria|mueble|supermerc|supermerado|surtidora|autoservicio|refaccionaria|comestible|regalos|import|distribu|mayorista|empaque|electronica|accesorios|venta|surtido|cotillon|joyer|retail/],
+  ['Servicios y otros negocios', /servicio|logistic|transporte|carpinteria|tratamiento de agua|operador|constructora|construccion|publicidad|marketing|consultor|asesor|agencia|fumigacion|limpieza|seguridad|registrales|despacho|prefabricados|fabrica|emprendimiento|coach|dinamica/],
+];
+function clasificarNicho(txt){const t=(txt||'').toString().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/\s+/g,' ').trim();if(!t)return null;for(const [cat,re] of NICHO_RULES){if(re.test(t))return cat;}return 'Otros sin clasificar';}
 function getOnbDate(r){return parseISO(r['Fecha registro'])||parseISO(r['Fecha estado onboarding'])||null;}
 function getOnbGHLDate(r){return parseSpDate(r['Fecha de ONB GHL'])||parseISO(r['Fecha de ONB GHL'])||null;}
 function getContactId(r){return (r['contact_id']||r['id_unico']||'').toString().trim();}
@@ -1296,12 +1324,14 @@ function calcMonth(off){
     seasons.push(season);
     if (seasons.length < 2) return;
     const gaps = [];
+    const gapReturns = [];
     for (let i = 1; i < seasons.length; i++) {
       const lastPay  = seasons[i-1][seasons[i-1].length-1].d;
       const firstPay = seasons[i][0].d;
       gaps.push(Math.round((firstPay - lastPay) / 86400000));
+      gapReturns.push(firstPay);
     }
-    baibenMap[uid] = { seasons: seasons.length, gaps, uid };
+    baibenMap[uid] = { seasons: seasons.length, gaps, gapReturns, lastPay: sorted[sorted.length-1].d, uid };
   });
   const baibenAll = Object.values(baibenMap);
   const baibenChurnMes = cancelMes.filter(r => baibenMap[(r['id']||'').toString().trim()]);
@@ -1312,6 +1342,17 @@ function calcMonth(off){
   const avgGapDias = allGaps.length > 0
     ? Math.round(allGaps.reduce((a,b)=>a+b,0)/allGaps.length) : 0;
   const avgGapMes  = Math.round(avgGapDias/30*10)/10;
+  // --- Medias RECIENTES (últimos 90 días) ---
+  const RECENT_DIAS = 90;
+  const recentCut = new Date(Date.now() - RECENT_DIAS*86400000);
+  const baibenRec = baibenAll.filter(b => b.lastPay && b.lastPay >= recentCut);
+  const avgCyclesRec = baibenRec.length > 0
+    ? Math.round(baibenRec.reduce((s,b)=>s+b.seasons,0)/baibenRec.length*10)/10 : 0;
+  const recentGaps = baibenAll.flatMap(b => b.gaps.filter((g,i)=> b.gapReturns[i] && b.gapReturns[i] >= recentCut));
+  const avgGapDiasRec = recentGaps.length > 0
+    ? Math.round(recentGaps.reduce((a,b)=>a+b,0)/recentGaps.length) : 0;
+  const avgGapMesRec = Math.round(avgGapDiasRec/30*10)/10;
+  const baibenRecN = baibenRec.length, recentGapsN = recentGaps.length;
   const nicheB = {}, objB = {}, nicheBMes = {}, objBMes = {};
   baibenAll.forEach(b => {
     const acct = acctById[b.uid];
@@ -1484,6 +1525,9 @@ function calcMonth(off){
     cancelMes:cancelMes.length,convMes:convMes,convMesNuevas:convMesNuevas,convMesPrevias:convMesPrevias,
     cancelMesArr:cancelMes,cancelMesTrial:cancelMesTrial,
     allCancelP:allCancelP,
+    otrosNichos:(()=>{const d={};allCancelP.forEach(r=>{const c=clasificarNicho(r['nicho otro']);if(c)d[c]=(d[c]||0)+1;});return d;})(),
+    otrosNichosN:allCancelP.filter(r=>clasificarNicho(r['nicho otro'])).length,
+    otrosSinTexto:allCancelP.filter(r=>{const n=(r['Tipo de negocio']||'').toString().trim().toLowerCase();return (n==='otros'||n==='otro'||n==='')&&!(r['nicho otro']||'').toString().trim();}).length,
     prevCancelMesArr:prevCancelMesArr,atrP:atrP.length,
     mrrActivo,mrrRiesgo,mrrNuevo,mrrPerdido,mrrConv,
     retNeta:nuevosMesP.length-cancelMes.length,
@@ -1515,7 +1559,7 @@ function calcMonth(off){
     onbAsistP,onbAsistT,cobP,cobT,
     nuevosMesP_n:nuevosMesP.length,nuevosMesT_n:nuevosMesT.length,
     mrrProtOnb,pctRetCon:Math.round(retCon*100),pctRetSin:Math.round(retSin*100),
-    baiben:{ total:baibenAll.length, churnN:baibenChurnMes.length, pct:baibenPct, avgCycles, avgGapDias, avgGapMes, niches:baibenNiches, nichesMes:baibenNichesMes, objs:baibenObjs, objsMes:baibenObjsMes, baibenTotal, plans:baibenPlans, trend:baibenTrend },
+    baiben:{ total:baibenAll.length, churnN:baibenChurnMes.length, pct:baibenPct, avgCycles, avgGapDias, avgGapMes, avgCyclesRec, avgGapDiasRec, avgGapMesRec, baibenRecN, recentGapsN, niches:baibenNiches, nichesMes:baibenNichesMes, objs:baibenObjs, objsMes:baibenObjsMes, baibenTotal, plans:baibenPlans, trend:baibenTrend },
     activacion:{ n:newLast4w.length, withData:niveles.length, avg:avgNivel, buckets:nivelBuckets, byPlan:nivelByPlan, bySeg:nivelBySeg, byObj:nivelByObj, flowDist, gruposDist, flowsActivos, gruposActivos, totalBase, apiSi, businessSi, avgConOnb, avgSinOnb, avgConSes, avgSinSes, nConOnb:newConOnb.length, nSinOnb:newSinOnb.length },
     tiempoOnb:{ all:diasStats(onbDiasAll), nuevas:diasStats(onbDiasNew), antiguas:diasStats(onbDiasOld), histo:onbHisto, byPlan:onbByPlanStats, bySeg:onbBySegStats },
     noNeed:{ n:noNeedRows.length, seg:noNeedSeg, nicho:noNeedNichoArr, plan:noNeedPlanArr },
@@ -2504,6 +2548,26 @@ function closeGruposModal() {
 function renderQuienesMes(mode) {
   const m = window._mesMet;
   if (!m) return;
+
+  // Desglose del nicho "Otros" (histórico, texto abierto clasificado) — independiente de la semana/modo
+  (function(){
+    const box=document.getElementById('otrosNichoBox');const hint=document.getElementById('otrosNichoHint');if(!box)return;
+    const dist=m.otrosNichos||{}; const total=m.otrosNichosN||0;
+    const entries=Object.entries(dist).sort((a,b)=>b[1]-a[1]);
+    if(!total){box.innerHTML='<div style="color:var(--muted);font-size:11px;padding:6px 0">Aún no hay cuentas canceladas con el nicho escrito en texto abierto (columna \'nicho otro\'). Si la columna es nueva, verifica que el Apps Script la esté exportando.</div>';return;}
+    const max=entries[0][1]||1;
+    const palette=['#2563eb','#7c3aed','#0d9488','#b45309','#db2777','#0891b2','#65a30d','#e11d48','#0ea5e9','#9333ea','#059669','#ea580c'];
+    box.innerHTML=entries.map(([cat,n],i)=>{
+      const p=Math.round(n/total*100);
+      return `<div style="display:flex;align-items:center;gap:8px;margin-bottom:7px">
+        <div style="font-size:11px;color:#334155;width:210px;flex-shrink:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${cat}">${cat}</div>
+        <div style="flex:1;height:14px;background:rgba(15,23,42,.05);border-radius:7px;overflow:hidden"><div style="width:${Math.round(n/max*100)}%;height:100%;background:${palette[i%palette.length]};border-radius:7px"></div></div>
+        <div style="font-size:10px;color:var(--muted);width:74px;text-align:right;flex-shrink:0">${n} · ${p}%</div>
+      </div>`;
+    }).join('');
+    if(hint){const falt=m.otrosSinTexto||0;hint.innerHTML=`De los cancelados pagas (histórico), <strong>${total}</strong> escribieron su nicho en texto abierto y se agruparon con un clasificador por palabras clave. Quedan <strong>${falt}</strong> cancelados en "Otros" <strong>sin texto</strong> (el dato no se capturó): ese hueco no se puede clasificar hasta que se arregle el formulario.`;}
+  })();
+
   window._quienesMesMode = mode;
   const isP = mode === 'pagas';
 
@@ -3060,8 +3124,8 @@ function renderBaiben(m) {
   const kpis = [
     { label:'Cuentas vaivén detectadas',  val:b.total,     sub:'con 2+ temporadas históricas',     color:'var(--yellow)' },
     { label:'Cancelaron esta semana',         val:b.churnN,    sub:b.pct+'% del churn del período',    color:'var(--orange)' },
-    { label:'Ciclos promedio',             val:b.avgCycles+'x', sub:'temporadas de pago detectadas', color:'var(--teal)'   },
-    { label:'Gap promedio entre temporadas', val:b.avgGapMes+'m', sub:b.avgGapDias+' días en promedio', color:'var(--blue)' },
+    { label:'Ciclos promedio',             val:b.avgCycles+'x', sub:'acumulado · <strong style="color:var(--teal)">últ. 3m: '+b.avgCyclesRec+'x</strong> (n='+b.baibenRecN+')', color:'var(--teal)'   },
+    { label:'Gap promedio entre temporadas', val:b.avgGapMes+'m', sub:b.avgGapDias+'d acum · <strong style="color:var(--blue)">últ. 3m: '+b.avgGapMesRec+'m</strong> ('+b.avgGapDiasRec+'d, n='+b.recentGapsN+')', color:'var(--blue)' },
   ].map(k =>
     '<div style="background:var(--card);border:1px solid var(--border);border-radius:10px;padding:14px 16px;flex:1;min-width:140px">'
     + '<div style="font-size:9px;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);margin-bottom:4px">'+k.label+'</div>'
@@ -3504,7 +3568,8 @@ function onbVsSinPanel(a) {
       +   '</div>'
       + '</div></div>';
   }).join('');
-  return '<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px">' + cards + '</div>';
+  return '<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:6px">' + cards + '</div>'
+    + '<div style="font-size:9px;color:rgba(148,163,184,.75);margin-bottom:14px;line-height:1.4">"Con ONB (n)" = de las cuentas <strong>creadas este período</strong>, cuántas ya asistieron a onboarding (cohorte de creación). No confundir con las <strong>asistencias del período</strong> del panel de onboarding, que cuentan todas las sesiones realizadas e incluyen cuentas creadas antes.</div>';
 }
 
 function boolPanel(label, siCount, total, color) {
