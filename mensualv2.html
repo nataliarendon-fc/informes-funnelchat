@@ -219,7 +219,10 @@ body{background:var(--navy);color:var(--text);font-family:'DM Sans',sans-serif;f
     </div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
       <div class="card">
-        <div class="chart-title" style="margin-bottom:4px;font-size:12px">Tipo de negocio</div>
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
+          <div class="chart-title" style="font-size:12px;margin-bottom:0">Tipo de negocio</div>
+          <button onclick="openOtrosModal()" style="font-size:9px;font-weight:700;padding:3px 10px;border-radius:6px;border:1px solid rgba(45,212,191,.3);background:rgba(45,212,191,.07);color:var(--teal);cursor:pointer;font-family:'DM Sans',sans-serif">🔍 Detalle "Otros"</button>
+        </div>
         <div style="font-size:10px;color:var(--muted);margin-bottom:8px">% este mes vs % acumulado histórico</div>
         <div id="nichoMes"></div>
       </div>
@@ -242,6 +245,16 @@ body{background:var(--navy);color:var(--text);font-family:'DM Sans',sans-serif;f
         <div id="factMes"></div>
       </div>
     </div>
+  </div>
+
+  <!-- BLOQUE: DESGLOSE NICHO OTROS (columna NICHO INTERPRETADO) -->
+  <div class="card" style="margin-top:14px">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:2px;flex-wrap:wrap;gap:6px">
+      <div class="chart-title" style="font-size:13px;margin-bottom:0">Desglose del nicho "Otros" · nicho interpretado</div>
+      <button onclick="openOtrosModal()" style="font-size:9px;font-weight:700;padding:3px 10px;border-radius:6px;border:1px solid rgba(45,212,191,.3);background:rgba(45,212,191,.07);color:var(--teal);cursor:pointer;font-family:'DM Sans',sans-serif">🔍 Ver detalle por cuenta</button>
+    </div>
+    <div style="font-size:10px;color:var(--muted);margin-bottom:12px" id="otrosNichoHint">De los cancelados pagas (histórico) con Tipo de negocio "Otros", agrupados por la columna NICHO INTERPRETADO.</div>
+    <div id="otrosNichoBox"></div>
   </div>
 
     <div id="hist6_s2" style="margin-top:14px;margin-bottom:28px"></div>
@@ -338,7 +351,7 @@ body{background:var(--navy);color:var(--text);font-family:'DM Sans',sans-serif;f
 
   <!-- BLOQUE 7: GESTIÓN RAM / KAM -->
   <div class="block">
-    <div class="sec-label"><span class="sec-num">07</span> Gestión RAM / KAM <span class="sec-desc">· Cartera por KAM · solo cuentas Advanced y superiores</span></div>
+    <div class="sec-label"><span class="sec-num">07</span> Gestión RAM <span class="sec-desc">· Cartera por RAM · toda la base de clientes</span></div>
     <div id="kamSection"></div>
   </div>
 </main>
@@ -396,6 +409,31 @@ function cancelDate(r){
 function isPaga(r){const t=(r['trial']||'').toString().trim().toUpperCase();return t!=='TRUE'&&t!=='1'&&t!=='SI'&&t!=='SÍ';}
 function isTrial(r){return!isPaga(r);}
 function getCA(r){return parseISO(r['created_at'])||parseISO(r['Fecha creación']);}
+// Clasificador de nicho en texto abierto (columna 'nicho otro'). Devuelve categoría o null si vacío.
+const NICHO_RULES=[
+  ['Ruido / inválido', /^(k|n|as|lina|593|otro|otra cosa|ninguno|recomendacion|dinamicas|publicaciones|soy el mejor|prueba.*|\.+)$/],
+  ['Veterinaria y mascotas', /veterinari|mascota|esteriliza|animales/],
+  ['Seguros y finanzas', /seguro|finanz|trading|inversion|fondo de deuda|crowfunding|crowdfunding|financ|contab|empeno|credito|pronosticos deportivos/],
+  ['Inmobiliaria', /inmobiliari|bienes raices|raices/],
+  ['Tecnología y software', /software|informatic|telecomunicac|tecnologia|fibra|fiber|desarrollo de tecnologia|saas|plataforma/],
+  ['Belleza y estética', /belleza|estetic|capilar|barber|salon|depilaci|laser|cosmet|unas|aparatologia|protesis/],
+  ['Salud y bienestar', /salud|medic|clinic|consultorio|odontolog|dental|fisio|nutricion|suplement|farmacia|terapeut|terapia|psicolog|psic\.|bienestar|wellness|masaj|spa|holistic|meditacion|ice bath|estimulacion temprana|funerari/],
+  ['Fitness y deporte', /fitness|gym|gimnasio|gimancio|musculacion|pilates|entrenamiento fisic|futbol|academia deportiva|deport/],
+  ['Turismo y viajes', /turismo|turistic|viajes|hotel|posada|complejo rural|migratoria/],
+  ['Automotriz y motos', /automotriz|taller|mecanic|repuesto|(^| )moto|vehiculo|lubricante|conces|aire acondicionado/],
+  ['Alimentos y restaurantes', /restaurante|comida|aliment|viandas|gastronom|pollo|delivery|mar y despensa|chocolate/],
+  ['Educación, coaching y desarrollo', /educacion|formacion|curso|academia|escuela|mentor|coach|couching|desarrollo personal|constelaciones|interventora|instructora/],
+  ['Infoproductos y negocios digitales', /infoproduct|producto digital|productos digitales|ebook|ebooxs|afiliad|hotmart|emprendimiento digital|negocios digitales|franquicia digital|activos digitales|trafico digital|automatizacion|ecomerce|ecommerce|dropship/],
+  ['Eventos y entretenimiento', /evento|music|artista|concierto|danza|sorteo|rifa|club|parque|playground|entretenimiento|fotografia/],
+  ['Política, ONG y comunidad', /politic|campana|ong|sin animo de lucro|iglesia|cooperativa|gremio|camara de comercio|comunidad|sindicato/],
+  ['Retail y comercio', /tienda|ropa|calzado|zapatilla|joyeria|mueble|supermerc|supermerado|surtidora|autoservicio|refaccionaria|comestible|regalos|import|distribu|mayorista|empaque|electronica|accesorios|venta|surtido|cotillon|joyer|retail/],
+  ['Servicios y otros negocios', /servicio|logistic|transporte|carpinteria|tratamiento de agua|operador|constructora|construccion|publicidad|marketing|consultor|asesor|agencia|fumigacion|limpieza|seguridad|registrales|despacho|prefabricados|fabrica|emprendimiento|coach|dinamica/],
+];
+function clasificarNicho(txt){const t=(txt||'').toString().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/\s+/g,' ').trim();if(!t)return null;for(const [cat,re] of NICHO_RULES){if(re.test(t))return cat;}return 'Otros sin clasificar';}
+// Lee la columna 'NICHO INTERPRETADO' del archivo principal de forma robusta (tolera mayúsculas/espacios/tildes).
+function getNichoInterp(r){ if(r&&r['NICHO INTERPRETADO']!==undefined) return (r['NICHO INTERPRETADO']||'').toString().trim(); for(const k in r){ if(k.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/\s+/g,' ').trim()==='nicho interpretado') return (r[k]||'').toString().trim(); } return ''; }
+// ¿La cuenta tiene Tipo de negocio = "Otros"?
+function esNichoOtros(r){ const t=(r['Tipo de negocio']||'').toString().trim().toLowerCase(); return t==='otros'||t==='otro'; }
 function getOnbDate(r){return parseISO(r['Fecha registro'])||parseISO(r['Fecha estado onboarding'])||null;}
 function getOnbGHLDate(r){return parseSpDate(r['Fecha de ONB GHL'])||parseISO(r['Fecha de ONB GHL'])||null;}
 function getContactId(r){return (r['contact_id']||r['id_unico']||'').toString().trim();}
@@ -405,22 +443,24 @@ function parseNivel(r) {
   return isNaN(n) ? null : Math.min(100, Math.max(0, n));
 }
 // ── Helpers sección RAM / KAM ──
-// KAM aplica solo a cuentas Advanced y superiores
+// El rol aplica solo a cuentas Advanced y superiores
 function isAdvanced(r){ return /advanced/i.test((r['Planes Funnelchat']||'').toString()); }
-// Normaliza el nombre del KAM (agrupa "OWNER NICOLAS", "Nicolás", "Nicolas" en uno solo)
+// Normaliza el nombre del RAM (agrupa "OWNER NICOLAS", "Nicolás", "Nicolas" en uno solo)
 const KAM_LABELS = { nicolas:'Nicolás', natalia:'Natalia' };
 function normKam(r){
-  let v=(r['KAM']||'').toString().trim();
-  if(!v || /sin\s*kam/i.test(v)) return { key:'__none__', label:'Sin asignar' };
+  let v=(r['RAM']||'').toString().trim();
+  if(!v || /sin\s*(ram|kam)/i.test(v)) return { key:'__none__', label:'Sin asignar' };
   v=v.replace(/^owner\s+/i,'').trim();
   const key=v.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
   const label=KAM_LABELS[key] || (v.charAt(0).toUpperCase()+v.slice(1).toLowerCase());
   return { key, label };
 }
 function getKamAssignDate(r){
-  return parseSpDate(r['Fecha asignación KAM']) || parseISO(r['Fecha asignación KAM']) || parseSpanishLong(r['Fecha asignación KAM']) || null;
+  // Fecha de asignación del RAM (con respaldo a la columna del KAM si no existe la de RAM)
+  const raw = r['Fecha asignación RAM'] != null && r['Fecha asignación RAM'] !== '' ? r['Fecha asignación RAM'] : r['Fecha asignación KAM'];
+  return parseSpDate(raw) || parseISO(raw) || parseSpanishLong(raw) || null;
 }
-// Implementación, pero ignorando valores corruptos (>100%) para no inflar el promedio del KAM
+// Implementación, pero ignorando valores corruptos (>100%) para no inflar el promedio del RAM
 function kamNivel(r){
   const raw=parseFloat((r['% Nivel de implementación']||'').toString().replace('%','').trim());
   return (isNaN(raw)||raw<0||raw>100) ? null : raw;
@@ -1165,6 +1205,14 @@ function calcMonth(off){
   const avgConSes = avgNiv(newConSes);
   const avgSinSes = avgNiv(newSinSes);
 
+  // ── Cohorte por ASISTENCIA a onboarding EN EL PERÍODO (cualquier fecha de creación) ──
+  const onbPeriodIds   = new Set(onbAsistAll.map(r=>getOnbUserId(r)).filter(Boolean));
+  const onbPeriodAccts = C.filter(r => onbPeriodIds.has((r['id']||'').toString().trim()) && isPaga(r));
+  const onbPeriodN     = onbPeriodAccts.length;
+  const onbPeriodAvg   = avgNivTotal(onbPeriodAccts);
+  const onbPeriodNuevas  = onbPeriodAccts.filter(r=>{const ca=getCA(r);return ca&&inRange(ca,range);}).length;
+  const onbPeriodPrevias = onbPeriodN - onbPeriodNuevas;
+
   // By segment with onb/ses split
   const nivelBySeg = ['A','B','C'].map(seg => {
     const rows    = newLast4w.filter(r=>(r['Segmento de cliente (priorización de cliente)']||'').trim()===seg);
@@ -1284,12 +1332,14 @@ function calcMonth(off){
     seasons.push(season);
     if (seasons.length < 2) return;
     const gaps = [];
+    const gapReturns = [];
     for (let i = 1; i < seasons.length; i++) {
       const lastPay  = seasons[i-1][seasons[i-1].length-1].d;
       const firstPay = seasons[i][0].d;
       gaps.push(Math.round((firstPay - lastPay) / 86400000));
+      gapReturns.push(firstPay);
     }
-    baibenMap[uid] = { seasons: seasons.length, gaps, uid };
+    baibenMap[uid] = { seasons: seasons.length, gaps, gapReturns, lastPay: sorted[sorted.length-1].d, uid };
   });
   const baibenAll = Object.values(baibenMap);
   const baibenChurnMes = cancelMes.filter(r => baibenMap[(r['id']||'').toString().trim()]);
@@ -1300,6 +1350,19 @@ function calcMonth(off){
   const avgGapDias = allGaps.length > 0
     ? Math.round(allGaps.reduce((a,b)=>a+b,0)/allGaps.length) : 0;
   const avgGapMes  = Math.round(avgGapDias/30*10)/10;
+  // --- Medias RECIENTES (últimos 90 días) ---
+  const RECENT_DIAS = 90;
+  const recentCut = new Date(Date.now() - RECENT_DIAS*86400000);
+  // Ciclos reciente: cuentas vaivén con su último pago dentro de la ventana
+  const baibenRec = baibenAll.filter(b => b.lastPay && b.lastPay >= recentCut);
+  const avgCyclesRec = baibenRec.length > 0
+    ? Math.round(baibenRec.reduce((s,b)=>s+b.seasons,0)/baibenRec.length*10)/10 : 0;
+  // Gap reciente: gaps cuyo REGRESO (primer pago de la nueva temporada) cae en la ventana
+  const recentGaps = baibenAll.flatMap(b => b.gaps.filter((g,i)=> b.gapReturns[i] && b.gapReturns[i] >= recentCut));
+  const avgGapDiasRec = recentGaps.length > 0
+    ? Math.round(recentGaps.reduce((a,b)=>a+b,0)/recentGaps.length) : 0;
+  const avgGapMesRec = Math.round(avgGapDiasRec/30*10)/10;
+  const baibenRecN = baibenRec.length, recentGapsN = recentGaps.length;
   const nicheB = {}, objB = {}, nicheBMes = {}, objBMes = {};
   baibenAll.forEach(b => {
     const acct = acctById[b.uid];
@@ -1371,10 +1434,10 @@ function calcMonth(off){
     return months;
   })();
 
-  // ── Gestión RAM / KAM — solo cuentas Advanced y superiores, TODAS (incl. canceladas) ──
-  const advAll = C.filter(isAdvanced);
+  // ── Gestión RAM — cartera por RAM sobre TODA la base (todos los planes), incl. canceladas ──
+  const carteraAll = C;
   const kamGroups = {};
-  advAll.forEach(r => {
+  carteraAll.forEach(r => {
     const { key, label } = normKam(r);
     if (!kamGroups[key]) kamGroups[key] = { key, label, rows: [] };
     kamGroups[key].rows.push(r);
@@ -1398,9 +1461,9 @@ function calcMonth(off){
       busSi:   rows.filter(r=>(r['Usa Business?']||'').trim()==='Sí').length,
     };
   }).sort((a,b) => (a.key==='__none__') - (b.key==='__none__') || b.total - a.total); // Sin asignar al final
-  // Crecimiento mes a mes: nuevas asignaciones por mes y por KAM (columna Fecha asignación KAM)
+  // Crecimiento mes a mes: nuevas asignaciones por mes y por RAM (columna Fecha asignación RAM)
   const kamMonths = Array.from({length:6},(_,i)=>getMonthRange(off-5+i));
-  const kamAssignKey = advAll.map(r => ({ key: normKam(r).key, d: getKamAssignDate(r) }));
+  const kamAssignKey = carteraAll.map(r => ({ key: normKam(r).key, d: getKamAssignDate(r) }));
   const kamTrend = {
     labels: kamMonths.map(rg=>fmtMonthShort(rg.start)),
     series: kamData.map(k => ({
@@ -1409,7 +1472,7 @@ function calcMonth(off){
     }))
   };
   // ── Dinero por KAM: crecimiento (upgrades) y decrecimiento (downgrades) ──
-  // Cada movimiento se atribuye al KAM actual de la cuenta (columna KAM).
+  // Cada movimiento se atribuye al RAM actual de la cuenta (columna RAM).
   const movKamKey = m => normKam(m.acct).key;
   const upsMonthAll   = allMovements.filter(mv => mv.dir==='up'   && inRange(mv.date, range));
   const downsMonthAll = allMovements.filter(mv => mv.dir==='down' && inRange(mv.date, range));
@@ -1427,7 +1490,41 @@ function calcMonth(off){
         .reduce((s,mv)=> s + mv.delta, 0))
     }))
   };
-  const kam = { data:kamData, trend:kamTrend, totalAdv:advAll.length, money:kamMoney, moneyTrend:kamMoneyTrend };
+  // ── Valor de la cartera por RAM ──
+  // Valor = suma del precio mensual de las cuentas ACTIVAS (con un pago que cubre ese mes),
+  // contando cada cuenta solo desde que fue asignada al RAM. Estimado desde payments (no MRR oficial).
+  const payByUser = {};
+  RAW.payments.forEach(p => {
+    const uid=(p['User ID']||'').toString().trim(); if(!uid) return;
+    const d = parseSpanishLong(p['Date'])||parseSpDate(p['Date'])||parseISO(p['Date']);
+    const e = parseSpanishLong(p['Expiration'])||parseSpDate(p['Expiration'])||parseISO(p['Expiration']);
+    const tier = planFromMonthlyVal(paymentMonthlyVal(p));
+    if(!d || !tier) return;
+    (payByUser[uid]=payByUser[uid]||[]).push({ d, e:e||d, price:(PLAN_PRICE[tier]||0) });
+  });
+  function userValueInMonth(uid, rg){
+    const ps=payByUser[uid]; if(!ps) return 0;
+    const cover=ps.filter(p=> p.d<=rg.end && p.e>=rg.start);
+    if(!cover.length) return 0;
+    cover.sort((a,b)=>b.d-a.d);   // el pago más reciente que cubre el mes
+    return cover[0].price;
+  }
+  const kamValueTrend = {
+    labels: kamMonths.map(rg=>fmtMonthShort(rg.start)),
+    series: kamData.map(k => {
+      const rows = kamGroups[k.key].rows;
+      return { key:k.key, label:k.label,
+        data: kamMonths.map(rg => rows.reduce((s,r)=>{
+          const asign=getKamAssignDate(r);
+          if(asign && asign>rg.end) return s;      // aún no estaba en la cartera ese mes
+          return s + userValueInMonth((r['id']||'').toString().trim(), rg);
+        },0)) };
+    })
+  };
+  const kamValueNow={}, kamValuePrev={};
+  kamValueTrend.series.forEach(s=>{ const n=s.data.length; kamValueNow[s.key]=s.data[n-1]||0; kamValuePrev[s.key]=s.data[n-2]||0; });
+
+  const kam = { data:kamData, trend:kamTrend, totalBase:carteraAll.length, money:kamMoney, moneyTrend:kamMoneyTrend, valueTrend:kamValueTrend, valueNow:kamValueNow, valuePrev:kamValuePrev };
 
   return{
     range, off, ahaStats:ahaStatsData, ahaStatsMes,
@@ -1438,6 +1535,10 @@ function calcMonth(off){
     cancelMes:cancelMes.length,convMes:convMes,convMesNuevas:convMesNuevas,convMesPrevias:convMesPrevias,
     cancelMesArr:cancelMes,cancelMesTrial:cancelMesTrial,
     allCancelP:allCancelP,
+    otrosInterpRows:allCancelP.filter(esNichoOtros),
+    otrosNichos:(()=>{const d={};allCancelP.forEach(r=>{if(!esNichoOtros(r))return;const c=getNichoInterp(r);if(c)d[c]=(d[c]||0)+1;});return d;})(),
+    otrosNichosN:allCancelP.filter(r=>esNichoOtros(r)&&getNichoInterp(r)).length,
+    otrosSinTexto:allCancelP.filter(r=>esNichoOtros(r)&&!getNichoInterp(r)).length,
     prevCancelMesArr:prevCancelMesArr,atrP:atrP.length,
     mrrActivo,mrrRiesgo,mrrNuevo,mrrPerdido,mrrConv,
     retNeta:nuevosMesP.length-cancelMes.length,
@@ -1469,8 +1570,8 @@ function calcMonth(off){
     onbAsistP,onbAsistT,cobP,cobT,
     nuevosMesP_n:nuevosMesP.length,nuevosMesT_n:nuevosMesT.length,
     mrrProtOnb,pctRetCon:Math.round(retCon*100),pctRetSin:Math.round(retSin*100),
-    baiben:{ total:baibenAll.length, churnN:baibenChurnMes.length, pct:baibenPct, avgCycles, avgGapDias, avgGapMes, niches:baibenNiches, nichesMes:baibenNichesMes, objs:baibenObjs, objsMes:baibenObjsMes, baibenTotal, plans:baibenPlans, trend:baibenTrend },
-    activacion:{ n:newLast4w.length, withData:niveles.length, avg:avgNivel, buckets:nivelBuckets, byPlan:nivelByPlan, bySeg:nivelBySeg, byObj:nivelByObj, flowDist, gruposDist, flowsActivos, gruposActivos, totalBase, apiSi, businessSi, avgConOnb, avgSinOnb, avgConSes, avgSinSes, nConOnb:newConOnb.length, nSinOnb:newSinOnb.length },
+    baiben:{ total:baibenAll.length, churnN:baibenChurnMes.length, pct:baibenPct, avgCycles, avgGapDias, avgGapMes, avgCyclesRec, avgGapDiasRec, avgGapMesRec, baibenRecN, recentGapsN, niches:baibenNiches, nichesMes:baibenNichesMes, objs:baibenObjs, objsMes:baibenObjsMes, baibenTotal, plans:baibenPlans, trend:baibenTrend },
+    activacion:{ n:newLast4w.length, withData:niveles.length, avg:avgNivel, buckets:nivelBuckets, byPlan:nivelByPlan, bySeg:nivelBySeg, byObj:nivelByObj, flowDist, gruposDist, flowsActivos, gruposActivos, totalBase, apiSi, businessSi, avgConOnb, avgSinOnb, avgConSes, avgSinSes, nConOnb:newConOnb.length, nSinOnb:newSinOnb.length, onbPeriodN, onbPeriodAvg, onbPeriodNuevas, onbPeriodPrevias },
     tiempoOnb:{ all:diasStats(onbDiasAll), nuevas:diasStats(onbDiasNew), antiguas:diasStats(onbDiasOld), histo:onbHisto, byPlan:onbByPlanStats, bySeg:onbBySegStats },
     noNeed:{ n:noNeedRows.length, seg:noNeedSeg, nicho:noNeedNichoArr, plan:noNeedPlanArr },
     onbImpact,sesImpact,embImpactData,
@@ -2102,14 +2203,17 @@ function renderPerfilTable() {
     return ` <span style="font-size:9px;color:${c}">${curr>prev?'▲':'▼'}${ds}pp</span>`;
   }
 
+  // Polaridad de color (inv): con inv:true, BAJAR = verde. Con inv:false, SUBIR = verde.
+  // 'Cancelaciones' inv:true (bajar es bueno). Las filas '% Sin [activación]' van inv:false:
+  // si el % Sin BAJA significa que se están yendo más clientes YA ACTIVADOS → es malo (rojo).
   const rows = [
     {label:'Cancelaciones pagas',      values:H.map(h=>h.canM||0),            inv:true,  fmt:'n'},
-    {label:'% Sin onboarding',         values:H.map(h=>h.pSinOnb),  inv:true,  fmt:'%'},
-    {label:'% Sin flow activo',        values:H.map(h=>h.pSinFlow), inv:true,  fmt:'%'},
-    {label:'% Sin WA conectado',       values:H.map(h=>h.pSinWA),   inv:true,  fmt:'%'},
-    {label:'% Sin sesión en vivo',     values:H.map(h=>h.pSinSes),  inv:true,  fmt:'%'},
-    {label:'% Sin grupos activos',     values:H.map(h=>h.pSinGrupos),inv:true, fmt:'%'},
-    {label:'% Sin flow en trial',      values:H.map(h=>h.pSinTrial),inv:true,  fmt:'%'},
+    {label:'% Sin onboarding',         values:H.map(h=>h.pSinOnb),  inv:false, fmt:'%'},
+    {label:'% Sin flow activo',        values:H.map(h=>h.pSinFlow), inv:false, fmt:'%'},
+    {label:'% Sin WA conectado',       values:H.map(h=>h.pSinWA),   inv:false, fmt:'%'},
+    {label:'% Sin sesión en vivo',     values:H.map(h=>h.pSinSes),  inv:false, fmt:'%'},
+    {label:'% Sin grupos activos',     values:H.map(h=>h.pSinGrupos),inv:false, fmt:'%'},
+    {label:'% Sin flow en trial',      values:H.map(h=>h.pSinTrial),inv:false, fmt:'%'},
   ];
 
   const hdrs = H.map((h,i)=>
@@ -2140,7 +2244,7 @@ function renderPerfilTable() {
       <tbody>${body}</tbody>
     </table>
   </div>
-  <div style="font-size:10px;color:var(--muted);margin-top:8px">% calculado sobre el total de cancelados pagas del mes · verde = mejora (baja) · rojo = empeora (sube)</div>`;
+  <div style="font-size:10px;color:var(--muted);margin-top:8px">% sobre el total de cancelados pagas del mes. Verde = evolución favorable, rojo = desfavorable. En "Cancelaciones" bajar es favorable. En el perfil de activación (onboarding, flow, WA, sesión, grupos), que el "% Sin" <strong>baje</strong> significa que se están yendo clientes que <strong>sí estaban activados</strong> → desfavorable (rojo); que suba significa que la fuga se concentra en no activados → favorable (verde).</div>`;
 }
 
 function openGruposModal(preselect) {
@@ -2228,6 +2332,52 @@ function renderGruposModal() {
       <div style="font-size:9px;color:var(--muted);white-space:nowrap">${t.lbl}</div>
     </div>`;
   }).join('');
+
+  // ── Evolución mes a mes de los indicadores (mismo objetivo, cohorte de cada mes) ──
+  const evoMonths = hist6.map((h, i) => {
+    const off6 = -(5-i);
+    const mR = getMonthRange ? getMonthRange(m.off !== undefined ? m.off + off6 : off6) : null;
+    const cohort = mR ? allC.filter(r => {
+      const cd = cancelDate(r);
+      return cd && cd >= mR.start && cd <= mR.end && (r['Objetivo con Funnelchat']||'').trim() === TARGET;
+    }) : [];
+    const n = cohort.length;
+    const nm = {}; cohort.forEach(r => { const x=getNiche(r); nm[x]=(nm[x]||0)+1; });
+    const top = Object.entries(nm).sort((a,b)=>b[1]-a[1])[0];
+    return {
+      lbl: h.lbl, n,
+      avgLT:   n ? Math.round(cohort.reduce((s,r)=>s+getLT(r),0)/n) : 0,
+      pFlow:   pct(cohort.filter(usaFlow).length, n),
+      pGrupos: pct(cohort.filter(usaGrupos).length, n),
+      pWA:     pct(cohort.filter(usaWA).length, n),
+      pOnb:    pct(cohort.filter(r=>getOnb(r)==='Con onboarding').length, n),
+      topNiche:    top ? top[0] : '—',
+      topNichePct: top ? pct(top[1], n) : 0,
+    };
+  });
+  const evoLast = evoMonths.length-1;
+  const evoTh = evoMonths.map((e,i)=>`<th style="padding:5px 6px;font-size:9px;font-weight:700;color:${i===evoLast?'var(--orange)':'var(--muted)'};text-align:center;white-space:nowrap">${e.lbl}</th>`).join('');
+  const evoRow = (label, fmtFn) => `<tr style="border-top:1px solid rgba(15,23,42,.05)">
+      <td style="padding:5px 8px;font-size:10px;color:#334155;white-space:nowrap">${label}</td>
+      ${evoMonths.map((e,i)=>`<td style="padding:5px 6px;font-size:10px;text-align:center;font-weight:${i===evoLast?'700':'400'};color:${i===evoLast?'#0f172a':'#475569'}">${e.n?fmtFn(e):'—'}</td>`).join('')}
+    </tr>`;
+  const evoTable = `
+    <div style="background:rgba(15,23,42,.02);border:1px solid rgba(15,23,42,.07);border-radius:10px;padding:14px;margin-bottom:20px;overflow-x:auto">
+      <div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:4px">📊 Evolución mes a mes · este objetivo</div>
+      <div style="font-size:9px;color:var(--muted);margin-bottom:10px">Cómo cambia el perfil de quienes cancelan con este objetivo, tomando la cohorte de cada mes. Última columna = mes actual. "—" = sin cancelados ese mes.</div>
+      <table style="width:100%;border-collapse:collapse">
+        <thead><tr><th style="padding:5px 8px;font-size:9px;color:var(--muted);text-align:left">Indicador</th>${evoTh}</tr></thead>
+        <tbody>
+          ${evoRow('Cancelaciones (n)', e=>e.n)}
+          ${evoRow('LT medio (días)',   e=>e.avgLT+'d')}
+          ${evoRow('% usó flow',        e=>e.pFlow+'%')}
+          ${evoRow('% usó grupos',      e=>e.pGrupos+'%')}
+          ${evoRow('% conectó WA',      e=>e.pWA+'%')}
+          ${evoRow('% con onboarding',  e=>e.pOnb+'%')}
+          ${evoRow('Nicho más común',   e=>`${e.topNiche.length>16?e.topNiche.slice(0,15)+'…':e.topNiche} <span style="color:var(--muted)">· ${e.topNichePct}%</span>`)}
+        </tbody>
+      </table>
+    </div>`;
 
   // ── 2. LT buckets ────────────────────────────────────
   const lt0_30   = seg.filter(r => getLT(r) <= 30).length;
@@ -2342,6 +2492,9 @@ function renderGruposModal() {
       </div>
     </div>
 
+    <!-- EVOLUCIÓN MES A MES -->
+    ${evoTable}
+
     <!-- USO PLATAFORMA + PLANES -->
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:20px">
 
@@ -2406,9 +2559,77 @@ function closeGruposModal() {
   document.getElementById('gruposModal').style.display = 'none';
 }
 
+// ── Modal detalle nicho "Otros" (por columna NICHO INTERPRETADO) ──
+function openOtrosModal(){ if(!window._mesMet)return; document.getElementById('otrosModal').style.display='block'; renderOtrosModal(); }
+function closeOtrosModal(){ document.getElementById('otrosModal').style.display='none'; }
+function renderOtrosModal(){
+  const m=window._mesMet; const el=document.getElementById('otrosModalContent'); if(!m||!el)return;
+  const rows=(m.otrosInterpRows||[]);
+  if(!rows.length){ el.innerHTML='<div style="color:var(--muted);font-size:12px">No hay cancelados pagas con Tipo de negocio "Otros" en el histórico.</div>'; return; }
+  const dist={}; rows.forEach(r=>{ const c=getNichoInterp(r)||'Sin interpretar'; dist[c]=(dist[c]||0)+1; });
+  const entries=Object.entries(dist).sort((a,b)=>b[1]-a[1]);
+  const total=rows.length; const max=entries[0][1]||1;
+  const palette=['#2563eb','#7c3aed','#0d9488','#b45309','#db2777','#0891b2','#65a30d','#e11d48','#0ea5e9','#9333ea','#059669','#ea580c'];
+  const bars=entries.map(([cat,n],i)=>{ const p=Math.round(n/total*100); const col=cat==='Sin interpretar'?'#94a3b8':palette[i%palette.length];
+    return '<div style="display:flex;align-items:center;gap:8px;margin-bottom:7px">'
+      + '<div style="font-size:11px;color:#334155;width:230px;flex-shrink:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="'+cat+'">'+cat+'</div>'
+      + '<div style="flex:1;height:14px;background:rgba(15,23,42,.05);border-radius:7px;overflow:hidden"><div style="width:'+Math.round(n/max*100)+'%;height:100%;background:'+col+';border-radius:7px"></div></div>'
+      + '<div style="font-size:10px;color:var(--muted);width:74px;text-align:right;flex-shrink:0">'+n+' · '+p+'%</div></div>'; }).join('');
+  const fmtD=d=>{ if(!d)return'—'; const p=x=>('0'+x).slice(-2); return p(d.getDate())+'/'+p(d.getMonth()+1)+'/'+d.getFullYear(); };
+  const sorted=[...rows].sort((a,b)=>{ const ca=(getNichoInterp(a)||'zzz'), cb=(getNichoInterp(b)||'zzz'); return ca.localeCompare(cb) || ((cancelDate(b)||0)-(cancelDate(a)||0)); });
+  const trs=sorted.map(r=>{
+    const id=(r['id']||'').toString();
+    const pais=(r['country_name']||r['País']||'').toString();
+    const plan=(r['Planes Funnelchat']||'').toString().replace('Plan ','');
+    const fecha=fmtD(cancelDate(r));
+    const iv=getNichoInterp(r);
+    const interp=iv?iv:'<span style="color:#94a3b8">Sin interpretar</span>';
+    const abierto=(r['nicho otro']||'').toString().trim();
+    return '<tr style="border-bottom:1px solid rgba(15,23,42,.06)">'
+      + '<td style="padding:5px 8px;font-size:10px;color:#334155">'+id+'</td>'
+      + '<td style="padding:5px 8px;font-size:10px;color:#334155">'+interp+'</td>'
+      + '<td style="padding:5px 8px;font-size:10px;color:var(--muted)">'+(abierto||'—')+'</td>'
+      + '<td style="padding:5px 8px;font-size:10px;color:var(--muted)">'+(plan||'—')+'</td>'
+      + '<td style="padding:5px 8px;font-size:10px;color:var(--muted)">'+(pais||'—')+'</td>'
+      + '<td style="padding:5px 8px;font-size:10px;color:var(--muted);text-align:right">'+fecha+'</td></tr>'; }).join('');
+  el.innerHTML =
+    '<div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px">Distribución · '+total+' cuentas</div>'
+    + bars
+    + '<div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin:18px 0 6px">Cuentas ('+total+')</div>'
+    + '<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse">'
+    + '<thead><tr style="border-bottom:1px solid var(--border)">'
+    +   '<th style="padding:5px 8px;font-size:9px;color:var(--muted);text-align:left">ID</th>'
+    +   '<th style="padding:5px 8px;font-size:9px;color:var(--muted);text-align:left">Nicho interpretado</th>'
+    +   '<th style="padding:5px 8px;font-size:9px;color:var(--muted);text-align:left">Texto abierto</th>'
+    +   '<th style="padding:5px 8px;font-size:9px;color:var(--muted);text-align:left">Plan</th>'
+    +   '<th style="padding:5px 8px;font-size:9px;color:var(--muted);text-align:left">País</th>'
+    +   '<th style="padding:5px 8px;font-size:9px;color:var(--muted);text-align:right">Cancelación</th>'
+    + '</tr></thead><tbody>'+trs+'</tbody></table></div>';
+}
+
 function renderQuienesMes(mode) {
   const m = window._mesMet;
   if (!m) return;
+
+  // Desglose del nicho "Otros" (histórico, columna NICHO INTERPRETADO) — independiente del mes/modo
+  (function(){
+    const box=document.getElementById('otrosNichoBox');const hint=document.getElementById('otrosNichoHint');if(!box)return;
+    const dist=m.otrosNichos||{}; const total=m.otrosNichosN||0;
+    const entries=Object.entries(dist).sort((a,b)=>b[1]-a[1]);
+    if(!total){box.innerHTML='<div style="color:var(--muted);font-size:11px;padding:6px 0">Aún no hay cancelados en "Otros" con la columna NICHO INTERPRETADO diligenciada. Si la columna es nueva, verifica que el Apps Script la esté exportando.</div>';return;}
+    const max=entries[0][1]||1;
+    const palette=['#2563eb','#7c3aed','#0d9488','#b45309','#db2777','#0891b2','#65a30d','#e11d48','#0ea5e9','#9333ea','#059669','#ea580c'];
+    box.innerHTML=entries.map(([cat,n],i)=>{
+      const p=Math.round(n/total*100);
+      return `<div style="display:flex;align-items:center;gap:8px;margin-bottom:7px">
+        <div style="font-size:11px;color:#334155;width:210px;flex-shrink:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${cat}">${cat}</div>
+        <div style="flex:1;height:14px;background:rgba(15,23,42,.05);border-radius:7px;overflow:hidden"><div style="width:${Math.round(n/max*100)}%;height:100%;background:${palette[i%palette.length]};border-radius:7px"></div></div>
+        <div style="font-size:10px;color:var(--muted);width:74px;text-align:right;flex-shrink:0">${n} · ${p}%</div>
+      </div>`;
+    }).join('');
+    if(hint){const falt=m.otrosSinTexto||0;hint.innerHTML=`De los cancelados pagas (histórico) con Tipo de negocio "Otros", <strong>${total}</strong> tienen NICHO INTERPRETADO y se agrupan aquí. Quedan <strong>${falt}</strong> <strong>sin interpretar</strong> (la columna aún vacía para esas cuentas).`;}
+  })();
+
   window._quienesMesMode = mode;
   const isP = mode === 'pagas';
 
@@ -2487,11 +2708,12 @@ function renderQuienesMes(mode) {
         }
       }
 
-      // Signal llegadas vs salidas
-      const signal = mesPct > 0 && newPct > 0
-        ? (mesPct - newPct > 10 ? '⚠ más cancel. que llegadas' : mesPct - newPct < -10 ? '✓ llegan más' : '≈ equilibrio')
+      // Llegadas vs salidas EN ESTA CATEGORÍA, en CONTEO ABSOLUTO (no en % de poblaciones distintas)
+      const cCount = mc?.count||0, nCount = nc?.count||0;
+      const signal = (cCount||nCount)
+        ? (nCount>cCount ? '✓ llegan más' : nCount<cCount ? '⚠ se van más' : '≈ equilibrio')
         : '';
-      const signalColor = mesPct - newPct > 10 ? 'var(--red)' : mesPct - newPct < -10 ? 'var(--green2)' : 'var(--muted)';
+      const signalColor = nCount>cCount ? 'var(--green2)' : nCount<cCount ? 'var(--red)' : 'var(--muted)';
 
       return `<div style="margin-bottom:14px">
         <div style="display:flex;justify-content:space-between;margin-bottom:3px;align-items:center;gap:4px">
@@ -2507,7 +2729,7 @@ function renderQuienesMes(mode) {
           <div style="width:${mesPct}%;height:100%;background:${color};border-radius:4px;position:absolute"></div>
         </div>
         <div style="display:flex;justify-content:space-between;margin-top:3px;align-items:center">
-          <span style="font-size:9px;color:var(--muted)">Nuevas: <strong style="color:var(--teal)">${newPct}%</strong> (${nc?.count||0})</span>
+          <span style="font-size:9px;color:var(--muted)">Salieron <strong style="color:${color}">${cCount}</strong> · llegaron <strong style="color:var(--teal)">${nCount}</strong></span>
           ${signal?`<span style="font-size:9px;color:${signalColor};font-weight:600">${signal}</span>`:''}
         </div>
       </div>`;
@@ -2964,8 +3186,8 @@ function renderBaiben(m) {
   const kpis = [
     { label:'Cuentas vaivén detectadas',  val:b.total,     sub:'con 2+ temporadas históricas',     color:'var(--yellow)' },
     { label:'Cancelaron este mes',         val:b.churnN,    sub:b.pct+'% del churn del período',    color:'var(--orange)' },
-    { label:'Ciclos promedio',             val:b.avgCycles+'x', sub:'temporadas de pago detectadas', color:'var(--teal)'   },
-    { label:'Gap promedio entre temporadas', val:b.avgGapMes+'m', sub:b.avgGapDias+' días en promedio', color:'var(--blue)' },
+    { label:'Ciclos promedio',             val:b.avgCycles+'x', sub:'acumulado · <strong style="color:var(--teal)">últ. 3m: '+b.avgCyclesRec+'x</strong> (n='+b.baibenRecN+')', color:'var(--teal)'   },
+    { label:'Gap promedio entre temporadas', val:b.avgGapMes+'m', sub:b.avgGapDias+'d acum · <strong style="color:var(--blue)">últ. 3m: '+b.avgGapMesRec+'m</strong> ('+b.avgGapDiasRec+'d, n='+b.recentGapsN+')', color:'var(--blue)' },
   ].map(k =>
     '<div style="background:var(--card);border:1px solid var(--border);border-radius:10px;padding:14px 16px;flex:1;min-width:140px">'
     + '<div style="font-size:9px;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);margin-bottom:4px">'+k.label+'</div>'
@@ -3356,6 +3578,13 @@ function renderActivacion(m) {
     + '</div>'
     // General ONB/Sessions comparison indicator
     + onbVsSinPanel(a)
+    // Segundo indicador: cohorte por ASISTENCIA a onboarding en el período (cualquier fecha de creación)
+    + '<div style="background:rgba(251,146,60,.06);border:1px solid rgba(251,146,60,.22);border-radius:10px;padding:12px 14px;margin-bottom:14px;display:flex;align-items:center;gap:16px;flex-wrap:wrap">'
+    +   '<div style="min-width:220px;flex:1"><div style="font-size:9px;font-weight:700;color:var(--orange);text-transform:uppercase;letter-spacing:.06em">🎓 Con onboarding en el período · cohorte de asistencia</div>'
+    +     '<div style="font-size:9px;color:var(--muted);margin-top:3px">Cuentas pagas que <strong>asistieron a onboarding este período</strong>, sin importar cuándo se crearon · '+a.onbPeriodNuevas+' creadas este mes · '+a.onbPeriodPrevias+' de meses anteriores</div></div>'
+    +   '<div style="text-align:center"><div style="font-family:Syne,sans-serif;font-size:26px;font-weight:800;color:var(--orange);line-height:1">'+a.onbPeriodN+'</div><div style="font-size:9px;color:var(--muted)">cuentas</div></div>'
+    +   '<div style="text-align:center"><div style="font-family:Syne,sans-serif;font-size:26px;font-weight:800;color:var(--green2);line-height:1">'+(a.onbPeriodAvg!==null?a.onbPeriodAvg+'%':'—')+'</div><div style="font-size:9px;color:var(--muted)">implementación prom.</div></div>'
+    + '</div>'
     + ahaTable(m.ahaStatsMes, m.ahaStats)
     + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:14px">'
     +   '<div><div style="font-size:9px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:2px">Distribución por nivel</div>'+'<div style="font-size:8px;color:rgba(148,163,184,.6);margin-bottom:7px">Solo de las '+a.withData+' de '+a.n+' cuentas con % registrado (no incluye sin dato)</div>' + bucketBars + '</div>'
@@ -3408,7 +3637,8 @@ function onbVsSinPanel(a) {
       +   '</div>'
       + '</div></div>';
   }).join('');
-  return '<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px">' + cards + '</div>';
+  return '<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:6px">' + cards + '</div>'
+    + '<div style="font-size:9px;color:rgba(148,163,184,.75);margin-bottom:14px;line-height:1.4">"Con ONB (n)" = de las cuentas <strong>creadas este mes</strong>, cuántas ya asistieron a onboarding (cohorte de creación). No confundir con las <strong>asistencias del período</strong> del panel de onboarding, que cuentan todas las sesiones realizadas este mes e incluyen cuentas de meses anteriores.</div>';
 }
 
 function boolPanel(label, siCount, total, color) {
@@ -3686,7 +3916,7 @@ function renderKamSection(m) {
   const segColor = {A:'var(--green2)',B:'var(--yellow)',C:'var(--muted)'};
   const pct = (n,d) => d>0 ? Math.round(n/d*100) : 0;
 
-  if (!data.length) { el.innerHTML = '<div style="color:var(--muted);font-size:12px;padding:12px 0">Sin cuentas Advanced en la base.</div>'; return; }
+  if (!data.length) { el.innerHTML = '<div style="color:var(--muted);font-size:12px;padding:12px 0">Sin cuentas en la base.</div>'; return; }
 
   // ── Tarjetas por KAM ──
   const cards = data.map(k => {
@@ -3694,6 +3924,9 @@ function renderKamSection(m) {
     const isNone = k.key==='__none__';
     const mon = (m.kam.money||{})[k.key] || {gained:0,lost:0,upCount:0,downCount:0};
     const net = mon.gained - mon.lost;
+    const valNow = (m.kam.valueNow||{})[k.key] || 0;
+    const valPrev = (m.kam.valuePrev||{})[k.key] || 0;
+    const valDelta = valNow - valPrev;
     const segBar = [['A',k.segA],['B',k.segB],['C',k.segC]].filter(([,n])=>n>0).map(([s,n])=>
       `<div style="flex:${n};background:${segColor[s]};height:8px" title="Seg ${s}: ${n}"></div>`).join('') || '<div style="flex:1;background:var(--border);height:8px"></div>';
     return `<div style="background:var(--card);border:1px solid ${isNone?'var(--orange)':'var(--border)'};border-radius:12px;padding:16px 18px;flex:1;min-width:220px">
@@ -3701,7 +3934,7 @@ function renderKamSection(m) {
         <div style="display:flex;align-items:center;gap:8px">
           <span style="width:10px;height:10px;border-radius:50%;background:${c};display:inline-block"></span>
           <span style="font-size:13px;font-weight:800;color:var(--text)">${k.label}</span>
-          ${isNone?'<span style="font-size:9px;color:var(--orange);font-weight:700;background:rgba(194,65,12,.1);padding:1px 6px;border-radius:8px">⚠ Advanced sin KAM</span>':''}
+          ${isNone?'<span style="font-size:9px;color:var(--orange);font-weight:700;background:rgba(194,65,12,.1);padding:1px 6px;border-radius:8px">⚠ Sin RAM asignado</span>':''}
         </div>
         <div style="text-align:right"><span style="font-family:'Syne',sans-serif;font-size:26px;font-weight:800;color:${c}">${k.total}</span><div style="font-size:9px;color:var(--muted);margin-top:-2px">cuentas</div></div>
       </div>
@@ -3723,7 +3956,14 @@ function renderKamSection(m) {
         Flows ${pct(k.flowsSi,k.total)}% · API ${pct(k.apiSi,k.total)}% · Business ${pct(k.busSi,k.total)}%
       </div>
       <div style="margin-top:12px;padding-top:10px;border-top:1px dashed var(--border)">
-        <div style="font-size:9px;color:var(--muted);margin-bottom:5px">Movimiento de dinero del mes (aprox. desde payments)</div>
+        <div style="font-size:9px;color:var(--muted);margin-bottom:5px">Valor de la cartera (hoy · aprox. desde payments)</div>
+        <div style="display:flex;align-items:baseline;gap:6px;margin-bottom:2px">
+          <span style="font-family:'Syne',sans-serif;font-size:22px;font-weight:800;color:${c}">$${valNow.toLocaleString('es-CO')}</span>
+          <span style="font-size:10px;font-weight:700;color:${valDelta>0?'var(--green2)':valDelta<0?'var(--red)':'var(--muted)'}">${valDelta>0?'▲ +':valDelta<0?'▼ −':''}$${Math.abs(valDelta).toLocaleString('es-CO')} vs mes anterior</span>
+        </div>
+      </div>
+      <div style="margin-top:12px;padding-top:10px;border-top:1px dashed var(--border)">
+        <div style="font-size:9px;color:var(--muted);margin-bottom:5px">Movimiento de dinero del mes (por cambios de plan)</div>
         <div style="display:flex;align-items:baseline;gap:4px;margin-bottom:4px">
           <span style="font-family:'Syne',sans-serif;font-size:18px;font-weight:800;color:${net>0?'var(--green2)':net<0?'var(--red)':'var(--muted)'}">${net>0?'+':net<0?'−':''}$${Math.abs(net).toLocaleString('es-CO')}</span>
           <span style="font-size:9px;color:var(--muted)">neto / mes</span>
@@ -3738,14 +3978,16 @@ function renderKamSection(m) {
 
   // ── Tabla comparativa ──
   const th = t => `<th style="padding:7px 10px;font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;border-bottom:1px solid var(--border);text-align:${t.a||'center'}">${t.l}</th>`;
-  const cols = [{l:'KAM',a:'left'},{l:'Cartera'},{l:'Vigentes'},{l:'Atrasadas'},{l:'Canceladas'},{l:'Activación prom.'},{l:'% Activas'},{l:'Flows'},{l:'API'},{l:'Business'},{l:'+ $ mes'},{l:'− $ mes'},{l:'Neto $ mes'}];
+  const cols = [{l:'RAM',a:'left'},{l:'Cartera'},{l:'Valor hoy'},{l:'Vigentes'},{l:'Atrasadas'},{l:'Canceladas'},{l:'Activación prom.'},{l:'% Activas'},{l:'Flows'},{l:'API'},{l:'Business'},{l:'+ $ mes'},{l:'− $ mes'},{l:'Neto $ mes'}];
   const rowsT = data.map(k => {
     const c = colorFor[k.key];
     const mon = (m.kam.money||{})[k.key] || {gained:0,lost:0};
     const net = mon.gained - mon.lost;
+    const valNow = (m.kam.valueNow||{})[k.key] || 0;
     return `<tr style="border-bottom:1px solid var(--border)">
       <td style="padding:7px 10px;font-size:11px;font-weight:700;white-space:nowrap"><span style="width:8px;height:8px;border-radius:50%;background:${c};display:inline-block;margin-right:6px"></span>${k.label}</td>
       <td style="padding:7px 10px;font-size:12px;font-weight:800;text-align:center;color:${c}">${k.total}</td>
+      <td style="padding:7px 10px;font-size:11px;text-align:center;font-weight:700">$${valNow.toLocaleString('es-CO')}</td>
       <td style="padding:7px 10px;font-size:11px;text-align:center;color:var(--green2)">${k.vig}</td>
       <td style="padding:7px 10px;font-size:11px;text-align:center;color:var(--orange)">${k.atr}</td>
       <td style="padding:7px 10px;font-size:11px;text-align:center;color:var(--red)">${k.can}</td>
@@ -3763,13 +4005,18 @@ function renderKamSection(m) {
   const sep = label => `<div style="font-size:9px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.12em;margin:18px 0 12px;display:flex;align-items:center;gap:10px"><span>${label}</span><div style="flex:1;height:1px;background:var(--border)"></div></div>`;
 
   el.innerHTML = `
-    <div style="font-size:11px;color:var(--muted);margin-bottom:14px">${m.kam.totalAdv} cuentas Advanced en total, repartidas por KAM. La cartera incluye todas las cuentas (vigentes, atrasadas y canceladas).</div>
+    <div style="font-size:11px;color:var(--muted);margin-bottom:14px">${m.kam.totalBase} cuentas en total, repartidas por RAM (toda la base, todos los planes). La cartera incluye todas las cuentas: vigentes, atrasadas y canceladas.</div>
     <div style="display:flex;gap:16px;flex-wrap:wrap">${cards}</div>
     ${sep('Crecimiento de la cartera — nuevas asignaciones por mes')}
     <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px 20px">
       <div style="height:260px;position:relative"><canvas id="kamGrowthChart"></canvas></div>
     </div>
-    ${sep('Crecimiento vs decrecimiento en dinero — neto por KAM por mes')}
+    ${sep('Valor de la cartera por RAM — seguimiento mes a mes')}
+    <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px 20px">
+      <div style="height:270px;position:relative"><canvas id="kamValueChart"></canvas></div>
+      <div style="font-size:10px;color:var(--muted);margin-top:8px;text-align:center">Valor recurrente estimado de cada cartera (suma del precio mensual de las cuentas activas). Línea que sube = la cartera crece; que baja = decrece. Excluye "Sin asignar" para lectura.</div>
+    </div>
+    ${sep('Crecimiento vs decrecimiento en dinero — neto por RAM por mes (por cambios de plan)')}
     <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px 20px">
       <div style="height:260px;position:relative"><canvas id="kamMoneyChart"></canvas></div>
       <div style="font-size:10px;color:var(--muted);margin-top:8px;text-align:center">Barras sobre 0 = la cartera creció en dinero ese mes · bajo 0 = decreció (downgrades)</div>
@@ -3779,7 +4026,7 @@ function renderKamSection(m) {
       <table style="width:100%;border-collapse:collapse"><thead><tr>${cols.map(th).join('')}</tr></thead><tbody>${rowsT}</tbody></table>
     </div>
     <div style="margin-top:12px;font-size:10px;color:var(--muted);line-height:1.6">
-      Solo cuentas Advanced y superiores · el crecimiento de cartera usa la columna <strong>Fecha asignación KAM</strong> · los montos en dinero se <strong>estiman desde payments</strong> según el cambio de plan (Starter $49 · Growth $99 · Advanced $199 · Adv. Pers. $399, ajustable) y <strong>no son el MRR oficial de Yasmin</strong> · "Activación promedio" descarta valores de implementación corruptos (&gt;100%) · grupos se omite por ahora (columna inconsistente).
+      Cartera por RAM sobre toda la base (todos los planes) · el crecimiento de cartera usa la columna <strong>Fecha asignación RAM</strong> · los montos en dinero se <strong>estiman desde payments</strong> según el cambio de plan (Starter $49 · Growth $99 · Advanced $199 · Adv. Pers. $399, ajustable) y <strong>no son el MRR oficial de Yasmin</strong> · "Activación promedio" descarta valores de implementación corruptos (&gt;100%) · grupos se omite por ahora (columna inconsistente).
     </div>`;
 
   // ── Gráfica de crecimiento (barras apiladas por KAM) ──
@@ -3815,6 +4062,27 @@ function renderKamSection(m) {
           tooltip:{mode:'index',intersect:false,callbacks:{label:ctx=>`${ctx.dataset.label}: ${ctx.parsed.y>=0?'+':'−'}$${Math.abs(ctx.parsed.y).toLocaleString('es-CO')}`}}},
         scales:{x:{grid:{display:false},ticks:{color:'#64748b',font:{size:10}}},
           y:{grid:{color:'rgba(15,23,42,.04)'},ticks:{color:'#64748b',font:{size:9},callback:v=>'$'+v}}}}
+    });
+  }
+
+  // ── Gráfica de VALOR de cartera por RAM (líneas, excluye "Sin asignar") ──
+  const vt = m.kam.valueTrend || {labels:[],series:[]};
+  const vtSeries = vt.series.filter(s => s.key !== '__none__');
+  destroyChart('kamValueChart');
+  const cvV = document.getElementById('kamValueChart');
+  if (cvV) {
+    charts.kamValue = new Chart(cvV.getContext('2d'), {
+      type:'line',
+      data:{ labels: vt.labels, datasets: vtSeries.map(s => ({
+        label: s.label, data: s.data,
+        borderColor: colorFor[s.key], backgroundColor: colorFor[s.key],
+        borderWidth:2, tension:.3, pointRadius:3, fill:false
+      }))},
+      options:{responsive:true,maintainAspectRatio:false,
+        plugins:{legend:{position:'top',labels:{boxWidth:10,padding:12,color:'#64748b',font:{size:10}}},
+          tooltip:{mode:'index',intersect:false,callbacks:{label:ctx=>`${ctx.dataset.label}: $${ctx.parsed.y.toLocaleString('es-CO')}`}}},
+        scales:{x:{grid:{display:false},ticks:{color:'#64748b',font:{size:10}}},
+          y:{grid:{color:'rgba(15,23,42,.04)'},ticks:{color:'#64748b',font:{size:9},callback:v=>'$'+v},beginAtZero:true}}}
     });
   }
 }
@@ -3951,6 +4219,19 @@ function buildMonthNav(){
       </select>
     </div>
     <div id="gruposModalContent">cargando...</div>
+  </div>
+</div>
+
+<div id="otrosModal" style="display:none;position:fixed;inset:0;z-index:1000;background:rgba(0,0,0,.65);backdrop-filter:blur(4px)" onclick="if(event.target===this)closeOtrosModal()">
+  <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:min(920px,96vw);max-height:85vh;overflow-y:auto;background:#ffffff;border:1px solid rgba(15,23,42,.1);border-radius:16px;padding:28px 32px;box-shadow:0 8px 32px rgba(15,23,42,.15)">
+    <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:20px">
+      <div>
+        <div style="font-family:'Syne',sans-serif;font-size:16px;font-weight:800;color:#0f172a">🔍 Detalle · cancelados en nicho "Otros"</div>
+        <div style="font-size:11px;color:var(--muted);margin-top:4px">Cuentas pagas canceladas con Tipo de negocio "Otros", agrupadas por la columna NICHO INTERPRETADO · histórico</div>
+      </div>
+      <button onclick="closeOtrosModal()" style="background:rgba(15,23,42,.06);border:none;color:var(--muted);font-size:18px;cursor:pointer;border-radius:6px;padding:4px 10px;line-height:1">✕</button>
+    </div>
+    <div id="otrosModalContent">cargando...</div>
   </div>
 </div>
 
