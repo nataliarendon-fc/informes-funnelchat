@@ -327,25 +327,14 @@ body{background:var(--navy);color:var(--text);font-family:'DM Sans',sans-serif;f
 
     <div id="hist6_s3" style="margin-top:14px;margin-bottom:28px"></div>
 
-    <!-- Resultados del onboarding: días a la sesión y % activación, por segmento/plan × mes -->
+    <!-- Resultados del onboarding: activación y días, sobre cuentas creadas y capacitadas en el periodo -->
     <div class="card" style="margin-top:14px;margin-bottom:28px">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;flex-wrap:wrap;gap:8px">
-        <div>
-          <div class="chart-title" style="font-size:13px;margin-bottom:2px">Resultados del onboarding · evolución por perfil</div>
-          <div style="font-size:10px;color:var(--muted)" id="onbResSub">Sobre las cuentas que asistieron a onboarding cada mes. Compara la mejora en el tiempo.</div>
-        </div>
-        <div style="display:flex;gap:10px;flex-wrap:wrap">
-          <div style="display:flex;gap:6px" id="onbResMetric">
-            <button class="mn-btn active" data-met="dias" onclick="setOnbRes('met','dias')">Días a la sesión</button>
-            <button class="mn-btn" data-met="activacion" onclick="setOnbRes('met','activacion')">% Activación</button>
-          </div>
-          <div style="display:flex;gap:6px" id="onbResGroup">
-            <button class="mn-btn active" data-grp="segmento" onclick="setOnbRes('grp','segmento')">Segmento</button>
-            <button class="mn-btn" data-grp="plan" onclick="setOnbRes('grp','plan')">Plan</button>
-          </div>
-        </div>
-      </div>
-      <div style="position:relative;height:300px"><canvas id="onbResCanvas"></canvas></div>
+      <div class="chart-title" style="font-size:13px;margin-bottom:2px">Resultados del onboarding · evolución por perfil</div>
+      <div class="chart-sub" id="onbResSub" style="margin-bottom:10px">Solo cuentas <strong>creadas y capacitadas (con onboarding) en cada periodo</strong>. Columnas = últimos 6 meses. "Tend." compara los últimos 3 meses vs los 3 previos.</div>
+      <div style="font-size:11px;font-weight:800;color:#0f172a;font-family:'Syne',sans-serif;margin:6px 0 4px">% Activación</div>
+      <div id="onbResActiv" style="overflow-x:auto"></div>
+      <div style="font-size:11px;font-weight:800;color:#0f172a;font-family:'Syne',sans-serif;margin:18px 0 4px">Días para onboarding</div>
+      <div id="onbResDias" style="overflow-x:auto"></div>
     </div>
 
   <!-- BLOQUE 5 -->
@@ -684,36 +673,38 @@ function calcMonth(off){
   const C=RAW.cuentas,O=RAW.onboarding,S=RAW.sesiones;
   const acctById={};C.forEach(r=>{const id=(r['id']||'').toString().trim();if(id)acctById[id]=r;});
 
-  // ── Resultados de onboarding: días a la sesión (nuevas/antiguas) y % activación (segmento/plan) × 6 meses ──
+  // ── Resultados de onboarding: activación y días, sobre cuentas CREADAS y capacitadas (onboarding) en el periodo ──
   const onbResultados = (() => {
     const attended = O.filter(r => (r['Estado del onboarding']||'')==='Asistió');
     const rmonths=[]; for(let i=-5;i<=0;i++){const rr=getMonthRange(off+i);rmonths.push({r:rr,label:fmtMonthShort(rr.start)});}
-    const diasN=rmonths.map(()=>({s:0,n:0})), diasA=rmonths.map(()=>({s:0,n:0}));
-    const segAcc={}, planAcc={};
-    const segVal=a=>{if(!a)return'Sin seg';const s=(a['Segmento de cliente (priorización de cliente)']||'').trim();return (s==='A'||s==='B'||s==='C')?('Seg '+s):'Sin seg';};
-    const planVal=a=>{if(!a)return'Sin plan';const p=(a['Planes Funnelchat']||'').toString().replace(/^Plan\s+/i,'').trim();return p||'Sin plan';};
+    const segVal=a=>{const s=(a['Segmento de cliente (priorización de cliente)']||'').trim();return (s==='A'||s==='B'||s==='C')?('Seg '+s):'Sin seg';};
+    const acc={}; // key -> [ {aS,aN,dS,dN} x6 ]
+    const bump=(key,mi,niv,dv)=>{
+      acc[key]=acc[key]||rmonths.map(()=>({aS:0,aN:0,dS:0,dN:0}));
+      const c=acc[key][mi];
+      c.aS+=(niv!==null?niv:0); c.aN++;                 // activación (sin dato = 0)
+      if(dv!==null&&dv>=0){ c.dS+=dv; c.dN++; }          // días (solo válidos)
+    };
     rmonths.forEach((mo,mi)=>{
-      attended.filter(r=>inRange(getOnbPrimaryDate(r),mo.r)).forEach(r=>{
-        const dv=getOnbDias(r);
-        if(dv!==null&&dv>=0){ if(dv<=30){diasN[mi].s+=dv;diasN[mi].n++;} else {diasA[mi].s+=dv;diasA[mi].n++;} }
+      attended.forEach(r=>{
         const acct=acctById[getOnbUserId(r)];
-        if(acct){
-          const nv=parseNivel(acct); const add=(nv!==null?nv:0);
-          const sg=segVal(acct), pl=planVal(acct);
-          (segAcc[sg]=segAcc[sg]||rmonths.map(()=>({s:0,n:0})))[mi].s+=add; segAcc[sg][mi].n++;
-          (planAcc[pl]=planAcc[pl]||rmonths.map(()=>({s:0,n:0})))[mi].s+=add; planAcc[pl][mi].n++;
-        }
+        if(!acct) return;
+        if(!inRange(getCA(acct),mo.r)) return;           // creada en el periodo
+        const niv=parseNivel(acct), dv=getOnbDias(r), tipo=getOnbTipo(r), seg=segVal(acct);
+        bump('general',mi,niv,dv);
+        if(tipo==='nuevas') bump('nuevas',mi,niv,dv);
+        else if(tipo==='antiguo') bump('antiguas',mi,niv,dv);
+        bump(seg,mi,niv,dv);
       });
     });
-    const avgArr=arr=>arr.map(c=>c.n>0?Math.round(c.s/c.n):null);
-    const nArr=arr=>arr.map(c=>c.n);
-    const packGroups=obj=>{const groups={},n={};Object.entries(obj).forEach(([g,arr])=>{groups[g]=avgArr(arr);n[g]=nArr(arr);});return {groups,n};};
-    return {
-      monthsLabels: rmonths.map(x=>x.label),
-      diasNuevas: avgArr(diasN), nDiasNuevas: nArr(diasN),
-      diasAntiguas: avgArr(diasA), nDiasAntiguas: nArr(diasA),
-      activacion: { segmento: packGroups(segAcc), plan: packGroups(planAcc) }
-    };
+    const activOf=k=>(acc[k]||rmonths.map(()=>({aN:0}))).map(c=>c.aN>0?Math.round(c.aS/c.aN):null);
+    const diasOf =k=>(acc[k]||rmonths.map(()=>({dN:0}))).map(c=>c.dN>0?Math.round(c.dS/c.dN):null);
+    const nOf    =k=>(acc[k]||rmonths.map(()=>({aN:0}))).map(c=>c.aN);
+    const segKeys=Object.keys(acc).filter(k=>k.startsWith('Seg ')).sort();
+    const hasSin = !!acc['Sin seg'] && nOf('Sin seg').some(x=>x>0);
+    const keys=['general','nuevas','antiguas'].concat(segKeys).concat(hasSin?['Sin seg']:[]);
+    const activ={}, dias={}, n={}; keys.forEach(k=>{activ[k]=activOf(k);dias[k]=diasOf(k);n[k]=nOf(k);});
+    return { monthsLabels:rmonths.map(x=>x.label), keys, activ, dias, n };
   })();
 
   const vigP=C.filter(r=>(r['Vigencia del servicio']||'').trim()==='Vigente'&&isPaga(r));
@@ -2759,41 +2750,43 @@ function renderCancelEvo(dim){
   box.innerHTML=html;
 }
 
-window._onbResMet='dias'; window._onbResGrp='segmento';
-let _onbResChart=null;
-function setOnbRes(kind,val){
-  if(kind==='met'){window._onbResMet=val; document.querySelectorAll('#onbResMetric .mn-btn').forEach(b=>b.classList.toggle('active',b.dataset.met===val));}
-  else {window._onbResGrp=val; document.querySelectorAll('#onbResGroup .mn-btn').forEach(b=>b.classList.toggle('active',b.dataset.grp===val));}
-  renderOnbRes();
-}
 function renderOnbRes(){
   const m=window._mesMet; if(!m||!m.onbResultados)return;
-  const cv=document.getElementById('onbResCanvas'); if(!cv)return;
-  const R=m.onbResultados; const met=window._onbResMet, grp=window._onbResGrp;
-  const labels=R.monthsLabels;
-  const grpToggle=document.getElementById('onbResGroup'); if(grpToggle)grpToggle.style.display=(met==='activacion')?'flex':'none';
-  let datasets=[];
-  if(met==='dias'){
-    datasets=[
-      {label:'Nuevas (≤30 días)',  data:R.diasNuevas,   borderColor:'#2563eb', backgroundColor:'#2563eb', tension:.3, spanGaps:true, pointRadius:3, borderWidth:2},
-      {label:'Antiguas (>30 días)', data:R.diasAntiguas, borderColor:'#ea580c', backgroundColor:'#ea580c', tension:.3, spanGaps:true, pointRadius:3, borderWidth:2},
-    ];
-  } else {
-    const g=(R.activacion[grp]||{groups:{}}); const palette=['#2563eb','#16a34a','#7c3aed','#ea580c','#0891b2','#db2777','#64748b'];
-    datasets=Object.keys(g.groups).map((k,i)=>({label:k, data:g.groups[k], borderColor:palette[i%palette.length], backgroundColor:palette[i%palette.length], tension:.3, spanGaps:true, pointRadius:3, borderWidth:2}));
-  }
-  if(_onbResChart)_onbResChart.destroy();
-  _onbResChart=new Chart(cv,{type:'line',data:{labels,datasets},options:{responsive:true,maintainAspectRatio:false,
-    interaction:{mode:'index',intersect:false},
-    plugins:{legend:{labels:{font:{family:'DM Sans',size:11},color:'#334155',boxWidth:12}},
-      tooltip:{callbacks:{label:c=>c.dataset.label+': '+(c.parsed.y==null?'—':c.parsed.y+(met==='dias'?' d':'%'))}}},
-    scales:{x:{grid:{display:false},ticks:{font:{size:10},color:'#64748b'}},
-      y:{beginAtZero:true,grid:{color:'rgba(15,23,42,.06)'},ticks:{font:{size:10},color:'#64748b',callback:v=>v+(met==='dias'?'d':'%')},
-        title:{display:true,text:(met==='dias'?'Días a la sesión':'% Activación'),font:{size:10},color:'#64748b'}}}}});
-  const sub=document.getElementById('onbResSub');
-  if(sub)sub.innerHTML = met==='dias'
-    ? 'Días promedio desde que se crea la cuenta hasta la sesión de onboarding. <strong>Nuevas</strong> = onboarding dentro de los 30 días de creada · <strong>Antiguas</strong> = después de 30 días. Menos es mejor.'
-    : '% de activación promedio (Nivel de implementación) de las cuentas que asistieron a onboarding, por '+(grp==='segmento'?'segmento':'plan')+'. Ojo: los meses recientes pueden verse bajos porque esas cuentas llevan menos tiempo implementando.';
+  const R=m.onbResultados;
+  const actBox=document.getElementById('onbResActiv'), diaBox=document.getElementById('onbResDias');
+  if(!actBox||!diaBox)return;
+  const rowLabel={general:'General', nuevas:'↳ Nuevas (onb ≤30 días)', antiguas:'↳ Antiguas (onb >30 días)','Seg A':'Segmento A','Seg B':'Segmento B','Seg C':'Segmento C','Sin seg':'Sin segmento'};
+  const buildTable=(series, unit, betterUp)=>{
+    const labels=R.monthsLabels;
+    const fmt=v=>v===null?'<span style="color:#cbd5e1">—</span>':v+unit;
+    const trend=vals=>{
+      const rec=vals.slice(3).filter(v=>v!==null), pre=vals.slice(0,3).filter(v=>v!==null);
+      if(!rec.length||!pre.length)return '<span style="color:var(--muted)">—</span>';
+      const ra=rec.reduce((a,b)=>a+b,0)/rec.length, pa=pre.reduce((a,b)=>a+b,0)/pre.length;
+      const d=Math.round((ra-pa)*10)/10;
+      if(d===0)return '<span style="color:var(--muted)">≈</span>';
+      const bueno=betterUp?d>0:d<0;
+      return '<span style="color:'+(bueno?'var(--green2)':'var(--red)')+'">'+(d>0?'▲ +'+d:'▼ '+d)+unit+'</span>';
+    };
+    let html='<table style="width:100%;border-collapse:collapse"><thead><tr>'
+      +'<th style="text-align:left;padding:5px 8px;font-size:9px;color:var(--muted)"></th>'
+      +labels.map(l=>'<th style="text-align:center;padding:5px 6px;font-size:9px;color:var(--muted)">'+l+'</th>').join('')
+      +'<th style="text-align:center;padding:5px 8px;font-size:9px;color:var(--muted)">Tend.</th></tr></thead><tbody>';
+    html+='<tr><td style="padding:4px 8px;font-size:9px;color:var(--muted)">Base: cuentas (n)</td>'
+      +R.n.general.map(v=>'<td style="text-align:center;padding:4px 6px;font-size:9px;color:var(--muted)">'+v+'</td>').join('')
+      +'<td></td></tr>';
+    R.keys.forEach(k=>{
+      const vals=series[k]||[]; const isSep=(k==='nuevas'||k==='Seg A');
+      const bold=(k==='general')?'font-weight:700;':'';
+      html+='<tr style="'+(isSep?'border-top:1px solid var(--border);':'')+'"><td style="padding:5px 8px;font-size:11px;color:#334155;white-space:nowrap;'+bold+'">'+(rowLabel[k]||k)+'</td>'
+        +vals.map((v,i)=>'<td style="text-align:center;padding:5px 6px;font-size:11px;color:#0f172a;'+bold+'" title="n='+((R.n[k]||[])[i]||0)+'">'+fmt(v)+'</td>').join('')
+        +'<td style="text-align:center;padding:5px 8px;font-size:10px">'+trend(vals)+'</td></tr>';
+    });
+    html+='</tbody></table>';
+    return html;
+  };
+  actBox.innerHTML=buildTable(R.activ,'%',true);   // activación: subir es mejor
+  diaBox.innerHTML=buildTable(R.dias,'d',false);   // días: bajar es mejor
 }
 
 function renderQuienesMes(mode) {
