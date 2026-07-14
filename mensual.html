@@ -673,40 +673,6 @@ function calcMonth(off){
   const C=RAW.cuentas,O=RAW.onboarding,S=RAW.sesiones;
   const acctById={};C.forEach(r=>{const id=(r['id']||'').toString().trim();if(id)acctById[id]=r;});
 
-  // ── Resultados de onboarding: activación y días, sobre cuentas CREADAS y capacitadas (onboarding) en el periodo ──
-  const onbResultados = (() => {
-    const attended = O.filter(r => (r['Estado del onboarding']||'')==='Asistió');
-    const rmonths=[]; for(let i=-5;i<=0;i++){const rr=getMonthRange(off+i);rmonths.push({r:rr,label:fmtMonthShort(rr.start)});}
-    const segVal=a=>{const s=(a['Segmento de cliente (priorización de cliente)']||'').trim();return (s==='A'||s==='B'||s==='C')?('Seg '+s):'Sin seg';};
-    const acc={}; // key -> [ {aS,aN,dS,dN} x6 ]
-    const bump=(key,mi,niv,dv)=>{
-      acc[key]=acc[key]||rmonths.map(()=>({aS:0,aN:0,dS:0,dN:0}));
-      const c=acc[key][mi];
-      c.aS+=(niv!==null?niv:0); c.aN++;                 // activación (sin dato = 0)
-      if(dv!==null&&dv>=0){ c.dS+=dv; c.dN++; }          // días (solo válidos)
-    };
-    rmonths.forEach((mo,mi)=>{
-      attended.forEach(r=>{
-        const acct=acctById[getOnbUserId(r)];
-        if(!acct) return;
-        if(!inRange(getCA(acct),mo.r)) return;           // creada en el periodo
-        const niv=parseNivel(acct), dv=getOnbDias(r), tipo=getOnbTipo(r), seg=segVal(acct);
-        bump('general',mi,niv,dv);
-        if(tipo==='nuevas') bump('nuevas',mi,niv,dv);
-        else if(tipo==='antiguo') bump('antiguas',mi,niv,dv);
-        bump(seg,mi,niv,dv);
-      });
-    });
-    const activOf=k=>(acc[k]||rmonths.map(()=>({aN:0}))).map(c=>c.aN>0?Math.round(c.aS/c.aN):null);
-    const diasOf =k=>(acc[k]||rmonths.map(()=>({dN:0}))).map(c=>c.dN>0?Math.round(c.dS/c.dN):null);
-    const nOf    =k=>(acc[k]||rmonths.map(()=>({aN:0}))).map(c=>c.aN);
-    const segKeys=Object.keys(acc).filter(k=>k.startsWith('Seg ')).sort();
-    const hasSin = !!acc['Sin seg'] && nOf('Sin seg').some(x=>x>0);
-    const keys=['general','nuevas','antiguas'].concat(segKeys).concat(hasSin?['Sin seg']:[]);
-    const activ={}, dias={}, n={}; keys.forEach(k=>{activ[k]=activOf(k);dias[k]=diasOf(k);n[k]=nOf(k);});
-    return { monthsLabels:rmonths.map(x=>x.label), keys, activ, dias, n };
-  })();
-
   const vigP=C.filter(r=>(r['Vigencia del servicio']||'').trim()==='Vigente'&&isPaga(r));
 
   // ── Plan de reposo ─────────────────────────────────
@@ -1307,7 +1273,37 @@ function calcMonth(off){
       avgConSes: avgNivTotal(rowsSes), nConSes: rowsSes.length };
   }).filter(s=>s.n>0);
 
-  // Feature usage: Usa flows + Usa grupos?
+  // ── Resultados de onboarding — MISMA lógica de las 2 secciones de referencia ──
+  //  · Activación: cuentas creadas en el mes (pagas) con onboarding (∩ onbAsistIds), avg = avgNivTotal  [= "Activación de cuentas nuevas"]
+  //  · Días: asistentes del mes por fecha de onboarding, avgDias sobre getOnbDias, tipo por getOnbTipo   [= "Detalle ONB — tiempo al ONB"]
+  const onbResultados = (() => {
+    const rmonths=[]; for(let i=-5;i<=0;i++){const rr=getMonthRange(off+i);rmonths.push({r:rr,label:fmtMonthShort(rr.start)});}
+    const segOf=a=>{const s=(a['Segmento de cliente (priorización de cliente)']||'').trim();return (s==='A'||s==='B'||s==='C')?('Seg '+s):'Sin seg';};
+    const asistio = r => (r['Estado del onboarding']||'').toLowerCase().replace(/ó/g,'o').replace(/í/g,'i').trim()==='asistio';
+    // id -> fila de onboarding asistida (más reciente) para clasificar nueva/antigua en activación
+    const onbRowById={};
+    O.filter(asistio).forEach(r=>{const id=getOnbUserId(r);if(!id)return;const p=onbRowById[id];if(!p||(getOnbPrimaryDate(r)||0)>(getOnbPrimaryDate(p)||0))onbRowById[id]=r;});
+    const tipoDe=id=>{const row=onbRowById[id];return row?getOnbTipo(row):null;};
+    const avgDias=arr=>{const v=arr.map(getOnbDias).filter(x=>x!==null);return v.length?Math.round(v.reduce((a,b)=>a+b,0)/v.length):null;};
+    const KEYS=['general','nuevas','antiguas','Seg A','Seg B','Seg C','Sin seg'];
+    const activ={}, nActiv={}, dias={}, nDias={}; KEYS.forEach(k=>{activ[k]=[];nActiv[k]=[];dias[k]=[];nDias[k]=[];});
+    rmonths.forEach(mo=>{
+      // ACTIVACIÓN (idéntica a la sección): creadas en el mes + pagas + con onboarding
+      const conOnb = C.filter(r=>{const ca=getCA(r);return ca&&inRange(ca,mo.r)&&isPaga(r)&&onbAsistIds.has((r['id']||'').toString().trim());});
+      const aBy={general:conOnb,nuevas:[],antiguas:[],'Seg A':[],'Seg B':[],'Seg C':[],'Sin seg':[]};
+      conOnb.forEach(r=>{const t=tipoDe((r['id']||'').toString().trim());if(t==='nuevas')aBy.nuevas.push(r);else if(t==='antiguo')aBy.antiguas.push(r);const s=segOf(r);aBy[s].push(r);});
+      KEYS.forEach(k=>{const arr=aBy[k];activ[k].push(arr.length?avgNivTotal(arr):null);nActiv[k].push(arr.length);});
+      // DÍAS (idéntica a "Detalle ONB"): asistentes del mes por fecha de onboarding
+      const att = O.filter(r=>asistio(r)&&inRange(getOnbPrimaryDate(r),mo.r));
+      const dBy={general:att,nuevas:[],antiguas:[],'Seg A':[],'Seg B':[],'Seg C':[],'Sin seg':[]};
+      att.forEach(r=>{const t=getOnbTipo(r);if(t==='nuevas')dBy.nuevas.push(r);else if(t==='antiguo')dBy.antiguas.push(r);const a=acctById[getOnbUserId(r)];const s=a?segOf(a):'Sin seg';dBy[s].push(r);});
+      KEYS.forEach(k=>{const arr=dBy[k];dias[k].push(arr.length?avgDias(arr):null);nDias[k].push(arr.length);});
+    });
+    const keepSin = nActiv['Sin seg'].some(x=>x>0)||nDias['Sin seg'].some(x=>x>0);
+    const keys=['general','nuevas','antiguas','Seg A','Seg B','Seg C'].concat(keepSin?['Sin seg']:[]);
+    return { monthsLabels:rmonths.map(x=>x.label), keys, activ, nActiv, dias, nDias };
+  })();
+
   const parseUsage = (r, col) => { const v=parseInt((r[col]||'').toString().replace(/[^0-9]/g,'')); return isNaN(v)?0:v; };
   const flowDist   = [0,1,2,3].map(n => ({ n, count: newLast4w.filter(r=>parseUsage(r,'Usa flows')===n).length }));
   const apiSi      = newLast4w.filter(r=>(r['Usa API?']||'').trim()==='Sí').length;
@@ -2756,7 +2752,7 @@ function renderOnbRes(){
   const actBox=document.getElementById('onbResActiv'), diaBox=document.getElementById('onbResDias');
   if(!actBox||!diaBox)return;
   const rowLabel={general:'General', nuevas:'↳ Nuevas (onb ≤30 días)', antiguas:'↳ Antiguas (onb >30 días)','Seg A':'Segmento A','Seg B':'Segmento B','Seg C':'Segmento C','Sin seg':'Sin segmento'};
-  const buildTable=(series, unit, betterUp)=>{
+  const buildTable=(series, nmap, unit, betterUp)=>{
     const labels=R.monthsLabels;
     const fmt=v=>v===null?'<span style="color:#cbd5e1">—</span>':v+unit;
     const trend=vals=>{
@@ -2773,20 +2769,20 @@ function renderOnbRes(){
       +labels.map(l=>'<th style="text-align:center;padding:5px 6px;font-size:9px;color:var(--muted)">'+l+'</th>').join('')
       +'<th style="text-align:center;padding:5px 8px;font-size:9px;color:var(--muted)">Tend.</th></tr></thead><tbody>';
     html+='<tr><td style="padding:4px 8px;font-size:9px;color:var(--muted)">Base: cuentas (n)</td>'
-      +R.n.general.map(v=>'<td style="text-align:center;padding:4px 6px;font-size:9px;color:var(--muted)">'+v+'</td>').join('')
+      +(nmap.general||[]).map(v=>'<td style="text-align:center;padding:4px 6px;font-size:9px;color:var(--muted)">'+v+'</td>').join('')
       +'<td></td></tr>';
     R.keys.forEach(k=>{
       const vals=series[k]||[]; const isSep=(k==='nuevas'||k==='Seg A');
       const bold=(k==='general')?'font-weight:700;':'';
       html+='<tr style="'+(isSep?'border-top:1px solid var(--border);':'')+'"><td style="padding:5px 8px;font-size:11px;color:#334155;white-space:nowrap;'+bold+'">'+(rowLabel[k]||k)+'</td>'
-        +vals.map((v,i)=>'<td style="text-align:center;padding:5px 6px;font-size:11px;color:#0f172a;'+bold+'" title="n='+((R.n[k]||[])[i]||0)+'">'+fmt(v)+'</td>').join('')
+        +vals.map((v,i)=>'<td style="text-align:center;padding:5px 6px;font-size:11px;color:#0f172a;'+bold+'" title="n='+((nmap[k]||[])[i]||0)+'">'+fmt(v)+'</td>').join('')
         +'<td style="text-align:center;padding:5px 8px;font-size:10px">'+trend(vals)+'</td></tr>';
     });
     html+='</tbody></table>';
     return html;
   };
-  actBox.innerHTML=buildTable(R.activ,'%',true);   // activación: subir es mejor
-  diaBox.innerHTML=buildTable(R.dias,'d',false);   // días: bajar es mejor
+  actBox.innerHTML=buildTable(R.activ, R.nActiv, '%', true);   // activación: subir es mejor
+  diaBox.innerHTML=buildTable(R.dias, R.nDias, 'd', false);   // días: bajar es mejor
 }
 
 function renderQuienesMes(mode) {
