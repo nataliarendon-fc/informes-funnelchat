@@ -1697,6 +1697,12 @@ function calcMonth(off){
       const avgDiasM     = arr => { const v=arr.map(getOnbDias).filter(x=>x!==null); return v.length?Math.round(v.reduce((a,b)=>a+b,0)/v.length):null; };
       const diasNuevasM  = avgDiasM(onbGHLNuevasM);
       const diasAntiguasM= avgDiasM(onbGHLAntiguasM);
+      // Composición de los asistentes a onboarding: % que eran cuentas pagas vs trial
+      const onbAsistPM = onbAsistAllM.filter(r=>getOnbType(r)==='paga').length;
+      const onbAsistTM = onbAsistAllM.filter(r=>getOnbType(r)==='trial').length;
+      const onbAsistClasif = onbAsistPM + onbAsistTM;
+      const onbCompPaga  = onbAsistClasif>0 ? Math.round(onbAsistPM/onbAsistClasif*100) : null;
+      const onbCompTrial = onbAsistClasif>0 ? Math.round(onbAsistTM/onbAsistClasif*100) : null;
 
       // AHA — tiempo al hito por mes, con ONB vs sin ONB
       const conOnbM = newP.filter(r => (r['Onboarding']||'').trim()==='Con onboarding');
@@ -1775,7 +1781,7 @@ function calcMonth(off){
         diasNuevasM, diasAntiguasM,
         onbProp:onbM.length, onbAgen:onbAgenM,
         onbAsist:onbAsistM, onbNS:onbNSM,
-        onbCob:cobM, onbAsistTasa:asistTasaM,
+        onbCob:cobM, onbAsistTasa:asistTasaM, onbCompPaga, onbCompTrial,
         onbRetPct, onbRetVig,
         ahaM,
         // Sesiones
@@ -3066,15 +3072,11 @@ function renderHist6(m) {
         {label:'ONB propuesto',                values:H.map(h=>h.onbProp),       inv:false, fmt:'n'},
         {label:'Agendados',                    values:H.map(h=>h.onbAgen),       inv:false, fmt:'n'},
         {label:'Asistentes',                   values:H.map(h=>h.onbAsist),      inv:false, fmt:'n'},
-        {label:'↳ Cuentas nuevas',          values:H.map(h=>h.onbGHLNuevas??null),  inv:false, fmt:'n'},
-        {label:'↳ Cuentas antiguas',        values:H.map(h=>h.onbGHLAntiguas??null),inv:false, fmt:'n'},
-        {label:'Días prom. al ONB (nuevas)',  values:H.map(h=>h.diasNuevasM??null),  inv:true,  fmt:'n'},
-        {label:'Días prom. al ONB (antiguas)',values:H.map(h=>h.diasAntiguasM??null),inv:true,  fmt:'n'},
+        {label:'% Tasa asistencia',            values:H.map(h=>h.onbAsistTasa),  inv:false, fmt:'%'},
+        {label:'% Cobertura pagas (de asistentes)', values:H.map(h=>h.onbCompPaga),  inv:false, fmt:'%'},
+        {label:'% Cobertura trial (de asistentes)', values:H.map(h=>h.onbCompTrial), inv:false, fmt:'%'},
         {label:'No show',                      values:H.map(h=>h.onbNS),         inv:true,  fmt:'n'},
         {label:'% No show',                    values:H.map(h=>h.onbAgen>0?Math.round(h.onbNS/h.onbAgen*100):0), inv:true, fmt:'%'},
-        {label:'% Cobertura pagas',            values:H.map(h=>h.onbCob),        inv:false, fmt:'%'},
-        {label:'% Tasa asistencia',            values:H.map(h=>h.onbAsistTasa),  inv:false, fmt:'%'},
-        {label:'Asistentes vigentes',          values:H.map(h=>h.onbRetVig),     inv:false, fmt:'n'},
         {label:'% Retención asistentes',       values:H.map(h=>h.onbRetPct),     inv:false, fmt:'%'},
       ]) +
       buildH('Histórico 6 meses — Tiempo al hito AHA', 'var(--yellow)', [
