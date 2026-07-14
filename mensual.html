@@ -219,7 +219,10 @@ body{background:var(--navy);color:var(--text);font-family:'DM Sans',sans-serif;f
     </div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
       <div class="card">
-        <div class="chart-title" style="margin-bottom:4px;font-size:12px">Tipo de negocio</div>
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
+          <div class="chart-title" style="font-size:12px;margin-bottom:0">Tipo de negocio</div>
+          <button onclick="openOtrosModal()" style="font-size:9px;font-weight:700;padding:3px 10px;border-radius:6px;border:1px solid rgba(45,212,191,.3);background:rgba(45,212,191,.07);color:var(--teal);cursor:pointer;font-family:'DM Sans',sans-serif">🔍 Detalle "Otros"</button>
+        </div>
         <div style="font-size:10px;color:var(--muted);margin-bottom:8px">% este mes vs % acumulado histórico</div>
         <div id="nichoMes"></div>
       </div>
@@ -244,10 +247,13 @@ body{background:var(--navy);color:var(--text);font-family:'DM Sans',sans-serif;f
     </div>
   </div>
 
-  <!-- BLOQUE: DESGLOSE NICHO OTROS (texto abierto clasificado) -->
+  <!-- BLOQUE: DESGLOSE NICHO OTROS (columna NICHO INTERPRETADO) -->
   <div class="card" style="margin-top:14px">
-    <div class="chart-title" style="margin-bottom:2px;font-size:13px">Desglose del nicho "Otros" · texto abierto clasificado</div>
-    <div style="font-size:10px;color:var(--muted);margin-bottom:12px" id="otrosNichoHint">De los cancelados pagas (histórico) que escribieron su nicho en texto abierto, agrupados por categoría con un clasificador por palabras clave.</div>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:2px;flex-wrap:wrap;gap:6px">
+      <div class="chart-title" style="font-size:13px;margin-bottom:0">Desglose del nicho "Otros" · nicho interpretado</div>
+      <button onclick="openOtrosModal()" style="font-size:9px;font-weight:700;padding:3px 10px;border-radius:6px;border:1px solid rgba(45,212,191,.3);background:rgba(45,212,191,.07);color:var(--teal);cursor:pointer;font-family:'DM Sans',sans-serif">🔍 Ver detalle por cuenta</button>
+    </div>
+    <div style="font-size:10px;color:var(--muted);margin-bottom:12px" id="otrosNichoHint">De los cancelados pagas (histórico) con Tipo de negocio "Otros", agrupados por la columna NICHO INTERPRETADO.</div>
     <div id="otrosNichoBox"></div>
   </div>
 
@@ -424,6 +430,10 @@ const NICHO_RULES=[
   ['Servicios y otros negocios', /servicio|logistic|transporte|carpinteria|tratamiento de agua|operador|constructora|construccion|publicidad|marketing|consultor|asesor|agencia|fumigacion|limpieza|seguridad|registrales|despacho|prefabricados|fabrica|emprendimiento|coach|dinamica/],
 ];
 function clasificarNicho(txt){const t=(txt||'').toString().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/\s+/g,' ').trim();if(!t)return null;for(const [cat,re] of NICHO_RULES){if(re.test(t))return cat;}return 'Otros sin clasificar';}
+// Lee la columna 'NICHO INTERPRETADO' del archivo principal de forma robusta (tolera mayúsculas/espacios/tildes).
+function getNichoInterp(r){ if(r&&r['NICHO INTERPRETADO']!==undefined) return (r['NICHO INTERPRETADO']||'').toString().trim(); for(const k in r){ if(k.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/\s+/g,' ').trim()==='nicho interpretado') return (r[k]||'').toString().trim(); } return ''; }
+// ¿La cuenta tiene Tipo de negocio = "Otros"?
+function esNichoOtros(r){ const t=(r['Tipo de negocio']||'').toString().trim().toLowerCase(); return t==='otros'||t==='otro'; }
 function getOnbDate(r){return parseISO(r['Fecha registro'])||parseISO(r['Fecha estado onboarding'])||null;}
 function getOnbGHLDate(r){return parseSpDate(r['Fecha de ONB GHL'])||parseISO(r['Fecha de ONB GHL'])||null;}
 function getContactId(r){return (r['contact_id']||r['id_unico']||'').toString().trim();}
@@ -693,6 +703,25 @@ function calcMonth(off){
       if (firstPaid) conversions.push({ uid, convDate: firstPaid.d });
     });
     return conversions;
+  })();
+  // Inicios de trial derivados de la tabla payments: cuentas cuyo primer pago fue en 0 (trial),
+  // contadas por la fecha de ese pago 0 — independiente de si luego se pasaron a pagas.
+  const trialStartsFromPayments = (() => {
+    const byUser = {};
+    RAW.payments.forEach(p => {
+      const uid = (p['User ID']||'').toString().trim(); if(!uid) return;
+      const d   = parseSpanishLong(p['Date']) || parseSpDate(p['Date']) || parseISO(p['Date']);
+      const val = parseFloat((p['Plan Value']||'0').toString().replace(/[^0-9.]/g,'')) || 0;
+      if(!d) return;
+      (byUser[uid] = byUser[uid] || []).push({ d, val });
+    });
+    const starts = []; // { uid, trialDate }
+    Object.values(byUser).forEach(pays => {
+      const sorted = pays.sort((a,b)=>a.d-b.d);
+      const firstZero = sorted.find(p => p.val === 0);
+      if (firstZero) starts.push({ trialDate: firstZero.d });
+    });
+    return starts;
   })();
   const convMesArr = convFromPayments.filter(c => inRange(c.convDate, range));
   const convMes = convMesArr.length;
@@ -1195,6 +1224,14 @@ function calcMonth(off){
   const avgConSes = avgNiv(newConSes);
   const avgSinSes = avgNiv(newSinSes);
 
+  // ── Cohorte por ASISTENCIA a onboarding EN EL PERÍODO (cualquier fecha de creación) ──
+  const onbPeriodIds   = new Set(onbAsistAll.map(r=>getOnbUserId(r)).filter(Boolean));
+  const onbPeriodAccts = C.filter(r => onbPeriodIds.has((r['id']||'').toString().trim()) && isPaga(r));
+  const onbPeriodN     = onbPeriodAccts.length;
+  const onbPeriodAvg   = avgNivTotal(onbPeriodAccts);
+  const onbPeriodNuevas  = onbPeriodAccts.filter(r=>{const ca=getCA(r);return ca&&inRange(ca,range);}).length;
+  const onbPeriodPrevias = onbPeriodN - onbPeriodNuevas;
+
   // By segment with onb/ses split
   const nivelBySeg = ['A','B','C'].map(seg => {
     const rows    = newLast4w.filter(r=>(r['Segmento de cliente (priorización de cliente)']||'').trim()===seg);
@@ -1517,9 +1554,10 @@ function calcMonth(off){
     cancelMes:cancelMes.length,convMes:convMes,convMesNuevas:convMesNuevas,convMesPrevias:convMesPrevias,
     cancelMesArr:cancelMes,cancelMesTrial:cancelMesTrial,
     allCancelP:allCancelP,
-    otrosNichos:(()=>{const d={};allCancelP.forEach(r=>{const c=clasificarNicho(r['nicho otro']);if(c)d[c]=(d[c]||0)+1;});return d;})(),
-    otrosNichosN:allCancelP.filter(r=>clasificarNicho(r['nicho otro'])).length,
-    otrosSinTexto:allCancelP.filter(r=>{const n=(r['Tipo de negocio']||'').toString().trim().toLowerCase();return (n==='otros'||n==='otro'||n==='')&&!(r['nicho otro']||'').toString().trim();}).length,
+    otrosInterpRows:allCancelP.filter(esNichoOtros),
+    otrosNichos:(()=>{const d={};allCancelP.forEach(r=>{if(!esNichoOtros(r))return;const c=getNichoInterp(r);if(c)d[c]=(d[c]||0)+1;});return d;})(),
+    otrosNichosN:allCancelP.filter(r=>esNichoOtros(r)&&getNichoInterp(r)).length,
+    otrosSinTexto:allCancelP.filter(r=>esNichoOtros(r)&&!getNichoInterp(r)).length,
     prevCancelMesArr:prevCancelMesArr,atrP:atrP.length,
     mrrActivo,mrrRiesgo,mrrNuevo,mrrPerdido,mrrConv,
     retNeta:nuevosMesP.length-cancelMes.length,
@@ -1552,7 +1590,7 @@ function calcMonth(off){
     nuevosMesP_n:nuevosMesP.length,nuevosMesT_n:nuevosMesT.length,
     mrrProtOnb,pctRetCon:Math.round(retCon*100),pctRetSin:Math.round(retSin*100),
     baiben:{ total:baibenAll.length, churnN:baibenChurnMes.length, pct:baibenPct, avgCycles, avgGapDias, avgGapMes, avgCyclesRec, avgGapDiasRec, avgGapMesRec, baibenRecN, recentGapsN, niches:baibenNiches, nichesMes:baibenNichesMes, objs:baibenObjs, objsMes:baibenObjsMes, baibenTotal, plans:baibenPlans, trend:baibenTrend },
-    activacion:{ n:newLast4w.length, withData:niveles.length, avg:avgNivel, buckets:nivelBuckets, byPlan:nivelByPlan, bySeg:nivelBySeg, byObj:nivelByObj, flowDist, gruposDist, flowsActivos, gruposActivos, totalBase, apiSi, businessSi, avgConOnb, avgSinOnb, avgConSes, avgSinSes, nConOnb:newConOnb.length, nSinOnb:newSinOnb.length },
+    activacion:{ n:newLast4w.length, withData:niveles.length, avg:avgNivel, buckets:nivelBuckets, byPlan:nivelByPlan, bySeg:nivelBySeg, byObj:nivelByObj, flowDist, gruposDist, flowsActivos, gruposActivos, totalBase, apiSi, businessSi, avgConOnb, avgSinOnb, avgConSes, avgSinSes, nConOnb:newConOnb.length, nSinOnb:newSinOnb.length, onbPeriodN, onbPeriodAvg, onbPeriodNuevas, onbPeriodPrevias },
     tiempoOnb:{ all:diasStats(onbDiasAll), nuevas:diasStats(onbDiasNew), antiguas:diasStats(onbDiasOld), histo:onbHisto, byPlan:onbByPlanStats, bySeg:onbBySegStats },
     noNeed:{ n:noNeedRows.length, seg:noNeedSeg, nicho:noNeedNichoArr, plan:noNeedPlanArr },
     onbImpact,sesImpact,embImpactData,
@@ -1590,6 +1628,10 @@ function calcMonth(off){
         return d && inRange(d, mRange) && (p['Plan Name']||'').toLowerCase().includes('reposo');
       }).length;
       const newT  = C.filter(r=>inRange(getCA(r),mRange)&&isTrial(r));
+      // Trials que INICIARON el periodo como trial, según payments (pago 0), sin importar si convirtieron
+      const newTpay = trialStartsFromPayments.filter(t => inRange(t.trialDate, mRange)).length;
+      // Trials convertidos a pago EN ESTE MES — derivado de la tabla payments (no de users)
+      const convM = convFromPayments.filter(c => inRange(c.convDate, mRange)).length;
       const canM  = canP.filter(r=>inRange(cancelDate(r),mRange));
       const atrM  = C.filter(r=>{
         if((r['Vigencia del servicio']||'').trim()!=='Atrasado'||!isPaga(r))return false;
@@ -1692,7 +1734,7 @@ function calcMonth(off){
       months.push({
         lbl,
         // Sección 1
-        newP:newP.length, newT:newT.length, reposoM,
+        newP:newP.length, newT:newT.length, newTpay, convM, reposoM,
         canM:canM.length, atrM:atrM.length,
         vigIni:vigIni.length, mrrM, churnRate,
         retNeta:newP.length-canM.length,
@@ -2540,16 +2582,64 @@ function closeGruposModal() {
   document.getElementById('gruposModal').style.display = 'none';
 }
 
+// ── Modal detalle nicho "Otros" (por columna NICHO INTERPRETADO) ──
+function openOtrosModal(){ if(!window._mesMet)return; document.getElementById('otrosModal').style.display='block'; renderOtrosModal(); }
+function closeOtrosModal(){ document.getElementById('otrosModal').style.display='none'; }
+function renderOtrosModal(){
+  const m=window._mesMet; const el=document.getElementById('otrosModalContent'); if(!m||!el)return;
+  const rows=(m.otrosInterpRows||[]);
+  if(!rows.length){ el.innerHTML='<div style="color:var(--muted);font-size:12px">No hay cancelados pagas con Tipo de negocio "Otros" en el histórico.</div>'; return; }
+  const dist={}; rows.forEach(r=>{ const c=getNichoInterp(r)||'Sin interpretar'; dist[c]=(dist[c]||0)+1; });
+  const entries=Object.entries(dist).sort((a,b)=>b[1]-a[1]);
+  const total=rows.length; const max=entries[0][1]||1;
+  const palette=['#2563eb','#7c3aed','#0d9488','#b45309','#db2777','#0891b2','#65a30d','#e11d48','#0ea5e9','#9333ea','#059669','#ea580c'];
+  const bars=entries.map(([cat,n],i)=>{ const p=Math.round(n/total*100); const col=cat==='Sin interpretar'?'#94a3b8':palette[i%palette.length];
+    return '<div style="display:flex;align-items:center;gap:8px;margin-bottom:7px">'
+      + '<div style="font-size:11px;color:#334155;width:230px;flex-shrink:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="'+cat+'">'+cat+'</div>'
+      + '<div style="flex:1;height:14px;background:rgba(15,23,42,.05);border-radius:7px;overflow:hidden"><div style="width:'+Math.round(n/max*100)+'%;height:100%;background:'+col+';border-radius:7px"></div></div>'
+      + '<div style="font-size:10px;color:var(--muted);width:74px;text-align:right;flex-shrink:0">'+n+' · '+p+'%</div></div>'; }).join('');
+  const fmtD=d=>{ if(!d)return'—'; const p=x=>('0'+x).slice(-2); return p(d.getDate())+'/'+p(d.getMonth()+1)+'/'+d.getFullYear(); };
+  const sorted=[...rows].sort((a,b)=>{ const ca=(getNichoInterp(a)||'zzz'), cb=(getNichoInterp(b)||'zzz'); return ca.localeCompare(cb) || ((cancelDate(b)||0)-(cancelDate(a)||0)); });
+  const trs=sorted.map(r=>{
+    const id=(r['id']||'').toString();
+    const pais=(r['country_name']||r['País']||'').toString();
+    const plan=(r['Planes Funnelchat']||'').toString().replace('Plan ','');
+    const fecha=fmtD(cancelDate(r));
+    const iv=getNichoInterp(r);
+    const interp=iv?iv:'<span style="color:#94a3b8">Sin interpretar</span>';
+    const abierto=(r['nicho otro']||'').toString().trim();
+    return '<tr style="border-bottom:1px solid rgba(15,23,42,.06)">'
+      + '<td style="padding:5px 8px;font-size:10px;color:#334155">'+id+'</td>'
+      + '<td style="padding:5px 8px;font-size:10px;color:#334155">'+interp+'</td>'
+      + '<td style="padding:5px 8px;font-size:10px;color:var(--muted)">'+(abierto||'—')+'</td>'
+      + '<td style="padding:5px 8px;font-size:10px;color:var(--muted)">'+(plan||'—')+'</td>'
+      + '<td style="padding:5px 8px;font-size:10px;color:var(--muted)">'+(pais||'—')+'</td>'
+      + '<td style="padding:5px 8px;font-size:10px;color:var(--muted);text-align:right">'+fecha+'</td></tr>'; }).join('');
+  el.innerHTML =
+    '<div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px">Distribución · '+total+' cuentas</div>'
+    + bars
+    + '<div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin:18px 0 6px">Cuentas ('+total+')</div>'
+    + '<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse">'
+    + '<thead><tr style="border-bottom:1px solid var(--border)">'
+    +   '<th style="padding:5px 8px;font-size:9px;color:var(--muted);text-align:left">ID</th>'
+    +   '<th style="padding:5px 8px;font-size:9px;color:var(--muted);text-align:left">Nicho interpretado</th>'
+    +   '<th style="padding:5px 8px;font-size:9px;color:var(--muted);text-align:left">Texto abierto</th>'
+    +   '<th style="padding:5px 8px;font-size:9px;color:var(--muted);text-align:left">Plan</th>'
+    +   '<th style="padding:5px 8px;font-size:9px;color:var(--muted);text-align:left">País</th>'
+    +   '<th style="padding:5px 8px;font-size:9px;color:var(--muted);text-align:right">Cancelación</th>'
+    + '</tr></thead><tbody>'+trs+'</tbody></table></div>';
+}
+
 function renderQuienesMes(mode) {
   const m = window._mesMet;
   if (!m) return;
 
-  // Desglose del nicho "Otros" (histórico, texto abierto clasificado) — independiente del mes/modo
+  // Desglose del nicho "Otros" (histórico, columna NICHO INTERPRETADO) — independiente del mes/modo
   (function(){
     const box=document.getElementById('otrosNichoBox');const hint=document.getElementById('otrosNichoHint');if(!box)return;
     const dist=m.otrosNichos||{}; const total=m.otrosNichosN||0;
     const entries=Object.entries(dist).sort((a,b)=>b[1]-a[1]);
-    if(!total){box.innerHTML='<div style="color:var(--muted);font-size:11px;padding:6px 0">Aún no hay cuentas canceladas con el nicho escrito en texto abierto (columna \'nicho otro\'). Si la columna es nueva, verifica que el Apps Script la esté exportando.</div>';return;}
+    if(!total){box.innerHTML='<div style="color:var(--muted);font-size:11px;padding:6px 0">Aún no hay cancelados en "Otros" con la columna NICHO INTERPRETADO diligenciada. Si la columna es nueva, verifica que el Apps Script la esté exportando.</div>';return;}
     const max=entries[0][1]||1;
     const palette=['#2563eb','#7c3aed','#0d9488','#b45309','#db2777','#0891b2','#65a30d','#e11d48','#0ea5e9','#9333ea','#059669','#ea580c'];
     box.innerHTML=entries.map(([cat,n],i)=>{
@@ -2560,7 +2650,7 @@ function renderQuienesMes(mode) {
         <div style="font-size:10px;color:var(--muted);width:74px;text-align:right;flex-shrink:0">${n} · ${p}%</div>
       </div>`;
     }).join('');
-    if(hint){const falt=m.otrosSinTexto||0;hint.innerHTML=`De los cancelados pagas (histórico), <strong>${total}</strong> escribieron su nicho en texto abierto y se agruparon con un clasificador por palabras clave. Quedan <strong>${falt}</strong> cancelados en "Otros" <strong>sin texto</strong> (el dato no se capturó): ese hueco no se puede clasificar hasta que se arregle el formulario.`;}
+    if(hint){const falt=m.otrosSinTexto||0;hint.innerHTML=`De los cancelados pagas (histórico) con Tipo de negocio "Otros", <strong>${total}</strong> tienen NICHO INTERPRETADO y se agrupan aquí. Quedan <strong>${falt}</strong> <strong>sin interpretar</strong> (la columna aún vacía para esas cuentas).`;}
   })();
 
   window._quienesMesMode = mode;
@@ -2865,13 +2955,12 @@ function renderHist6(m) {
   // SECCIÓN 1 — Datos duros
   const el1 = document.getElementById('hist6_s1');
   if (el1) el1.innerHTML = buildH('Histórico 6 meses — Datos duros', 'var(--teal)', [
-    {label:'Activas inicio mes',  values:H.map(h=>h.vigIni),    inv:false, fmt:'n'},
     {label:'Nuevas pagas',        values:H.map(h=>h.newP),      inv:false, fmt:'n'},
-    {label:'Nuevas trial',        values:H.map(h=>h.newT),      inv:false, fmt:'n'},
+    {label:'Nuevas trial',        values:H.map(h=>h.newTpay),   inv:false, fmt:'n'},
+    {label:'Trials convertidos a pago', values:H.map(h=>h.convM), inv:false, fmt:'n'},
     {label:'Cancelaciones',       values:H.map(h=>h.canM),      inv:true,  fmt:'n'},
     {label:'Atrasadas del mes',   values:H.map(h=>h.atrM),      inv:true,  fmt:'n'},
     {label:'Retención neta',      values:H.map(h=>h.retNeta),   inv:false, fmt:'n'},
-    {label:'Tasa churn (%)',      values:H.map(h=>h.churnRate), inv:true,  fmt:'%'},
         {label:'En plan reposo',       values:H.map(h=>h.reposoM??null), inv:true,  fmt:'n'},
   ]);
 
@@ -3511,6 +3600,13 @@ function renderActivacion(m) {
     + '</div>'
     // General ONB/Sessions comparison indicator
     + onbVsSinPanel(a)
+    // Segundo indicador: cohorte por ASISTENCIA a onboarding en el período (cualquier fecha de creación)
+    + '<div style="background:rgba(251,146,60,.06);border:1px solid rgba(251,146,60,.22);border-radius:10px;padding:12px 14px;margin-bottom:14px;display:flex;align-items:center;gap:16px;flex-wrap:wrap">'
+    +   '<div style="min-width:220px;flex:1"><div style="font-size:9px;font-weight:700;color:var(--orange);text-transform:uppercase;letter-spacing:.06em">🎓 Con onboarding en el período · cohorte de asistencia</div>'
+    +     '<div style="font-size:9px;color:var(--muted);margin-top:3px">Cuentas pagas que <strong>asistieron a onboarding este período</strong>, sin importar cuándo se crearon · '+a.onbPeriodNuevas+' creadas este mes · '+a.onbPeriodPrevias+' de meses anteriores</div></div>'
+    +   '<div style="text-align:center"><div style="font-family:Syne,sans-serif;font-size:26px;font-weight:800;color:var(--orange);line-height:1">'+a.onbPeriodN+'</div><div style="font-size:9px;color:var(--muted)">cuentas</div></div>'
+    +   '<div style="text-align:center"><div style="font-family:Syne,sans-serif;font-size:26px;font-weight:800;color:var(--green2);line-height:1">'+(a.onbPeriodAvg!==null?a.onbPeriodAvg+'%':'—')+'</div><div style="font-size:9px;color:var(--muted)">implementación prom.</div></div>'
+    + '</div>'
     + ahaTable(m.ahaStatsMes, m.ahaStats)
     + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:14px">'
     +   '<div><div style="font-size:9px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:2px">Distribución por nivel</div>'+'<div style="font-size:8px;color:rgba(148,163,184,.6);margin-bottom:7px">Solo de las '+a.withData+' de '+a.n+' cuentas con % registrado (no incluye sin dato)</div>' + bucketBars + '</div>'
@@ -4145,6 +4241,19 @@ function buildMonthNav(){
       </select>
     </div>
     <div id="gruposModalContent">cargando...</div>
+  </div>
+</div>
+
+<div id="otrosModal" style="display:none;position:fixed;inset:0;z-index:1000;background:rgba(0,0,0,.65);backdrop-filter:blur(4px)" onclick="if(event.target===this)closeOtrosModal()">
+  <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:min(920px,96vw);max-height:85vh;overflow-y:auto;background:#ffffff;border:1px solid rgba(15,23,42,.1);border-radius:16px;padding:28px 32px;box-shadow:0 8px 32px rgba(15,23,42,.15)">
+    <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:20px">
+      <div>
+        <div style="font-family:'Syne',sans-serif;font-size:16px;font-weight:800;color:#0f172a">🔍 Detalle · cancelados en nicho "Otros"</div>
+        <div style="font-size:11px;color:var(--muted);margin-top:4px">Cuentas pagas canceladas con Tipo de negocio "Otros", agrupadas por la columna NICHO INTERPRETADO · histórico</div>
+      </div>
+      <button onclick="closeOtrosModal()" style="background:rgba(15,23,42,.06);border:none;color:var(--muted);font-size:18px;cursor:pointer;border-radius:6px;padding:4px 10px;line-height:1">✕</button>
+    </div>
+    <div id="otrosModalContent">cargando...</div>
   </div>
 </div>
 
