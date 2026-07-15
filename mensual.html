@@ -327,18 +327,38 @@ body{background:var(--navy);color:var(--text);font-family:'DM Sans',sans-serif;f
 
     <div id="hist6_s3" style="margin-top:14px;margin-bottom:28px"></div>
 
-    <!-- Resultados del onboarding: días (asistentes del mes) y activación con vs sin onboarding -->
+    <!-- Resultados del onboarding: días y activación (asistentes del mes) + comparación con/sin -->
     <div class="card" style="margin-top:14px;margin-bottom:28px">
-      <div class="chart-title" style="font-size:13px;margin-bottom:2px">Resultados del onboarding · evolución por perfil</div>
-      <div class="chart-sub" id="onbResSub" style="margin-bottom:10px">Columnas = últimos 6 meses. "Tend." compara los últimos 3 meses vs los 3 previos.</div>
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:8px">
+        <div>
+          <div class="chart-title" style="font-size:13px;margin-bottom:2px">Resultados del onboarding · evolución por perfil</div>
+          <div class="chart-sub" id="onbResSub" style="margin-bottom:10px">Columnas = últimos 6 meses. "Tend." compara los últimos 3 meses vs los 3 previos.</div>
+        </div>
+        <div style="display:flex;gap:6px" id="onbFilterToggle">
+          <button class="mn-btn active" data-fil="todo" onclick="setOnbFilter('todo')">Todo</button>
+          <button class="mn-btn" data-fil="pago" onclick="setOnbFilter('pago')">Solo pago</button>
+          <button class="mn-btn" data-fil="trial" onclick="setOnbFilter('trial')">Solo trial</button>
+        </div>
+      </div>
 
       <div style="font-size:11px;font-weight:800;color:#0f172a;font-family:'Syne',sans-serif;margin:6px 0 2px">Días para onboarding</div>
-      <div style="font-size:9px;color:var(--muted);margin-bottom:6px">Población: <strong>asistentes a onboarding en el mes</strong> (por fecha de la sesión), incluye cuentas creadas antes. Igual que "Detalle ONB".</div>
+      <div style="font-size:9px;color:var(--muted);margin-bottom:6px">Población: <strong>asistentes a onboarding en el mes</strong> (por fecha de la sesión), incluye cuentas creadas antes. Menos días es mejor.</div>
       <div id="onbResDias" style="overflow-x:auto"></div>
 
-      <div style="font-size:11px;font-weight:800;color:#0f172a;font-family:'Syne',sans-serif;margin:20px 0 2px">Activación de uso · con vs sin onboarding</div>
-      <div style="font-size:9px;color:var(--muted);margin-bottom:6px" id="onbActSub">Población: <strong>cuentas pagas creadas en el mes</strong>, partidas en con/sin onboarding. Por eso el n es menor que en días (aquí solo cuentan las nacidas en el mes; en días cuentan todos los asistentes, incluidas antiguas). Activación = hito de flows.</div>
+      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin:20px 0 2px">
+        <div style="font-size:11px;font-weight:800;color:#0f172a;font-family:'Syne',sans-serif">Activación de uso</div>
+        <div style="display:flex;gap:6px" id="onbActMetToggle">
+          <button class="mn-btn active" data-met="nivel" onclick="setOnbActMet('nivel')">% Activación (nivel)</button>
+          <button class="mn-btn" data-met="flowPct" onclick="setOnbActMet('flowPct')">% Activaron (flow)</button>
+          <button class="mn-btn" data-met="flowTtv" onclick="setOnbActMet('flowTtv')">Tiempo a flow</button>
+        </div>
+      </div>
+      <div style="font-size:9px;color:var(--muted);margin-bottom:6px" id="onbActSub"><strong>Misma población que días</strong> (asistentes del mes). Activación medida sobre el hito de flows. Así se capturan también las cuentas creadas a fin del mes anterior con onboarding este mes.</div>
       <div id="onbResActiv" style="overflow-x:auto"></div>
+
+      <div style="font-size:11px;font-weight:800;color:#0f172a;font-family:'Syne',sans-serif;margin:20px 0 2px">Comparación: ¿el onboarding ayuda a activar? · con vs sin onboarding</div>
+      <div style="font-size:9px;color:var(--muted);margin-bottom:6px">Población distinta a propósito: <strong>cuentas pagas creadas en el mes</strong> (única forma de tener grupo "sin onboarding"). No se ve afectada por el filtro de arriba.</div>
+      <div id="onbResCompara" style="overflow-x:auto"></div>
     </div>
 
   <!-- BLOQUE 5 -->
@@ -1285,37 +1305,54 @@ function calcMonth(off){
     const segOf=a=>{const s=(a['Segmento de cliente (priorización de cliente)']||'').trim();return (s==='A'||s==='B'||s==='C')?('Seg '+s):'Sin seg';};
     const asistio = r => (r['Estado del onboarding']||'').toLowerCase().replace(/ó/g,'o').replace(/í/g,'i').trim()==='asistio';
     const avgDias=arr=>{const v=arr.map(getOnbDias).filter(x=>x!==null);return v.length?Math.round(v.reduce((a,b)=>a+b,0)/v.length):null;};
-
-    // ── DÍAS (idéntica a "Detalle ONB"): asistentes del mes por fecha de onboarding, separando nuevas/antiguas por segmento ──
     const DKEYS=['general','nuevas','nue|Seg A','nue|Seg B','nue|Seg C','nue|Sin seg','antiguas','ant|Seg A','ant|Seg B','ant|Seg C','ant|Sin seg'];
-    const dias={}, nDias={}; DKEYS.forEach(k=>{dias[k]=[];nDias[k]=[];});
-    // ── ACTIVACIÓN con vs sin onboarding (idéntica a "Activación de cuentas nuevas"): cuentas pagas creadas en el mes ──
+
+    // Métricas de un grupo de asistentes (cuentas cruzadas para nivel/flow)
+    const metricsOf=att=>{
+      const accts=att.map(r=>acctById[getOnbUserId(r)]).filter(Boolean);
+      const f=ahaStats(accts,'AHA flows');
+      return { dias:att.length?avgDias(att):null, nivel:accts.length?avgNivTotal(accts):null,
+               flowPct:accts.length?f.pct:null, flowTtv:f.avg, n:att.length };
+    };
+    const groupAtt=att=>{
+      const g={}; DKEYS.forEach(k=>g[k]=[]); g.general=att;
+      att.forEach(r=>{const t=getOnbTipo(r);const a=acctById[getOnbUserId(r)];const s=a?segOf(a):'Sin seg';
+        if(t==='nuevas'){g.nuevas.push(r);g['nue|'+s].push(r);}
+        else if(t==='antiguo'){g.antiguas.push(r);g['ant|'+s].push(r);}});
+      return g;
+    };
+
+    // Población = asistentes del mes (igual que días), con filtro Todo/Pago/Trial
+    const FILTERS=['todo','pago','trial'];
+    const byFilter={}; FILTERS.forEach(f=>{byFilter[f]={dias:{},nDias:{},nivel:{},flowPct:{},flowTtv:{}};DKEYS.forEach(k=>{byFilter[f].dias[k]=[];byFilter[f].nDias[k]=[];byFilter[f].nivel[k]=[];byFilter[f].flowPct[k]=[];byFilter[f].flowTtv[k]=[];});});
+    // Comparación con/sin onboarding (cohorte de creación, pagas) — bloque aparte
     const act={ conN:[],sinN:[], nivelCon:[],nivelSin:[], flowPctCon:[],flowPctSin:[], flowTtvCon:[],flowTtvSin:[] };
 
     rmonths.forEach(mo=>{
-      // Días
-      const att = O.filter(r=>asistio(r)&&inRange(getOnbPrimaryDate(r),mo.r));
-      const dBy={}; DKEYS.forEach(k=>dBy[k]=[]); dBy.general=att;
-      att.forEach(r=>{const t=getOnbTipo(r);const a=acctById[getOnbUserId(r)];const s=a?segOf(a):'Sin seg';
-        if(t==='nuevas'){dBy.nuevas.push(r);dBy['nue|'+s].push(r);}
-        else if(t==='antiguo'){dBy.antiguas.push(r);dBy['ant|'+s].push(r);}});
-      DKEYS.forEach(k=>{const arr=dBy[k];dias[k].push(arr.length?avgDias(arr):null);nDias[k].push(arr.length);});
-
-      // Activación con/sin onboarding — cohorte de creación (pagas)
-      const base = C.filter(r=>{const ca=getCA(r);return ca&&inRange(ca,mo.r)&&isPaga(r);});
-      const con  = base.filter(r=>onbAsistIds.has((r['id']||'').toString().trim()));
-      const sin  = base.filter(r=>!onbAsistIds.has((r['id']||'').toString().trim()));
+      const attAll=O.filter(r=>asistio(r)&&inRange(getOnbPrimaryDate(r),mo.r));
+      const filt={ todo:attAll,
+        pago:  attAll.filter(r=>{const a=acctById[getOnbUserId(r)];return a&&isPaga(a);}),
+        trial: attAll.filter(r=>{const a=acctById[getOnbUserId(r)];return a&&isTrial(a);}) };
+      FILTERS.forEach(f=>{ const g=groupAtt(filt[f]);
+        DKEYS.forEach(k=>{ const mm=metricsOf(g[k]);
+          byFilter[f].dias[k].push(mm.dias); byFilter[f].nDias[k].push(mm.n);
+          byFilter[f].nivel[k].push(mm.nivel); byFilter[f].flowPct[k].push(mm.flowPct); byFilter[f].flowTtv[k].push(mm.flowTtv); });
+      });
+      // con/sin (pagas creadas en el mes)
+      const base=C.filter(r=>{const ca=getCA(r);return ca&&inRange(ca,mo.r)&&isPaga(r);});
+      const con=base.filter(r=>onbAsistIds.has((r['id']||'').toString().trim()));
+      const sin=base.filter(r=>!onbAsistIds.has((r['id']||'').toString().trim()));
       const fCon=ahaStats(con,'AHA flows'), fSin=ahaStats(sin,'AHA flows');
       act.conN.push(con.length); act.sinN.push(sin.length);
       act.nivelCon.push(con.length?avgNivTotal(con):null); act.nivelSin.push(sin.length?avgNivTotal(sin):null);
-      act.flowPctCon.push(con.length?fCon.pct:null);        act.flowPctSin.push(sin.length?fSin.pct:null);
-      act.flowTtvCon.push(fCon.avg);                         act.flowTtvSin.push(fSin.avg);
+      act.flowPctCon.push(con.length?fCon.pct:null); act.flowPctSin.push(sin.length?fSin.pct:null);
+      act.flowTtvCon.push(fCon.avg); act.flowTtvSin.push(fSin.avg);
     });
 
-    const keepNueSin=nDias['nue|Sin seg'].some(x=>x>0), keepAntSin=nDias['ant|Sin seg'].some(x=>x>0);
-    const keysDias=['general','nuevas','nue|Seg A','nue|Seg B','nue|Seg C'].concat(keepNueSin?['nue|Sin seg']:[])
-      .concat(['antiguas','ant|Seg A','ant|Seg B','ant|Seg C']).concat(keepAntSin?['ant|Sin seg']:[]);
-    return { monthsLabels:rmonths.map(x=>x.label), keysDias, dias, nDias, act };
+    const anyN=key=>FILTERS.some(f=>byFilter[f].nDias[key].some(x=>x>0));
+    const keysDias=['general','nuevas','nue|Seg A','nue|Seg B','nue|Seg C'].concat(anyN('nue|Sin seg')?['nue|Sin seg']:[])
+      .concat(['antiguas','ant|Seg A','ant|Seg B','ant|Seg C']).concat(anyN('ant|Sin seg')?['ant|Sin seg']:[]);
+    return { monthsLabels:rmonths.map(x=>x.label), keysDias, byFilter, act };
   })();
 
   const parseUsage = (r, col) => { const v=parseInt((r[col]||'').toString().replace(/[^0-9]/g,'')); return isNaN(v)?0:v; };
@@ -2763,12 +2800,15 @@ function renderCancelEvo(dim){
   box.innerHTML=html;
 }
 
+window._onbFilter='todo'; window._onbActMet='nivel';
+function setOnbFilter(v){window._onbFilter=v;document.querySelectorAll('#onbFilterToggle .mn-btn').forEach(b=>b.classList.toggle('active',b.dataset.fil===v));renderOnbRes();}
+function setOnbActMet(v){window._onbActMet=v;document.querySelectorAll('#onbActMetToggle .mn-btn').forEach(b=>b.classList.toggle('active',b.dataset.met===v));renderOnbRes();}
 function renderOnbRes(){
   const m=window._mesMet; if(!m||!m.onbResultados)return;
-  const R=m.onbResultados;
-  const diaBox=document.getElementById('onbResDias'), actBox=document.getElementById('onbResActiv');
-  if(!diaBox||!actBox)return;
-  const labels=R.monthsLabels;
+  const R=m.onbResultados; const labels=R.monthsLabels;
+  const F=R.byFilter[window._onbFilter]||R.byFilter.todo;
+  const diaBox=document.getElementById('onbResDias'), actBox=document.getElementById('onbResActiv'), cmpBox=document.getElementById('onbResCompara');
+  if(!diaBox||!actBox||!cmpBox)return;
   const fmtV=(v,unit)=>v===null?'<span style="color:#cbd5e1">—</span>':v+unit;
   const trendCell=(vals,betterUp,unit)=>{
     const rec=vals.slice(3).filter(v=>v!==null), pre=vals.slice(0,3).filter(v=>v!==null);
@@ -2782,47 +2822,50 @@ function renderOnbRes(){
   const headRow=()=>'<thead><tr><th style="text-align:left;padding:5px 8px;font-size:9px;color:var(--muted)"></th>'
     +labels.map(l=>'<th style="text-align:center;padding:5px 6px;font-size:9px;color:var(--muted)">'+l+'</th>').join('')
     +'<th style="text-align:center;padding:5px 8px;font-size:9px;color:var(--muted)">Tend.</th></tr></thead>';
-
-  // ── Tabla DÍAS ──
   const rowLabel={general:'General', nuevas:'Nuevas (onb ≤30 días)', antiguas:'Antiguas (onb >30 días)',
     'nue|Seg A':'↳ Segmento A','nue|Seg B':'↳ Segmento B','nue|Seg C':'↳ Segmento C','nue|Sin seg':'↳ Sin segmento',
     'ant|Seg A':'↳ Segmento A','ant|Seg B':'↳ Segmento B','ant|Seg C':'↳ Segmento C','ant|Sin seg':'↳ Sin segmento'};
-  let dh='<table style="width:100%;border-collapse:collapse">'+headRow()+'<tbody>';
-  dh+='<tr><td style="padding:4px 8px;font-size:9px;color:var(--muted)">Base: asistentes (n)</td>'
-    +(R.nDias.general||[]).map(v=>'<td style="text-align:center;padding:4px 6px;font-size:9px;color:var(--muted)">'+v+'</td>').join('')+'<td></td></tr>';
-  R.keysDias.forEach(k=>{
-    const vals=R.dias[k]||[]; const isHdr=(k==='nuevas'||k==='antiguas'); const isSep=(k==='nuevas'||k==='antiguas'||k==='general');
-    const bold=(k==='general'||isHdr)?'font-weight:700;':'';
-    dh+='<tr style="'+(isSep&&k!=='general'?'border-top:1px solid var(--border);':'')+'"><td style="padding:5px 8px;font-size:11px;color:#334155;white-space:nowrap;'+bold+'">'+(rowLabel[k]||k)+'</td>'
-      +vals.map((v,i)=>'<td style="text-align:center;padding:5px 6px;font-size:11px;color:#0f172a;'+bold+'" title="n='+((R.nDias[k]||[])[i]||0)+'">'+fmtV(v,'d')+'</td>').join('')
-      +'<td style="text-align:center;padding:5px 8px;font-size:10px">'+trendCell(vals,false,'d')+'</td></tr>';
-  });
-  dh+='</tbody></table>';
-  diaBox.innerHTML=dh;
 
-  // ── Tabla ACTIVACIÓN con vs sin onboarding ──
-  const A=R.act;
-  const dataRow=(label,vals,betterUp,unit,indent,nmap)=>{
-    return '<tr><td style="padding:5px 8px;font-size:11px;color:#334155;white-space:nowrap;'+(indent?'padding-left:20px;':'font-weight:700;')+'">'+label+'</td>'
-      +vals.map((v,i)=>'<td style="text-align:center;padding:5px 6px;font-size:11px;color:#0f172a"'+(nmap?' title="n='+(nmap[i]||0)+'"':'')+'>'+fmtV(v,unit)+'</td>').join('')
-      +'<td style="text-align:center;padding:5px 8px;font-size:10px">'+(betterUp===null?'':trendCell(vals,betterUp,unit))+'</td></tr>';
+  // Tabla por filas (días o una métrica de activación) sobre la población de asistentes
+  const buildKeyed=(series, unit, betterUp)=>{
+    let html='<table style="width:100%;border-collapse:collapse">'+headRow()+'<tbody>';
+    html+='<tr><td style="padding:4px 8px;font-size:9px;color:var(--muted)">Base: asistentes (n)</td>'
+      +(F.nDias.general||[]).map(v=>'<td style="text-align:center;padding:4px 6px;font-size:9px;color:var(--muted)">'+v+'</td>').join('')+'<td></td></tr>';
+    R.keysDias.forEach(k=>{
+      const vals=series[k]||[]; const isHdr=(k==='nuevas'||k==='antiguas'); const isSep=(k==='nuevas'||k==='antiguas');
+      const bold=(k==='general'||isHdr)?'font-weight:700;':'';
+      html+='<tr style="'+(isSep?'border-top:1px solid var(--border);':'')+'"><td style="padding:5px 8px;font-size:11px;color:#334155;white-space:nowrap;'+bold+'">'+(rowLabel[k]||k)+'</td>'
+        +vals.map((v,i)=>'<td style="text-align:center;padding:5px 6px;font-size:11px;color:#0f172a;'+bold+'" title="n='+((F.nDias[k]||[])[i]||0)+'">'+fmtV(v,unit)+'</td>').join('')
+        +'<td style="text-align:center;padding:5px 8px;font-size:10px">'+trendCell(vals,betterUp,unit)+'</td></tr>';
+    });
+    html+='</tbody></table>'; return html;
   };
+  diaBox.innerHTML=buildKeyed(F.dias,'d',false);
+  const metCfg={nivel:{unit:'%',up:true}, flowPct:{unit:'%',up:true}, flowTtv:{unit:'d',up:false}};
+  const mc=metCfg[window._onbActMet]||metCfg.nivel;
+  actBox.innerHTML=buildKeyed(F[window._onbActMet], mc.unit, mc.up);
+
+  // Comparación con vs sin onboarding (cohorte de creación pagas) — no depende del filtro
+  const A=R.act;
+  const dataRow=(label,vals,betterUp,unit,nmap)=>'<tr><td style="padding:5px 8px 5px 20px;font-size:11px;color:#334155;white-space:nowrap">'+label+'</td>'
+    +vals.map((v,i)=>'<td style="text-align:center;padding:5px 6px;font-size:11px;color:#0f172a"'+(nmap?' title="n='+(nmap[i]||0)+'"':'')+'>'+fmtV(v,unit)+'</td>').join('')
+    +'<td style="text-align:center;padding:5px 8px;font-size:10px">'+(betterUp===null?'':trendCell(vals,betterUp,unit))+'</td></tr>';
   const grpHdr=t=>'<tr style="border-top:1px solid var(--border)"><td colspan="'+(labels.length+2)+'" style="padding:7px 8px 2px;font-size:9px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.05em">'+t+'</td></tr>';
   let ah='<table style="width:100%;border-collapse:collapse">'+headRow()+'<tbody>';
   ah+=grpHdr('% Activación (nivel de implementación)');
-  ah+=dataRow('Con onboarding', A.nivelCon, true, '%', true, A.conN);
-  ah+=dataRow('Sin onboarding', A.nivelSin, true, '%', true, A.sinN);
+  ah+=dataRow('Con onboarding', A.nivelCon, true, '%', A.conN);
+  ah+=dataRow('Sin onboarding', A.nivelSin, true, '%', A.sinN);
   ah+=grpHdr('% Cuentas que activaron (flow)');
-  ah+=dataRow('Con onboarding', A.flowPctCon, true, '%', true, A.conN);
-  ah+=dataRow('Sin onboarding', A.flowPctSin, true, '%', true, A.sinN);
+  ah+=dataRow('Con onboarding', A.flowPctCon, true, '%', A.conN);
+  ah+=dataRow('Sin onboarding', A.flowPctSin, true, '%', A.sinN);
   ah+=grpHdr('Tiempo medio de activación (días a flow)');
-  ah+=dataRow('Con onboarding', A.flowTtvCon, false, 'd', true, A.conN);
-  ah+=dataRow('Sin onboarding', A.flowTtvSin, false, 'd', true, A.sinN);
+  ah+=dataRow('Con onboarding', A.flowTtvCon, false, 'd', A.conN);
+  ah+=dataRow('Sin onboarding', A.flowTtvSin, false, 'd', A.sinN);
   ah+=grpHdr('Base: cuentas pagas creadas en el mes (n)');
-  ah+=dataRow('Con onboarding', A.conN, null, '', true, null);
-  ah+=dataRow('Sin onboarding', A.sinN, null, '', true, null);
+  ah+=dataRow('Con onboarding', A.conN, null, '', null);
+  ah+=dataRow('Sin onboarding', A.sinN, null, '', null);
   ah+='</tbody></table>';
-  actBox.innerHTML=ah;
+  cmpBox.innerHTML=ah;
 }
 
 function renderQuienesMes(mode) {
