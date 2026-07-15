@@ -238,7 +238,10 @@ body{background:var(--navy);color:var(--text);font-family:'DM Sans',sans-serif;f
       <div class="card">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
           <div class="chart-title" style="font-size:12px;margin-bottom:0">Tipo de negocio</div>
-          <button onclick="openOtrosModal()" style="font-size:9px;font-weight:700;padding:3px 10px;border-radius:6px;border:1px solid rgba(45,212,191,.3);background:rgba(45,212,191,.07);color:var(--teal);cursor:pointer;font-family:'DM Sans',sans-serif">🔍 Detalle "Otros"</button>
+          <div style="display:flex;gap:6px">
+            <button onclick="openNichoModal()" style="font-size:9px;font-weight:700;padding:3px 10px;border-radius:6px;border:1px solid rgba(45,212,191,.3);background:rgba(45,212,191,.07);color:var(--teal);cursor:pointer;font-family:'DM Sans',sans-serif">🔍 Análisis por nicho</button>
+            <button onclick="openOtrosModal()" style="font-size:9px;font-weight:700;padding:3px 10px;border-radius:6px;border:1px solid rgba(45,212,191,.3);background:rgba(45,212,191,.07);color:var(--teal);cursor:pointer;font-family:'DM Sans',sans-serif">🔍 Detalle "Otros"</button>
+          </div>
         </div>
         <div style="font-size:10px;color:var(--muted);margin-bottom:8px">% este mes vs % acumulado histórico</div>
         <div id="nichoMes"></div>
@@ -492,6 +495,8 @@ function clasificarNicho(txt){const t=(txt||'').toString().toLowerCase().normali
 function getNichoInterp(r){ if(r&&r['NICHO INTERPRETADO']!==undefined) return (r['NICHO INTERPRETADO']||'').toString().trim(); for(const k in r){ if(k.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/\s+/g,' ').trim()==='nicho interpretado') return (r[k]||'').toString().trim(); } return ''; }
 // ¿La cuenta tiene Tipo de negocio = "Otros"?
 function esNichoOtros(r){ const t=(r['Tipo de negocio']||'').toString().trim().toLowerCase(); return t==='otros'||t==='otro'; }
+// Nicho autoritativo: NICHO INTERPRETADO si existe, si no Tipo de negocio.
+function nicheOf(r){ const ni=getNichoInterp(r); if(ni) return ni; const t=(r['Tipo de negocio']||'').toString().trim(); return t||'(sin tipo)'; }
 function getOnbDate(r){return parseISO(r['Fecha registro'])||parseISO(r['Fecha estado onboarding'])||null;}
 function getOnbGHLDate(r){return parseSpDate(r['Fecha de ONB GHL'])||parseISO(r['Fecha de ONB GHL'])||null;}
 function getContactId(r){return (r['contact_id']||r['id_unico']||'').toString().trim();}
@@ -2421,18 +2426,19 @@ function openGruposModal(preselect) {
   renderGruposModal();
 }
 
-function renderGruposModal() {
+function renderCancelModal(cfg) {
   const m = window._mesMet;
   if (!m) return;
-  const sel = document.getElementById('gruposObjSelect');
-  const TARGET = sel ? sel.value : 'Optimizar la gestión de grupos / comunidades';
+  const keyFn = cfg.keyFn;
+  const sel = document.getElementById(cfg.selId);
+  const TARGET = sel ? sel.value : '';
   const pool     = (m.cancelMesArr||[]);
-  const seg      = pool.filter(r => (r['Objetivo con Funnelchat']||'').trim() === TARGET);
+  const seg      = pool.filter(r => keyFn(r) === TARGET);
   const total    = seg.length;
 
   if (!total) {
-    document.getElementById('gruposModalContent').innerHTML =
-      `<div style="color:var(--muted);font-size:12px;padding:20px 0">Sin cancelados con el objetivo "<strong>${TARGET}</strong>" en ${m.label}.</div>`;
+    document.getElementById(cfg.contentId).innerHTML =
+      `<div style="color:var(--muted);font-size:12px;padding:20px 0">Sin cancelados con ${cfg.dimWord} "<strong>${TARGET}</strong>" en ${m.label}.</div>`;
     return;
   }
 
@@ -2466,7 +2472,7 @@ function renderGruposModal() {
     const inMon = allC.filter(r => {
       const cd = cancelDate(r);
       return cd && cd >= mR.start && cd <= mR.end &&
-             (r['Objetivo con Funnelchat']||'').trim() === TARGET;
+             keyFn(r) === TARGET;
     });
     return { lbl: h.lbl, n: inMon.length };
   });
@@ -2488,10 +2494,10 @@ function renderGruposModal() {
     const mR = getMonthRange ? getMonthRange(m.off !== undefined ? m.off + off6 : off6) : null;
     const cohort = mR ? allC.filter(r => {
       const cd = cancelDate(r);
-      return cd && cd >= mR.start && cd <= mR.end && (r['Objetivo con Funnelchat']||'').trim() === TARGET;
+      return cd && cd >= mR.start && cd <= mR.end && keyFn(r) === TARGET;
     }) : [];
     const n = cohort.length;
-    const nm = {}; cohort.forEach(r => { const x=getNiche(r); nm[x]=(nm[x]||0)+1; });
+    const nm = {}; cohort.forEach(r => { const x=cfg.crossFn(r); nm[x]=(nm[x]||0)+1; });
     const top = Object.entries(nm).sort((a,b)=>b[1]-a[1])[0];
     return {
       lbl: h.lbl, n,
@@ -2500,8 +2506,8 @@ function renderGruposModal() {
       pGrupos: pct(cohort.filter(usaGrupos).length, n),
       pWA:     pct(cohort.filter(usaWA).length, n),
       pOnb:    pct(cohort.filter(r=>getOnb(r)==='Con onboarding').length, n),
-      topNiche:    top ? top[0] : '—',
-      topNichePct: top ? pct(top[1], n) : 0,
+      topCross:    top ? top[0] : '—',
+      topCrossPct: top ? pct(top[1], n) : 0,
     };
   });
   const evoLast = evoMonths.length-1;
@@ -2512,8 +2518,8 @@ function renderGruposModal() {
     </tr>`;
   const evoTable = `
     <div style="background:rgba(15,23,42,.02);border:1px solid rgba(15,23,42,.07);border-radius:10px;padding:14px;margin-bottom:20px;overflow-x:auto">
-      <div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:4px">📊 Evolución mes a mes · este objetivo</div>
-      <div style="font-size:9px;color:var(--muted);margin-bottom:10px">Cómo cambia el perfil de quienes cancelan con este objetivo, tomando la cohorte de cada mes. Última columna = mes actual. "—" = sin cancelados ese mes.</div>
+      <div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:4px">📊 Evolución mes a mes · ${cfg.evoTitle}</div>
+      <div style="font-size:9px;color:var(--muted);margin-bottom:10px">Cómo cambia el perfil de quienes cancelan con ${cfg.dimWord}, tomando la cohorte de cada mes. Última columna = mes actual. "—" = sin cancelados ese mes.</div>
       <table style="width:100%;border-collapse:collapse">
         <thead><tr><th style="padding:5px 8px;font-size:9px;color:var(--muted);text-align:left">Indicador</th>${evoTh}</tr></thead>
         <tbody>
@@ -2523,7 +2529,7 @@ function renderGruposModal() {
           ${evoRow('% usó grupos',      e=>e.pGrupos+'%')}
           ${evoRow('% conectó WA',      e=>e.pWA+'%')}
           ${evoRow('% con onboarding',  e=>e.pOnb+'%')}
-          ${evoRow('Nicho más común',   e=>`${e.topNiche.length>16?e.topNiche.slice(0,15)+'…':e.topNiche} <span style="color:var(--muted)">· ${e.topNichePct}%</span>`)}
+          ${evoRow(cfg.crossLabel,   e=>`${e.topCross.length>16?e.topCross.slice(0,15)+'…':e.topCross} <span style="color:var(--muted)">· ${e.topCrossPct}%</span>`)}
         </tbody>
       </table>
     </div>`;
@@ -2598,7 +2604,7 @@ function renderGruposModal() {
 
   const planColors = {'Plan Starter':'#2563eb','Plan Growth':'#7c3aed','Plan Advanced':'#0d9488','Advanced Personalizado':'#b45309'};
 
-  document.getElementById('gruposModalContent').innerHTML = `
+  document.getElementById(cfg.contentId).innerHTML = `
 
     <!-- DIAGNÓSTICO -->
     <div style="margin-bottom:20px">
@@ -2703,12 +2709,39 @@ function renderGruposModal() {
     </div>
 
     <div style="font-size:9px;color:var(--muted);border-top:1px solid rgba(15,23,42,.06);padding-top:10px">
-      Base: cancelados pagas · ${m.label} · Objetivo = "${TARGET}"
+      Base: cancelados pagas · ${m.label} · ${cfg.footLabel} = "${TARGET}"
     </div>`;
 }
 
+function renderGruposModal(){ renderCancelModal({ selId:'gruposObjSelect', contentId:'gruposModalContent',
+  keyFn:r=>(r['Objetivo con Funnelchat']||'').trim(), dimWord:'el objetivo', footLabel:'Objetivo', evoTitle:'este objetivo',
+  crossFn:r=>(r['Tipo de negocio']||'(sin tipo)').trim(), crossLabel:'Nicho más común' }); }
+function renderNichoModal(){ renderCancelModal({ selId:'nichoSelect', contentId:'nichoModalContent',
+  keyFn:nicheOf, dimWord:'el nicho', footLabel:'Nicho', evoTitle:'este nicho',
+  crossFn:r=>((r['Objetivo con Funnelchat']||'').trim()||'—'), crossLabel:'Objetivo más común' }); }
+
 function closeGruposModal() {
   document.getElementById('gruposModal').style.display = 'none';
+}
+
+function openNichoModal(preselect) {
+  const m = window._mesMet; if (!m) return;
+  document.getElementById('nichoModal').style.display = 'block';
+  const pool = (m.cancelMesArr||[]);
+  const niches = [...new Set(pool.map(r => nicheOf(r)).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'es'));
+  const cnt={}; pool.forEach(r=>{const n=nicheOf(r); if(n)cnt[n]=(cnt[n]||0)+1;});
+  const def = preselect || (Object.entries(cnt).sort((a,b)=>b[1]-a[1])[0]||[''])[0];
+  const sel = document.getElementById('nichoSelect');
+  sel.innerHTML = niches.map(o => `<option value="${o}" ${o===def?'selected':''}>${o}</option>`).join('');
+  if (!niches.length) {
+    document.getElementById('nichoModalContent').innerHTML =
+      '<div style="color:var(--muted);font-size:12px;padding:20px 0">Sin datos de nicho en el mes seleccionado.</div>';
+    return;
+  }
+  renderNichoModal();
+}
+function closeNichoModal() {
+  document.getElementById('nichoModal').style.display = 'none';
 }
 
 // ── Modal detalle nicho "Otros" (por columna NICHO INTERPRETADO) ──
@@ -4491,6 +4524,25 @@ function buildMonthNav(){
       </select>
     </div>
     <div id="gruposModalContent">cargando...</div>
+  </div>
+</div>
+
+<div id="nichoModal" style="display:none;position:fixed;inset:0;z-index:1000;background:rgba(0,0,0,.65);backdrop-filter:blur(4px)" onclick="if(event.target===this)closeNichoModal()">
+  <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:min(920px,96vw);max-height:85vh;overflow-y:auto;background:#ffffff;border:1px solid rgba(15,23,42,.1);border-radius:16px;padding:28px 32px;box-shadow:0 8px 32px rgba(15,23,42,.15)">
+    <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:20px">
+      <div>
+        <div style="font-family:'Syne',sans-serif;font-size:16px;font-weight:800;color:#0f172a">🔍 Análisis por nicho</div>
+        <div style="font-size:11px;color:var(--muted);margin-top:4px">Perfil de quienes cancelan, por nicho (NICHO INTERPRETADO · fallback Tipo de negocio)</div>
+      </div>
+      <button onclick="closeNichoModal()" style="background:rgba(15,23,42,.06);border:none;color:var(--muted);font-size:18px;cursor:pointer;border-radius:6px;padding:4px 10px;line-height:1">✕</button>
+    </div>
+    <div style="margin-bottom:16px">
+      <label style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;display:block;margin-bottom:6px">Nicho</label>
+      <select id="nichoSelect" onchange="renderNichoModal()"
+        style="width:100%;background:#f8fafc;border:1px solid rgba(15,23,42,.15);border-radius:8px;color:#0f172a;font-family:'DM Sans',sans-serif;font-size:12px;padding:8px 12px;cursor:pointer;outline:none">
+      </select>
+    </div>
+    <div id="nichoModalContent">cargando...</div>
   </div>
 </div>
 
