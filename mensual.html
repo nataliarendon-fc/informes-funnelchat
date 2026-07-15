@@ -347,13 +347,20 @@ body{background:var(--navy);color:var(--text);font-family:'DM Sans',sans-serif;f
 
       <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin:20px 0 2px">
         <div style="font-size:11px;font-weight:800;color:#0f172a;font-family:'Syne',sans-serif">Activación de uso</div>
-        <div style="display:flex;gap:6px" id="onbActMetToggle">
-          <button class="mn-btn active" data-met="nivel" onclick="setOnbActMet('nivel')">% Activación (nivel)</button>
-          <button class="mn-btn" data-met="flowPct" onclick="setOnbActMet('flowPct')">% Activaron (flow)</button>
-          <button class="mn-btn" data-met="flowTtv" onclick="setOnbActMet('flowTtv')">Tiempo a flow</button>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
+          <div style="display:flex;gap:6px" id="onbActMetToggle">
+            <button class="mn-btn active" data-met="nivel" onclick="setOnbActMet('nivel')">% Activación (nivel)</button>
+            <button class="mn-btn" data-met="activaron" onclick="setOnbActMet('activaron')">% Activaron</button>
+            <button class="mn-btn" data-met="tiempo" onclick="setOnbActMet('tiempo')">Tiempo de activación</button>
+          </div>
+          <div style="display:flex;gap:6px" id="onbHitoToggle">
+            <button class="mn-btn active" data-hito="wa" onclick="setOnbHito('wa')">WhatsApp (1a1)</button>
+            <button class="mn-btn" data-hito="flow" onclick="setOnbHito('flow')">Flow</button>
+            <button class="mn-btn" data-hito="grupo" onclick="setOnbHito('grupo')">Grupo</button>
+          </div>
         </div>
       </div>
-      <div style="font-size:9px;color:var(--muted);margin-bottom:6px" id="onbActSub"><strong>Misma población que días</strong> (asistentes del mes). Activación medida sobre el hito de flows. Así se capturan también las cuentas creadas a fin del mes anterior con onboarding este mes.</div>
+      <div style="font-size:9px;color:var(--muted);margin-bottom:6px" id="onbActSub"><strong>Misma población que días</strong> (asistentes del mes). El hito AHA (WhatsApp/Flow/Grupo) aplica a "% Activaron" y "Tiempo de activación".</div>
       <div id="onbResActiv" style="overflow-x:auto"></div>
 
       <div style="font-size:11px;font-weight:800;color:#0f172a;font-family:'Syne',sans-serif;margin:20px 0 2px">Comparación: ¿el onboarding ayuda a activar? · con vs sin onboarding</div>
@@ -1306,13 +1313,12 @@ function calcMonth(off){
     const asistio = r => (r['Estado del onboarding']||'').toLowerCase().replace(/ó/g,'o').replace(/í/g,'i').trim()==='asistio';
     const avgDias=arr=>{const v=arr.map(getOnbDias).filter(x=>x!==null);return v.length?Math.round(v.reduce((a,b)=>a+b,0)/v.length):null;};
     const DKEYS=['general','nuevas','nue|Seg A','nue|Seg B','nue|Seg C','nue|Sin seg','antiguas','ant|Seg A','ant|Seg B','ant|Seg C','ant|Sin seg'];
+    const HITOS={wa:'AHA WA', flow:'AHA flows', grupo:'AHA grupos'}; const HKEYS=Object.keys(HITOS);
 
-    // Métricas de un grupo de asistentes (cuentas cruzadas para nivel/flow)
     const metricsOf=att=>{
       const accts=att.map(r=>acctById[getOnbUserId(r)]).filter(Boolean);
-      const f=ahaStats(accts,'AHA flows');
-      return { dias:att.length?avgDias(att):null, nivel:accts.length?avgNivTotal(accts):null,
-               flowPct:accts.length?f.pct:null, flowTtv:f.avg, n:att.length };
+      const pct={}, ttv={}; HKEYS.forEach(h=>{const s=ahaStats(accts,HITOS[h]); pct[h]=accts.length?s.pct:null; ttv[h]=s.avg;});
+      return { dias:att.length?avgDias(att):null, nivel:accts.length?avgNivTotal(accts):null, n:att.length, pct, ttv };
     };
     const groupAtt=att=>{
       const g={}; DKEYS.forEach(k=>g[k]=[]); g.general=att;
@@ -1322,11 +1328,12 @@ function calcMonth(off){
       return g;
     };
 
-    // Población = asistentes del mes (igual que días), con filtro Todo/Pago/Trial
     const FILTERS=['todo','pago','trial'];
-    const byFilter={}; FILTERS.forEach(f=>{byFilter[f]={dias:{},nDias:{},nivel:{},flowPct:{},flowTtv:{}};DKEYS.forEach(k=>{byFilter[f].dias[k]=[];byFilter[f].nDias[k]=[];byFilter[f].nivel[k]=[];byFilter[f].flowPct[k]=[];byFilter[f].flowTtv[k]=[];});});
-    // Comparación con/sin onboarding (cohorte de creación, pagas) — bloque aparte
-    const act={ conN:[],sinN:[], nivelCon:[],nivelSin:[], flowPctCon:[],flowPctSin:[], flowTtvCon:[],flowTtvSin:[] };
+    const byFilter={};
+    FILTERS.forEach(f=>{ byFilter[f]={dias:{},nDias:{},nivel:{},pct:{wa:{},flow:{},grupo:{}},ttv:{wa:{},flow:{},grupo:{}}};
+      DKEYS.forEach(k=>{byFilter[f].dias[k]=[];byFilter[f].nDias[k]=[];byFilter[f].nivel[k]=[];HKEYS.forEach(h=>{byFilter[f].pct[h][k]=[];byFilter[f].ttv[h][k]=[];});}); });
+    // Comparación con/sin onboarding (cohorte de creación, pagas) — todos los hitos
+    const act={ conN:[],sinN:[], nivelCon:[],nivelSin:[], pctCon:{wa:[],flow:[],grupo:[]},pctSin:{wa:[],flow:[],grupo:[]}, ttvCon:{wa:[],flow:[],grupo:[]},ttvSin:{wa:[],flow:[],grupo:[]} };
 
     rmonths.forEach(mo=>{
       const attAll=O.filter(r=>asistio(r)&&inRange(getOnbPrimaryDate(r),mo.r));
@@ -1335,18 +1342,17 @@ function calcMonth(off){
         trial: attAll.filter(r=>{const a=acctById[getOnbUserId(r)];return a&&isTrial(a);}) };
       FILTERS.forEach(f=>{ const g=groupAtt(filt[f]);
         DKEYS.forEach(k=>{ const mm=metricsOf(g[k]);
-          byFilter[f].dias[k].push(mm.dias); byFilter[f].nDias[k].push(mm.n);
-          byFilter[f].nivel[k].push(mm.nivel); byFilter[f].flowPct[k].push(mm.flowPct); byFilter[f].flowTtv[k].push(mm.flowTtv); });
+          byFilter[f].dias[k].push(mm.dias); byFilter[f].nDias[k].push(mm.n); byFilter[f].nivel[k].push(mm.nivel);
+          HKEYS.forEach(h=>{ byFilter[f].pct[h][k].push(mm.pct[h]); byFilter[f].ttv[h][k].push(mm.ttv[h]); }); });
       });
-      // con/sin (pagas creadas en el mes)
       const base=C.filter(r=>{const ca=getCA(r);return ca&&inRange(ca,mo.r)&&isPaga(r);});
       const con=base.filter(r=>onbAsistIds.has((r['id']||'').toString().trim()));
       const sin=base.filter(r=>!onbAsistIds.has((r['id']||'').toString().trim()));
-      const fCon=ahaStats(con,'AHA flows'), fSin=ahaStats(sin,'AHA flows');
       act.conN.push(con.length); act.sinN.push(sin.length);
       act.nivelCon.push(con.length?avgNivTotal(con):null); act.nivelSin.push(sin.length?avgNivTotal(sin):null);
-      act.flowPctCon.push(con.length?fCon.pct:null); act.flowPctSin.push(sin.length?fSin.pct:null);
-      act.flowTtvCon.push(fCon.avg); act.flowTtvSin.push(fSin.avg);
+      HKEYS.forEach(h=>{ const sc=ahaStats(con,HITOS[h]), ss=ahaStats(sin,HITOS[h]);
+        act.pctCon[h].push(con.length?sc.pct:null); act.pctSin[h].push(sin.length?ss.pct:null);
+        act.ttvCon[h].push(sc.avg); act.ttvSin[h].push(ss.avg); });
     });
 
     const anyN=key=>FILTERS.some(f=>byFilter[f].nDias[key].some(x=>x>0));
@@ -2800,13 +2806,17 @@ function renderCancelEvo(dim){
   box.innerHTML=html;
 }
 
-window._onbFilter='todo'; window._onbActMet='nivel';
+window._onbFilter='todo'; window._onbActMet='nivel'; window._onbHito='wa';
 function setOnbFilter(v){window._onbFilter=v;document.querySelectorAll('#onbFilterToggle .mn-btn').forEach(b=>b.classList.toggle('active',b.dataset.fil===v));renderOnbRes();}
 function setOnbActMet(v){window._onbActMet=v;document.querySelectorAll('#onbActMetToggle .mn-btn').forEach(b=>b.classList.toggle('active',b.dataset.met===v));renderOnbRes();}
+function setOnbHito(v){window._onbHito=v;document.querySelectorAll('#onbHitoToggle .mn-btn').forEach(b=>b.classList.toggle('active',b.dataset.hito===v));renderOnbRes();}
 function renderOnbRes(){
   const m=window._mesMet; if(!m||!m.onbResultados)return;
   const R=m.onbResultados; const labels=R.monthsLabels;
   const F=R.byFilter[window._onbFilter]||R.byFilter.todo;
+  const met=window._onbActMet, hito=window._onbHito;
+  const hitoLbl={wa:'WhatsApp (1a1)',flow:'Flow',grupo:'Grupo'}[hito];
+  const hitoTog=document.getElementById('onbHitoToggle'); if(hitoTog)hitoTog.style.display=(met==='nivel')?'none':'flex';
   const diaBox=document.getElementById('onbResDias'), actBox=document.getElementById('onbResActiv'), cmpBox=document.getElementById('onbResCompara');
   if(!diaBox||!actBox||!cmpBox)return;
   const fmtV=(v,unit)=>v===null?'<span style="color:#cbd5e1">—</span>':v+unit;
@@ -2826,7 +2836,6 @@ function renderOnbRes(){
     'nue|Seg A':'↳ Segmento A','nue|Seg B':'↳ Segmento B','nue|Seg C':'↳ Segmento C','nue|Sin seg':'↳ Sin segmento',
     'ant|Seg A':'↳ Segmento A','ant|Seg B':'↳ Segmento B','ant|Seg C':'↳ Segmento C','ant|Sin seg':'↳ Sin segmento'};
 
-  // Tabla por filas (días o una métrica de activación) sobre la población de asistentes
   const buildKeyed=(series, unit, betterUp)=>{
     let html='<table style="width:100%;border-collapse:collapse">'+headRow()+'<tbody>';
     html+='<tr><td style="padding:4px 8px;font-size:9px;color:var(--muted)">Base: asistentes (n)</td>'
@@ -2841,11 +2850,13 @@ function renderOnbRes(){
     html+='</tbody></table>'; return html;
   };
   diaBox.innerHTML=buildKeyed(F.dias,'d',false);
-  const metCfg={nivel:{unit:'%',up:true}, flowPct:{unit:'%',up:true}, flowTtv:{unit:'d',up:false}};
-  const mc=metCfg[window._onbActMet]||metCfg.nivel;
-  actBox.innerHTML=buildKeyed(F[window._onbActMet], mc.unit, mc.up);
+  let actSeries, actUnit, actUp;
+  if(met==='nivel'){ actSeries=F.nivel; actUnit='%'; actUp=true; }
+  else if(met==='activaron'){ actSeries=F.pct[hito]; actUnit='%'; actUp=true; }
+  else { actSeries=F.ttv[hito]; actUnit='d'; actUp=false; }
+  actBox.innerHTML=buildKeyed(actSeries, actUnit, actUp);
 
-  // Comparación con vs sin onboarding (cohorte de creación pagas) — no depende del filtro
+  // Comparación con vs sin onboarding (cohorte de creación pagas) — responde al hito
   const A=R.act;
   const dataRow=(label,vals,betterUp,unit,nmap)=>'<tr><td style="padding:5px 8px 5px 20px;font-size:11px;color:#334155;white-space:nowrap">'+label+'</td>'
     +vals.map((v,i)=>'<td style="text-align:center;padding:5px 6px;font-size:11px;color:#0f172a"'+(nmap?' title="n='+(nmap[i]||0)+'"':'')+'>'+fmtV(v,unit)+'</td>').join('')
@@ -2855,12 +2866,12 @@ function renderOnbRes(){
   ah+=grpHdr('% Activación (nivel de implementación)');
   ah+=dataRow('Con onboarding', A.nivelCon, true, '%', A.conN);
   ah+=dataRow('Sin onboarding', A.nivelSin, true, '%', A.sinN);
-  ah+=grpHdr('% Cuentas que activaron (flow)');
-  ah+=dataRow('Con onboarding', A.flowPctCon, true, '%', A.conN);
-  ah+=dataRow('Sin onboarding', A.flowPctSin, true, '%', A.sinN);
-  ah+=grpHdr('Tiempo medio de activación (días a flow)');
-  ah+=dataRow('Con onboarding', A.flowTtvCon, false, 'd', A.conN);
-  ah+=dataRow('Sin onboarding', A.flowTtvSin, false, 'd', A.sinN);
+  ah+=grpHdr('% Cuentas que activaron · '+hitoLbl);
+  ah+=dataRow('Con onboarding', A.pctCon[hito], true, '%', A.conN);
+  ah+=dataRow('Sin onboarding', A.pctSin[hito], true, '%', A.sinN);
+  ah+=grpHdr('Tiempo medio de activación (días) · '+hitoLbl);
+  ah+=dataRow('Con onboarding', A.ttvCon[hito], false, 'd', A.conN);
+  ah+=dataRow('Sin onboarding', A.ttvSin[hito], false, 'd', A.sinN);
   ah+=grpHdr('Base: cuentas pagas creadas en el mes (n)');
   ah+=dataRow('Con onboarding', A.conN, null, '', null);
   ah+=dataRow('Sin onboarding', A.sinN, null, '', null);
