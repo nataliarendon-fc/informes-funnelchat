@@ -1757,6 +1757,13 @@ function calcMonth(off){
       const convRate = newTpay > 0 ? Math.round(convCohorte/newTpay*1000)/10 : null;
       // Trials convertidos a pago EN ESTE MES — derivado de la tabla payments (no de users)
       const convM = convFromPayments.filter(c => inRange(c.convDate, mRange)).length;
+      // ── Nuevas cuentas del mes: total → nacieron pagas / nacieron trial → de trial, convertidas ──
+      const idOf = r => (r['id']||'').toString().trim();
+      const convertidasNew = newP.filter(r=>convertedUids.has(idOf(r))).length; // creadas en el mes que ya convirtieron (hoy pagas)
+      const newTotal = newP.length + newT.length;                              // todas las creadas en el mes (pagas + trial)
+      const bornPaga = newP.length - convertidasNew;                           // nacieron pagando directo
+      const bornTrial = newT.length + convertidasNew;                          // nacieron en trial (siguen trial + ya convertidas)
+      const convRateNew = bornTrial>0 ? Math.round(convertidasNew/bornTrial*1000)/10 : null;
       const canM  = canP.filter(r=>inRange(cancelDate(r),mRange));
       const atrM  = C.filter(r=>{
         if((r['Vigencia del servicio']||'').trim()!=='Atrasado'||!isPaga(r))return false;
@@ -1866,6 +1873,7 @@ function calcMonth(off){
         lbl,
         // Sección 1
         newP:newP.length, newT:newT.length, newTpay, convM, convRate, reposoM,
+        newTotal, bornPaga, bornTrial, convertidasNew, convRateNew,
         canM:canM.length, atrM:atrM.length,
         vigIni:vigIni.length, mrrM, churnRate,
         retNeta:newP.length-canM.length,
@@ -3240,10 +3248,11 @@ function renderHist6(m) {
   // SECCIÓN 1 — Datos duros
   const el1 = document.getElementById('hist6_s1');
   if (el1) el1.innerHTML = buildH('Histórico 6 meses — Datos duros', 'var(--teal)', [
-    {label:'Nuevas pagas',        values:H.map(h=>h.newP),      inv:false, fmt:'n'},
-    {label:'Nuevas trial',        values:H.map(h=>h.newTpay),   inv:false, fmt:'n'},
-    {label:'Trials convertidos a pago', values:H.map(h=>h.convM), inv:false, fmt:'n'},
-    {label:'% conversión (cohorte del mes)', values:H.map(h=>h.convRate), inv:false, fmt:'%'},
+    {label:'Nuevas cuentas (total)',        values:H.map(h=>h.newTotal),   inv:false, fmt:'n'},
+    {label:'↳ Pagas',                       values:H.map(h=>h.bornPaga),   inv:false, fmt:'n'},
+    {label:'↳ Trial',                       values:H.map(h=>h.bornTrial),  inv:false, fmt:'n'},
+    {label:'↳ Convertidas a paga (de trial)', values:H.map(h=>h.convertidasNew), inv:false, fmt:'n'},
+    {label:'% conversión de trial (cohorte del mes)', values:H.map(h=>h.convRateNew), inv:false, fmt:'%'},
     {label:'Cancelaciones',       values:H.map(h=>h.canM),      inv:true,  fmt:'n'},
     {label:'Atrasadas del mes',   values:H.map(h=>h.atrM),      inv:true,  fmt:'n'},
     {label:'Retención neta',      values:H.map(h=>h.retNeta),   inv:false, fmt:'n'},
