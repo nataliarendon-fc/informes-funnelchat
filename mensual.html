@@ -1816,6 +1816,11 @@ function calcMonth(off){
       const onbAgenM  = onbM.filter(r=>{const _s=(r['Estado del onboarding']||'').toLowerCase().replace(/ó/g,'o').replace(/í/g,'i').trim();return _s==='agendo'||_s==='agendado'||_s==='agendar reunion'||_s==='asistio'||_s==='no show'||_s==='no asistio';}).length;
       const cobM      = newP.length>0?Math.round(onbAsistM/newP.length*100):0;
       const asistTasaM= onbAgenM>0?Math.round(onbAsistM/onbAgenM*100):0;
+      // Meta ideal de onboarding: 5 asistencias por día hábil (lun–vie)
+      const _bd = (()=>{let c=0;const d=new Date(mRange.start);while(d<=mRange.end){const wd=d.getDay();if(wd>=1&&wd<=5)c++;d.setDate(d.getDate()+1);}return c;})();
+      const onbCapIdeal = _bd*5;                                                  // capacidad ideal del período
+      const onbTasaDia  = _bd>0?Math.round(onbAsistM/_bd*10)/10:0;                // asistencias reales por día hábil
+      const onbCumpl    = onbCapIdeal>0?Math.round(onbAsistM/onbCapIdeal*100):0;  // % cumplimiento de la meta
 
       // ONB GHL enriched — per month
       // Use GHL date as primary filter — only date reliable across months
@@ -1918,6 +1923,7 @@ function calcMonth(off){
         onbProp:onbM.length, onbAgen:onbAgenM,
         onbAsist:onbAsistM, onbNS:onbNSM,
         onbCob:cobM, onbAsistTasa:asistTasaM, onbCompPaga, onbCompTrial,
+        onbCapIdeal, onbTasaDia, onbCumpl,
         onbRetPct, onbRetVig,
         ahaM,
         // Sesiones
@@ -3349,6 +3355,9 @@ function renderHist6(m) {
         {label:'ONB propuesto',                values:H.map(h=>h.onbProp),       inv:false, fmt:'n'},
         {label:'Agendados',                    values:H.map(h=>h.onbAgen),       inv:false, fmt:'n'},
         {label:'Asistentes',                   values:H.map(h=>h.onbAsist),      inv:false, fmt:'n'},
+        {label:'Capacidad ideal (5/día hábil)', values:H.map(h=>h.onbCapIdeal),   inv:false, fmt:'n'},
+        {label:'Asistencias por día hábil (real)', values:H.map(h=>h.onbTasaDia), inv:false, fmt:'n'},
+        {label:'% cumplimiento meta (5/día)',   values:H.map(h=>h.onbCumpl),      inv:false, fmt:'%'},
         {label:'% Tasa asistencia',            values:H.map(h=>h.onbAsistTasa),  inv:false, fmt:'%'},
         {label:'% Cobertura pagas (de asistentes)', values:H.map(h=>h.onbCompPaga),  inv:false, fmt:'%'},
         {label:'% Cobertura trial (de asistentes)', values:H.map(h=>h.onbCompTrial), inv:false, fmt:'%'},
