@@ -1674,6 +1674,7 @@ function calcMonth(off){
     cancelMes:cancelMes.length,convMes:convMes,convMesNuevas:convMesNuevas,convMesPrevias:convMesPrevias,
     cancelMesArr:cancelMes,cancelMesTrial:cancelMesTrial,
     allCancelP:allCancelP,
+    allCuentas:C,
     otrosInterpRows:allCancelP.filter(esNichoOtros),
     otrosNichos:(()=>{const d={};allCancelP.forEach(r=>{if(!esNichoOtros(r))return;const c=getNichoInterp(r);if(c)d[c]=(d[c]||0)+1;});return d;})(),
     otrosNichosN:allCancelP.filter(r=>esNichoOtros(r)&&getNichoInterp(r)).length,
@@ -2469,29 +2470,38 @@ function renderCancelModal(cfg) {
 
   const pct = (n,d) => d>0 ? Math.round(n/d*100) : 0;
 
-  // ── 1. Tendencia 6 meses — usa allCancelP (histórico completo) ──
+  // ── 1. Tendencia 6 meses — cancelaciones (allCancelP) vs ingresos de nuevas cuentas (allCuentas) ──
   const hist6 = m.hist6 || [];
   const allC  = m.allCancelP || [];
+  const allCta = m.allCuentas || [];
   const trendReal = hist6.map((h, i) => {
-    // Reconstruct month range from hist6 label using off
     const off6 = -(5-i);
     const mR   = getMonthRange ? getMonthRange(m.off !== undefined ? m.off + off6 : off6) : null;
-    if (!mR) return { lbl: h.lbl, n: 0 };
-    const inMon = allC.filter(r => {
+    if (!mR) return { lbl: h.lbl, out: 0, inn: 0 };
+    const out = allC.filter(r => {
       const cd = cancelDate(r);
-      return cd && cd >= mR.start && cd <= mR.end &&
-             keyFn(r) === TARGET;
-    });
-    return { lbl: h.lbl, n: inMon.length };
+      return cd && cd >= mR.start && cd <= mR.end && keyFn(r) === TARGET;
+    }).length;
+    const inn = allCta.filter(r => {
+      const ca = getCA(r);
+      return ca && ca >= mR.start && ca <= mR.end && keyFn(r) === TARGET;
+    }).length;
+    return { lbl: h.lbl, out, inn };
   });
 
-  const maxTrend = Math.max(...trendReal.map(t=>t.n), 1);
+  const maxTrend = Math.max(...trendReal.map(t=>Math.max(t.out,t.inn)), 1);
   const trendBars = trendReal.map((t,i) => {
     const isLast = i === trendReal.length-1;
-    const h = Math.round(t.n/maxTrend*60);
-    return `<div style="display:flex;flex-direction:column;align-items:center;gap:4px;flex:1">
-      <div style="font-size:10px;font-weight:700;color:${isLast?'var(--orange)':'var(--muted)'}">${t.n||''}</div>
-      <div style="width:100%;height:${Math.max(h,2)}px;background:${isLast?'rgba(251,146,60,.6)':'rgba(100,116,139,.3)'};border-radius:3px 3px 0 0"></div>
+    const hIn  = Math.max(Math.round(t.inn/maxTrend*54), t.inn>0?3:1);
+    const hOut = Math.max(Math.round(t.out/maxTrend*54), t.out>0?3:1);
+    const net = t.inn - t.out;
+    const netColor = net>0?'var(--green2)':(net<0?'var(--red)':'var(--muted)');
+    return `<div style="display:flex;flex-direction:column;align-items:center;gap:3px;flex:1">
+      <div style="font-size:8px;font-weight:700;color:${netColor};line-height:1" title="Neto (entran − salen)">${net>0?'+'+net:net}</div>
+      <div style="display:flex;align-items:flex-end;gap:2px;height:56px">
+        <div title="Ingresos: ${t.inn}" style="width:10px;height:${hIn}px;background:${isLast?'#0d9488':'rgba(13,148,136,.45)'};border-radius:2px 2px 0 0"></div>
+        <div title="Cancelaciones: ${t.out}" style="width:10px;height:${hOut}px;background:${isLast?'#ea580c':'rgba(234,88,12,.45)'};border-radius:2px 2px 0 0"></div>
+      </div>
       <div style="font-size:9px;color:var(--muted);white-space:nowrap">${t.lbl}</div>
     </div>`;
   }).join('');
@@ -2640,9 +2650,15 @@ function renderCancelModal(cfg) {
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:20px">
 
       <div style="background:rgba(15,23,42,.02);border:1px solid rgba(15,23,42,.07);border-radius:10px;padding:14px">
-        <div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:12px">Tendencia 6 meses</div>
-        <div style="display:flex;align-items:flex-end;gap:4px;height:80px">${trendBars}</div>
-        <div style="font-size:9px;color:var(--muted);margin-top:8px">↑ Volumen de cancelados con este objetivo</div>
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;flex-wrap:wrap;gap:4px">
+          <div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.08em">Tendencia 6 meses · entran vs salen</div>
+          <div style="display:flex;gap:10px;font-size:9px;color:var(--muted)">
+            <span><span style="color:#0d9488">■</span> Ingresos</span>
+            <span><span style="color:#ea580c">■</span> Cancelaciones</span>
+          </div>
+        </div>
+        <div style="display:flex;align-items:flex-end;gap:4px;height:86px">${trendBars}</div>
+        <div style="font-size:9px;color:var(--muted);margin-top:8px">Cuentas nuevas que <strong>entran</strong> vs cancelados que <strong>salen</strong>, por mes, en este segmento. El número de arriba es el <strong>neto</strong> (verde = entran más de las que se van · rojo = se van más de las que entran).</div>
       </div>
 
       <div style="background:rgba(15,23,42,.02);border:1px solid rgba(15,23,42,.07);border-radius:10px;padding:14px">
