@@ -217,9 +217,32 @@ body{background:var(--navy);color:var(--text);font-family:'DM Sans',sans-serif;f
         <button id="quienesToggleT" class="mn-btn" onclick="renderQuienesMes('trial')">Trial</button>
       </div>
     </div>
+    <!-- Resumen evolutivo por perfil -->
+    <div class="card" style="margin-bottom:14px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;flex-wrap:wrap;gap:8px">
+        <div>
+          <div class="chart-title" style="font-size:12px;margin-bottom:2px">Resumen evolutivo · cancelados por perfil</div>
+          <div style="font-size:10px;color:var(--muted)">Cancelados pagas por semana (últimos 6). Color = volumen. "Tend." compara los últimos 3 semanas vs los 3 previos.</div>
+        </div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap" id="cancelEvoToggle">
+          <button class="mn-btn active" data-dim="objetivo" onclick="setCancelEvoDim('objetivo')">Objetivo</button>
+          <button class="mn-btn" data-dim="nicho" onclick="setCancelEvoDim('nicho')">Nicho</button>
+          <button class="mn-btn" data-dim="facturacion" onclick="setCancelEvoDim('facturacion')">Facturación</button>
+          <button class="mn-btn" data-dim="experiencia" onclick="setCancelEvoDim('experiencia')">Experiencia</button>
+        </div>
+      </div>
+      <div id="cancelEvoBox" style="overflow-x:auto"></div>
+    </div>
+
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
       <div class="card">
-        <div class="chart-title" style="margin-bottom:4px;font-size:12px">Tipo de negocio</div>
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
+          <div class="chart-title" style="font-size:12px;margin-bottom:0">Tipo de negocio</div>
+          <div style="display:flex;gap:6px">
+            <button onclick="openNichoModal()" style="font-size:9px;font-weight:700;padding:3px 10px;border-radius:6px;border:1px solid rgba(45,212,191,.3);background:rgba(45,212,191,.07);color:var(--teal);cursor:pointer;font-family:'DM Sans',sans-serif">🔍 Análisis por nicho</button>
+            <button onclick="openOtrosModal()" style="font-size:9px;font-weight:700;padding:3px 10px;border-radius:6px;border:1px solid rgba(45,212,191,.3);background:rgba(45,212,191,.07);color:var(--teal);cursor:pointer;font-family:'DM Sans',sans-serif">🔍 Detalle "Otros"</button>
+          </div>
+        </div>
         <div style="font-size:10px;color:var(--muted);margin-bottom:8px">% esta semana vs % acumulado histórico</div>
         <div id="nichoMes"></div>
       </div>
@@ -244,10 +267,13 @@ body{background:var(--navy);color:var(--text);font-family:'DM Sans',sans-serif;f
     </div>
   </div>
 
-  <!-- BLOQUE: DESGLOSE NICHO OTROS (texto abierto clasificado) -->
+  <!-- BLOQUE: DESGLOSE NICHO OTROS (columna NICHO INTERPRETADO) -->
   <div class="card" style="margin-top:14px">
-    <div class="chart-title" style="margin-bottom:2px;font-size:13px">Desglose del nicho "Otros" · texto abierto clasificado</div>
-    <div style="font-size:10px;color:var(--muted);margin-bottom:12px" id="otrosNichoHint">De los cancelados pagas (histórico) que escribieron su nicho en texto abierto, agrupados por categoría con un clasificador por palabras clave.</div>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:2px;flex-wrap:wrap;gap:6px">
+      <div class="chart-title" style="font-size:13px;margin-bottom:0">Desglose del nicho "Otros" · nicho interpretado</div>
+      <button onclick="openOtrosModal()" style="font-size:9px;font-weight:700;padding:3px 10px;border-radius:6px;border:1px solid rgba(45,212,191,.3);background:rgba(45,212,191,.07);color:var(--teal);cursor:pointer;font-family:'DM Sans',sans-serif">🔍 Ver detalle por cuenta</button>
+    </div>
+    <div style="font-size:10px;color:var(--muted);margin-bottom:12px" id="otrosNichoHint">De los cancelados pagas (histórico) con Tipo de negocio "Otros", agrupados por la columna NICHO INTERPRETADO.</div>
     <div id="otrosNichoBox"></div>
   </div>
 
@@ -304,6 +330,47 @@ body{background:var(--navy);color:var(--text);font-family:'DM Sans',sans-serif;f
 
     <div id="hist6_s3" style="margin-top:14px;margin-bottom:28px"></div>
 
+    <!-- Resultados del onboarding: días y activación (asistentes de la semana) + comparación con/sin -->
+    <div class="card" style="margin-top:14px;margin-bottom:28px">
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:8px">
+        <div>
+          <div class="chart-title" style="font-size:13px;margin-bottom:2px">Resultados del onboarding · evolución por perfil</div>
+          <div class="chart-sub" id="onbResSub" style="margin-bottom:10px">Columnas = últimas 6 semanas. "Tend." compara los últimos 3 semanas vs los 3 previos.</div>
+        </div>
+        <div style="display:flex;gap:6px" id="onbFilterToggle">
+          <button class="mn-btn active" data-fil="todo" onclick="setOnbFilter('todo')">Todo</button>
+          <button class="mn-btn" data-fil="pago" onclick="setOnbFilter('pago')">Solo pago</button>
+          <button class="mn-btn" data-fil="trial" onclick="setOnbFilter('trial')">Solo trial</button>
+        </div>
+      </div>
+
+      <div style="font-size:11px;font-weight:800;color:#0f172a;font-family:'Syne',sans-serif;margin:6px 0 2px">Días para onboarding</div>
+      <div style="font-size:9px;color:var(--muted);margin-bottom:6px">Población: <strong>asistentes a onboarding en la semana</strong> (por fecha de la sesión), incluye cuentas creadas antes. Menos días es mejor.</div>
+      <div id="onbResDias" style="overflow-x:auto"></div>
+
+      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin:20px 0 2px">
+        <div style="font-size:11px;font-weight:800;color:#0f172a;font-family:'Syne',sans-serif">Activación de uso</div>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
+          <div style="display:flex;gap:6px" id="onbActMetToggle">
+            <button class="mn-btn active" data-met="nivel" onclick="setOnbActMet('nivel')">% Activación (nivel)</button>
+            <button class="mn-btn" data-met="activaron" onclick="setOnbActMet('activaron')">% Activaron</button>
+            <button class="mn-btn" data-met="tiempo" onclick="setOnbActMet('tiempo')">Tiempo de activación</button>
+          </div>
+          <div style="display:flex;gap:6px" id="onbHitoToggle">
+            <button class="mn-btn active" data-hito="wa" onclick="setOnbHito('wa')">WhatsApp (1a1)</button>
+            <button class="mn-btn" data-hito="flow" onclick="setOnbHito('flow')">Flow</button>
+            <button class="mn-btn" data-hito="grupo" onclick="setOnbHito('grupo')">Grupo</button>
+          </div>
+        </div>
+      </div>
+      <div style="font-size:9px;color:var(--muted);margin-bottom:6px" id="onbActSub"><strong>Misma población que días</strong> (asistentes de la semana). El hito AHA (WhatsApp/Flow/Grupo) aplica a "% Activaron" y "Tiempo de activación".</div>
+      <div id="onbResActiv" style="overflow-x:auto"></div>
+
+      <div style="font-size:11px;font-weight:800;color:#0f172a;font-family:'Syne',sans-serif;margin:20px 0 2px">Comparación: ¿el onboarding ayuda a activar? · con vs sin onboarding</div>
+      <div style="font-size:9px;color:var(--muted);margin-bottom:6px">Población distinta a propósito: <strong>cuentas pagas creadas en la semana</strong> (única forma de tener grupo "sin onboarding"). No se ve afectada por el filtro de arriba.</div>
+      <div id="onbResCompara" style="overflow-x:auto"></div>
+    </div>
+
   <!-- BLOQUE 5 -->
   <div class="block">
     <div class="sec-label"><span class="sec-num">05</span> Análisis de riesgo <span class="sec-desc">· Estado al cierre de la semana · pagas vigentes con señales de pre-churn</span></div>
@@ -325,7 +392,7 @@ body{background:var(--navy);color:var(--text);font-family:'DM Sans',sans-serif;f
 
   <!-- BLOQUE 6 -->
   <div class="block">
-    <div class="sec-label"><span class="sec-num">06</span> Plan de acción — mes siguiente <span class="sec-desc">· Preventivas + Reactivación · editable</span></div>
+    <div class="sec-label"><span class="sec-num">06</span> Plan de acción — semana siguiente <span class="sec-desc">· Preventivas + Reactivación · editable</span></div>
     <div class="card">
       <table class="plan-table">
         <thead>
@@ -389,22 +456,14 @@ function parseSlash(s){
 function getMonthRange(off=0){
   // VARIANTE SEMANAL: off = semanas desde la semana actual. Devuelve lunes 00:00 → domingo 23:59.
   const t=new Date();
-  const day=(t.getDay()+6)%7; // 0=lunes … 6=domingo
+  const day=(t.getDay()+6)%7;
   const s=new Date(t.getFullYear(),t.getMonth(),t.getDate()-day+off*7); s.setHours(0,0,0,0);
   const e=new Date(s.getFullYear(),s.getMonth(),s.getDate()+6,23,59,59,999);
   return{start:s,end:e};
 }
 function inRange(d,r){return d&&d>=r.start&&d<=r.end;}
-function fmtMonth(d){
-  // Etiqueta larga de la semana: "Semana del 23 al 29 jun 2026"
-  const e=new Date(d); e.setDate(e.getDate()+6);
-  const f=x=>x.toLocaleDateString('es-CO',{day:'numeric',month:'short'});
-  return `Semana del ${f(d)} al ${f(e)} ${e.getFullYear()}`;
-}
-function fmtMonthShort(d){
-  // Etiqueta corta (ejes de tendencias): fecha del lunes, ej. "23 jun"
-  return d.toLocaleDateString('es-CO',{day:'numeric',month:'short'});
-}
+function fmtMonth(d){ const e=new Date(d); e.setDate(e.getDate()+6); const f=x=>x.toLocaleDateString('es-CO',{day:'numeric',month:'short'}); return `Semana del ${f(d)} al ${f(e)} ${e.getFullYear()}`; }
+function fmtMonthShort(d){ return d.toLocaleDateString('es-CO',{day:'numeric',month:'short'}); }
 function cancelDate(r){
   const pt=parseSpDate(r['payment till']);
   if(!pt)return null;
@@ -434,6 +493,12 @@ const NICHO_RULES=[
   ['Servicios y otros negocios', /servicio|logistic|transporte|carpinteria|tratamiento de agua|operador|constructora|construccion|publicidad|marketing|consultor|asesor|agencia|fumigacion|limpieza|seguridad|registrales|despacho|prefabricados|fabrica|emprendimiento|coach|dinamica/],
 ];
 function clasificarNicho(txt){const t=(txt||'').toString().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/\s+/g,' ').trim();if(!t)return null;for(const [cat,re] of NICHO_RULES){if(re.test(t))return cat;}return 'Otros sin clasificar';}
+// Lee la columna 'NICHO INTERPRETADO' del archivo principal de forma robusta (tolera mayúsculas/espacios/tildes).
+function getNichoInterp(r){ if(r&&r['NICHO INTERPRETADO']!==undefined) return (r['NICHO INTERPRETADO']||'').toString().trim(); for(const k in r){ if(k.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/\s+/g,' ').trim()==='nicho interpretado') return (r[k]||'').toString().trim(); } return ''; }
+// ¿La cuenta tiene Tipo de negocio = "Otros"?
+function esNichoOtros(r){ const t=(r['Tipo de negocio']||'').toString().trim().toLowerCase(); return t==='otros'||t==='otro'; }
+// Nicho autoritativo: NICHO INTERPRETADO si existe, si no Tipo de negocio.
+function nicheOf(r){ const ni=getNichoInterp(r); if(ni) return ni; const t=(r['Tipo de negocio']||'').toString().trim(); return t||'(sin tipo)'; }
 function getOnbDate(r){return parseISO(r['Fecha registro'])||parseISO(r['Fecha estado onboarding'])||null;}
 function getOnbGHLDate(r){return parseSpDate(r['Fecha de ONB GHL'])||parseISO(r['Fecha de ONB GHL'])||null;}
 function getContactId(r){return (r['contact_id']||r['id_unico']||'').toString().trim();}
@@ -590,12 +655,12 @@ function topN(arr,key,n=5){
 // ── Clasificación de plan por PRECIO (payments usa un nombre genérico) ──
 // Orden de niveles para decidir si un movimiento es subida o bajada
 const PLAN_RANK = {'Plan Starter':1,'Plan Growth':2,'Plan Advanced':3,'Advanced Personalizado':4};
-// Precios mensuales de referencia para estimar el cambio en dinero de un movimiento.
+// Precios semanales de referencia para estimar el cambio en dinero de un movimiento.
 // Aproximación derivada de payments (NO es el MRR oficial de Yasmin). Adv. Pers. es ajustable.
 const PLAN_PRICE = {'Plan Starter':49,'Plan Growth':99,'Plan Advanced':199,'Advanced Personalizado':399};
-// Devuelve el plan a partir del valor mensual normalizado.
+// Devuelve el plan a partir del valor semanal normalizado.
 // Bandas tolerantes a cobros de pasarela con unos dólares de menos (ej. 195 sigue siendo Advanced).
-// Referencia de precios mensuales: Starter ≈49 · Growth ≈99 · Advanced ≈199.
+// Referencia de precios semanales: Starter ≈49 · Growth ≈99 · Advanced ≈199.
 function planFromMonthlyVal(mv){
   if(!(mv>0)) return null;        // pago en 0 = trial/gratis, no es un nivel de plan
   if(mv < 74)  return 'Plan Starter';
@@ -603,8 +668,8 @@ function planFromMonthlyVal(mv){
   if(mv < 280) return 'Plan Advanced';
   return 'Advanced Personalizado'; // claramente por encima de Advanced (ajustable: umbral 280)
 }
-// Convierte un pago a "precio de un mes" usando la vigencia (Expiration − Date).
-// Así un pago anual no se confunde con un upgrade: se reparte entre los meses que cubre.
+// Convierte un pago a "precio de una semana" usando la vigencia (Expiration − Date).
+// Así un pago anual no se confunde con un upgrade: se reparte entre las semanas que cubre.
 function paymentMonthlyVal(p){
   const val = parseFloat((p['Plan Value']||'0').toString().replace(/[^0-9.]/g,'')) || 0;
   if(val<=0) return 0;
@@ -704,12 +769,32 @@ function calcMonth(off){
     });
     return conversions;
   })();
+  // Inicios de trial derivados de la tabla payments: cuentas cuyo primer pago fue en 0 (trial),
+  // contadas por la fecha de ese pago 0 — independiente de si luego se pasaron a pagas.
+  const trialStartsFromPayments = (() => {
+    const byUser = {};
+    RAW.payments.forEach(p => {
+      const uid = (p['User ID']||'').toString().trim(); if(!uid) return;
+      const d   = parseSpanishLong(p['Date']) || parseSpDate(p['Date']) || parseISO(p['Date']);
+      const val = parseFloat((p['Plan Value']||'0').toString().replace(/[^0-9.]/g,'')) || 0;
+      if(!d) return;
+      (byUser[uid] = byUser[uid] || []).push({ d, val });
+    });
+    const starts = []; // { uid, trialDate }
+    Object.entries(byUser).forEach(([uid, pays]) => {
+      const sorted = pays.sort((a,b)=>a.d-b.d);
+      const firstZero = sorted.find(p => p.val === 0);
+      if (firstZero) starts.push({ uid, trialDate: firstZero.d });
+    });
+    return starts;
+  })();
+  const convertedUids = new Set(convFromPayments.map(c => c.uid));
   const convMesArr = convFromPayments.filter(c => inRange(c.convDate, range));
   const convMes = convMesArr.length;
   // ── Separar conversiones de la semana según cuándo empezó el trial ──
   // "Nuevas de la semana" = la cuenta se creó (created_at) DENTRO del mismo mes en que convirtió.
   //   Esto la vuelve un subconjunto de los trials nuevos de la semana → coherente, nunca puede superarlos.
-  // "De meses anteriores" = convirtió esta semana pero la cuenta se creó en un mes previo (o sin fecha de creación).
+  // "De semanas anteriores" = convirtió esta semana pero la cuenta se creó en un semana previa (o sin fecha de creación).
   const startedInRange = c => { const a=acctById[c.uid]; const ca=a?getCA(a):null; return inRange(ca,range); };
   const convMesNuevasArr  = convMesArr.filter(startedInRange);
   const convMesNuevas     = convMesNuevasArr.length;
@@ -727,7 +812,7 @@ function calcMonth(off){
   const prevNuevos=C.filter(r=>inRange(getCA(r),prevR)&&isPaga(r)).length;
   const prevCancel=canP.filter(r=>inRange(cancelDate(r),prevR)).length;
   const prevConv=convFromPayments.filter(c=>inRange(c.convDate,prevR)).length;
-  // Mismo criterio "nuevas de la semana" pero para el semana anterior (para la flecha de comparación)
+  // Mismo criterio "nuevas de la semana" pero para la semana anterior (para la flecha de comparación)
   const prevConvNuevas=convFromPayments.filter(c=>{
     if(!inRange(c.convDate,prevR))return false;
     const a=acctById[c.uid]; const ca=a?getCA(a):null; return inRange(ca,prevR);
@@ -791,25 +876,25 @@ function calcMonth(off){
   const nichoCancel=topN(cancelMes,'Tipo de negocio');
   const objCancel=topN(cancelMes,'Objetivo con Funnelchat');
   const expCancel=topN(cancelMes,'Experiencia automatizando');
-  const factCancel=topN(cancelMes,'Facturación promedio mensual');
+  const factCancel=topN(cancelMes,'Facturación promedio semanal');
 
   // Nuevas de la semana por segmento — para comparar con cancelados
   const nichoNuevas=topN(nuevosMesP,'Tipo de negocio');
   const objNuevas=topN(nuevosMesP,'Objetivo con Funnelchat');
   const expNuevas=topN(nuevosMesP,'Experiencia automatizando');
-  const factNuevas=topN(nuevosMesP,'Facturación promedio mensual');
+  const factNuevas=topN(nuevosMesP,'Facturación promedio semanal');
   // Trial nuevas too
   const nichoNuevasT=topN(nuevosMesT,'Tipo de negocio');
   const objNuevasT=topN(nuevosMesT,'Objetivo con Funnelchat');
   const expNuevasT=topN(nuevosMesT,'Experiencia automatizando');
-  const factNuevasT=topN(nuevosMesT,'Facturación promedio mensual');
+  const factNuevasT=topN(nuevosMesT,'Facturación promedio semanal');
 
   // ── Trial cancelados esta semana ───────────────────────
   const cancelMesTrial=C.filter(r=>(r['Vigencia del servicio']||'').trim()==='Cancelado'&&isTrial(r)&&inRange(cancelDate(r),range));
   const nichoT=topN(cancelMesTrial,'Tipo de negocio');
   const objT=topN(cancelMesTrial,'Objetivo con Funnelchat');
   const expT=topN(cancelMesTrial,'Experiencia automatizando');
-  const factT=topN(cancelMesTrial,'Facturación promedio mensual');
+  const factT=topN(cancelMesTrial,'Facturación promedio semanal');
 
   // ── Histórico pagas cancelados (acumulado total) ───
   const allCancelP=canP;
@@ -817,11 +902,11 @@ function calcMonth(off){
   const nichoHistP=topN(allCancelP,'Tipo de negocio');
   const objHistP=topN(allCancelP,'Objetivo con Funnelchat');
   const expHistP=topN(allCancelP,'Experiencia automatizando');
-  const factHistP=topN(allCancelP,'Facturación promedio mensual');
+  const factHistP=topN(allCancelP,'Facturación promedio semanal');
   const nichoHistT=topN(allCancelT,'Tipo de negocio');
   const objHistT=topN(allCancelT,'Objetivo con Funnelchat');
   const expHistT=topN(allCancelT,'Experiencia automatizando');
-  const factHistT=topN(allCancelT,'Facturación promedio mensual');
+  const factHistT=topN(allCancelT,'Facturación promedio semanal');
 
   // ── Histórico barras perfil ─────────────────────────
   const allCm=allCancelP.length||1;
@@ -838,13 +923,13 @@ function calcMonth(off){
   const nichoCancelPrev=topN(cancelPrev,'Tipo de negocio');
   const objCancelPrev=topN(cancelPrev,'Objetivo con Funnelchat');
   const expCancelPrev=topN(cancelPrev,'Experiencia automatizando');
-  const factCancelPrev=topN(cancelPrev,'Facturación promedio mensual');
+  const factCancelPrev=topN(cancelPrev,'Facturación promedio semanal');
   const nichoTPrev=topN(cancelPrevT,'Tipo de negocio');
   const objTPrev=topN(cancelPrevT,'Objetivo con Funnelchat');
   const expTPrev=topN(cancelPrevT,'Experiencia automatizando');
-  const factTPrev=topN(cancelPrevT,'Facturación promedio mensual');
+  const factTPrev=topN(cancelPrevT,'Facturación promedio semanal');
 
-  // ── Ranking history — últimas 3 semanas ────────────────
+  // ── Ranking history — últimos 3 semanas ────────────────
   // For each key, build a ranking per month to detect trends
   const buildRankHistory = (key, isTrialMode) => {
     const history = [];
@@ -865,13 +950,13 @@ function calcMonth(off){
     nicho: buildRankHistory('Tipo de negocio', false),
     obj:   buildRankHistory('Objetivo con Funnelchat', false),
     exp:   buildRankHistory('Experiencia automatizando', false),
-    fact:  buildRankHistory('Facturación promedio mensual', false),
+    fact:  buildRankHistory('Facturación promedio semanal', false),
   };
   const rankHistT = {
     nicho: buildRankHistory('Tipo de negocio', true),
     obj:   buildRankHistory('Objetivo con Funnelchat', true),
     exp:   buildRankHistory('Experiencia automatizando', true),
-    fact:  buildRankHistory('Facturación promedio mensual', true),
+    fact:  buildRankHistory('Facturación promedio semanal', true),
   };
 
   const ltBuckets={'0-30d':0,'31-60d':0,'61-90d':0,'91-180d':0,'181-365d':0,'+365d':0};
@@ -995,7 +1080,7 @@ function calcMonth(off){
   const mrrPerCli=vigP.length>0?mrrActivo/vigP.length:ARPU;
   const mrrProtOnb=Math.max(0,Math.round(onbAsist*retDiff*mrrPerCli*12));
 
-  // ── Impact comparison metrics — últimas 12 semanas ──
+  // ── Impact comparison metrics — últimos 12 semanas ──
   // Filter to last 12 months to avoid bias from pre-implementation accounts
   const range12m = { start: new Date(range.end.getFullYear()-1, range.end.getMonth(), 1), end: range.end };
   const C12 = C.filter(r => { const ca=getCA(r); return ca && ca >= range12m.start; });
@@ -1112,9 +1197,9 @@ function calcMonth(off){
   };
 
   // ── Movimientos de plan (upgrades / downgrades) desde payments ──────────────
-  // Cada pago se clasifica por NIVEL de plan (precio mensual normalizado), no por el
+  // Cada pago se clasifica por NIVEL de plan (precio semanal normalizado), no por el
   // monto bruto. Un movimiento = cambio de nivel entre dos pagos consecutivos del
-  // mismo usuario. Renovar al mismo nivel (aunque cambie mensual↔anual) NO es movimiento.
+  // mismo usuario. Renovar al mismo nivel (aunque cambie semanal↔anual) NO es movimiento.
   const tiersByUser = {};
   RAW.payments.forEach(p => {
     const uid = (p['User ID']||'').toString().trim();
@@ -1126,7 +1211,7 @@ function calcMonth(off){
     if (!tiersByUser[uid]) tiersByUser[uid] = [];
     tiersByUser[uid].push({ d, tier });
   });
-  // Lista única de todos los movimientos (con fecha), para el mes y la tendencia
+  // Lista única de todos los movimientos (con fecha), para la semana y la tendencia
   const allMovements = [];
   Object.entries(tiersByUser).forEach(([uid, arr]) => {
     arr.sort((a,b) => a.d - b.d);
@@ -1205,6 +1290,14 @@ function calcMonth(off){
   const avgConSes = avgNiv(newConSes);
   const avgSinSes = avgNiv(newSinSes);
 
+  // ── Cohorte por ASISTENCIA a onboarding EN EL PERÍODO (cualquier fecha de creación) ──
+  const onbPeriodIds   = new Set(onbAsistAll.map(r=>getOnbUserId(r)).filter(Boolean));
+  const onbPeriodAccts = C.filter(r => onbPeriodIds.has((r['id']||'').toString().trim()) && isPaga(r));
+  const onbPeriodN     = onbPeriodAccts.length;
+  const onbPeriodAvg   = avgNivTotal(onbPeriodAccts);
+  const onbPeriodNuevas  = onbPeriodAccts.filter(r=>{const ca=getCA(r);return ca&&inRange(ca,range);}).length;
+  const onbPeriodPrevias = onbPeriodN - onbPeriodNuevas;
+
   // By segment with onb/ses split
   const nivelBySeg = ['A','B','C'].map(seg => {
     const rows    = newLast4w.filter(r=>(r['Segmento de cliente (priorización de cliente)']||'').trim()===seg);
@@ -1218,7 +1311,63 @@ function calcMonth(off){
       avgConSes: avgNivTotal(rowsSes), nConSes: rowsSes.length };
   }).filter(s=>s.n>0);
 
-  // Feature usage: Usa flows + Usa grupos?
+  // ── Resultados de onboarding — MISMA lógica de las 2 secciones de referencia ──
+  //  · Activación: cuentas creadas en la semana (pagas) con onboarding (∩ onbAsistIds), avg = avgNivTotal  [= "Activación de cuentas nuevas"]
+  //  · Días: asistentes de la semana por fecha de onboarding, avgDias sobre getOnbDias, tipo por getOnbTipo   [= "Detalle ONB — tiempo al ONB"]
+  const onbResultados = (() => {
+    const rmonths=[]; for(let i=-5;i<=0;i++){const rr=getMonthRange(off+i);rmonths.push({r:rr,label:fmtMonthShort(rr.start)});}
+    const segOf=a=>{const s=(a['Segmento de cliente (priorización de cliente)']||'').trim();return (s==='A'||s==='B'||s==='C')?('Seg '+s):'Sin seg';};
+    const asistio = r => (r['Estado del onboarding']||'').toLowerCase().replace(/ó/g,'o').replace(/í/g,'i').trim()==='asistio';
+    const avgDias=arr=>{const v=arr.map(getOnbDias).filter(x=>x!==null);return v.length?Math.round(v.reduce((a,b)=>a+b,0)/v.length):null;};
+    const DKEYS=['general','nuevas','nue|Seg A','nue|Seg B','nue|Seg C','nue|Sin seg','antiguas','ant|Seg A','ant|Seg B','ant|Seg C','ant|Sin seg'];
+    const HITOS={wa:'AHA WA', flow:'AHA flows', grupo:'AHA grupos'}; const HKEYS=Object.keys(HITOS);
+
+    const metricsOf=att=>{
+      const accts=att.map(r=>acctById[getOnbUserId(r)]).filter(Boolean);
+      const pct={}, ttv={}; HKEYS.forEach(h=>{const s=ahaStats(accts,HITOS[h]); pct[h]=accts.length?s.pct:null; ttv[h]=s.avg;});
+      return { dias:att.length?avgDias(att):null, nivel:accts.length?avgNivTotal(accts):null, n:att.length, pct, ttv };
+    };
+    const groupAtt=att=>{
+      const g={}; DKEYS.forEach(k=>g[k]=[]); g.general=att;
+      att.forEach(r=>{const t=getOnbTipo(r);const a=acctById[getOnbUserId(r)];const s=a?segOf(a):'Sin seg';
+        if(t==='nuevas'){g.nuevas.push(r);g['nue|'+s].push(r);}
+        else if(t==='antiguo'){g.antiguas.push(r);g['ant|'+s].push(r);}});
+      return g;
+    };
+
+    const FILTERS=['todo','pago','trial'];
+    const byFilter={};
+    FILTERS.forEach(f=>{ byFilter[f]={dias:{},nDias:{},nivel:{},pct:{wa:{},flow:{},grupo:{}},ttv:{wa:{},flow:{},grupo:{}}};
+      DKEYS.forEach(k=>{byFilter[f].dias[k]=[];byFilter[f].nDias[k]=[];byFilter[f].nivel[k]=[];HKEYS.forEach(h=>{byFilter[f].pct[h][k]=[];byFilter[f].ttv[h][k]=[];});}); });
+    // Comparación con/sin onboarding (cohorte de creación, pagas) — todos los hitos
+    const act={ conN:[],sinN:[], nivelCon:[],nivelSin:[], pctCon:{wa:[],flow:[],grupo:[]},pctSin:{wa:[],flow:[],grupo:[]}, ttvCon:{wa:[],flow:[],grupo:[]},ttvSin:{wa:[],flow:[],grupo:[]} };
+
+    rmonths.forEach(mo=>{
+      const attAll=O.filter(r=>asistio(r)&&inRange(getOnbPrimaryDate(r),mo.r));
+      const filt={ todo:attAll,
+        pago:  attAll.filter(r=>{const a=acctById[getOnbUserId(r)];return a&&isPaga(a);}),
+        trial: attAll.filter(r=>{const a=acctById[getOnbUserId(r)];return a&&isTrial(a);}) };
+      FILTERS.forEach(f=>{ const g=groupAtt(filt[f]);
+        DKEYS.forEach(k=>{ const mm=metricsOf(g[k]);
+          byFilter[f].dias[k].push(mm.dias); byFilter[f].nDias[k].push(mm.n); byFilter[f].nivel[k].push(mm.nivel);
+          HKEYS.forEach(h=>{ byFilter[f].pct[h][k].push(mm.pct[h]); byFilter[f].ttv[h][k].push(mm.ttv[h]); }); });
+      });
+      const base=C.filter(r=>{const ca=getCA(r);return ca&&inRange(ca,mo.r)&&isPaga(r);});
+      const con=base.filter(r=>onbAsistIds.has((r['id']||'').toString().trim()));
+      const sin=base.filter(r=>!onbAsistIds.has((r['id']||'').toString().trim()));
+      act.conN.push(con.length); act.sinN.push(sin.length);
+      act.nivelCon.push(con.length?avgNivTotal(con):null); act.nivelSin.push(sin.length?avgNivTotal(sin):null);
+      HKEYS.forEach(h=>{ const sc=ahaStats(con,HITOS[h]), ss=ahaStats(sin,HITOS[h]);
+        act.pctCon[h].push(con.length?sc.pct:null); act.pctSin[h].push(sin.length?ss.pct:null);
+        act.ttvCon[h].push(sc.avg); act.ttvSin[h].push(ss.avg); });
+    });
+
+    const anyN=key=>FILTERS.some(f=>byFilter[f].nDias[key].some(x=>x>0));
+    const keysDias=['general','nuevas','nue|Seg A','nue|Seg B','nue|Seg C'].concat(anyN('nue|Sin seg')?['nue|Sin seg']:[])
+      .concat(['antiguas','ant|Seg A','ant|Seg B','ant|Seg C']).concat(anyN('ant|Sin seg')?['ant|Sin seg']:[]);
+    return { monthsLabels:rmonths.map(x=>x.label), keysDias, byFilter, act };
+  })();
+
   const parseUsage = (r, col) => { const v=parseInt((r[col]||'').toString().replace(/[^0-9]/g,'')); return isNaN(v)?0:v; };
   const flowDist   = [0,1,2,3].map(n => ({ n, count: newLast4w.filter(r=>parseUsage(r,'Usa flows')===n).length }));
   const apiSi      = newLast4w.filter(r=>(r['Usa API?']||'').trim()==='Sí').length;
@@ -1345,9 +1494,11 @@ function calcMonth(off){
   // --- Medias RECIENTES (últimos 90 días) ---
   const RECENT_DIAS = 90;
   const recentCut = new Date(Date.now() - RECENT_DIAS*86400000);
+  // Ciclos reciente: cuentas vaivén con su último pago dentro de la ventana
   const baibenRec = baibenAll.filter(b => b.lastPay && b.lastPay >= recentCut);
   const avgCyclesRec = baibenRec.length > 0
     ? Math.round(baibenRec.reduce((s,b)=>s+b.seasons,0)/baibenRec.length*10)/10 : 0;
+  // Gap reciente: gaps cuyo REGRESO (primer pago de la nueva temporada) cae en la ventana
   const recentGaps = baibenAll.flatMap(b => b.gaps.filter((g,i)=> b.gapReturns[i] && b.gapReturns[i] >= recentCut));
   const avgGapDiasRec = recentGaps.length > 0
     ? Math.round(recentGaps.reduce((a,b)=>a+b,0)/recentGaps.length) : 0;
@@ -1481,7 +1632,7 @@ function calcMonth(off){
     }))
   };
   // ── Valor de la cartera por RAM ──
-  // Valor = suma del precio mensual de las cuentas ACTIVAS (con un pago que cubre ese mes),
+  // Valor = suma del precio semanal de las cuentas ACTIVAS (con un pago que cubre ese mes),
   // contando cada cuenta solo desde que fue asignada al RAM. Estimado desde payments (no MRR oficial).
   const payByUser = {};
   RAW.payments.forEach(p => {
@@ -1525,9 +1676,11 @@ function calcMonth(off){
     cancelMes:cancelMes.length,convMes:convMes,convMesNuevas:convMesNuevas,convMesPrevias:convMesPrevias,
     cancelMesArr:cancelMes,cancelMesTrial:cancelMesTrial,
     allCancelP:allCancelP,
-    otrosNichos:(()=>{const d={};allCancelP.forEach(r=>{const c=clasificarNicho(r['nicho otro']);if(c)d[c]=(d[c]||0)+1;});return d;})(),
-    otrosNichosN:allCancelP.filter(r=>clasificarNicho(r['nicho otro'])).length,
-    otrosSinTexto:allCancelP.filter(r=>{const n=(r['Tipo de negocio']||'').toString().trim().toLowerCase();return (n==='otros'||n==='otro'||n==='')&&!(r['nicho otro']||'').toString().trim();}).length,
+    allCuentas:C,
+    otrosInterpRows:allCancelP.filter(esNichoOtros),
+    otrosNichos:(()=>{const d={};allCancelP.forEach(r=>{if(!esNichoOtros(r))return;const c=getNichoInterp(r);if(c)d[c]=(d[c]||0)+1;});return d;})(),
+    otrosNichosN:allCancelP.filter(r=>esNichoOtros(r)&&getNichoInterp(r)).length,
+    otrosSinTexto:allCancelP.filter(r=>esNichoOtros(r)&&!getNichoInterp(r)).length,
     prevCancelMesArr:prevCancelMesArr,atrP:atrP.length,
     mrrActivo,mrrRiesgo,mrrNuevo,mrrPerdido,mrrConv,
     retNeta:nuevosMesP.length-cancelMes.length,
@@ -1557,10 +1710,11 @@ function calcMonth(off){
     onbPropPrev,onbAgenPrev,onbAsistPrev,onbNoShowPrev,
     cobPPrev,cobTPrev,
     onbAsistP,onbAsistT,cobP,cobT,
+    onbResultados,
     nuevosMesP_n:nuevosMesP.length,nuevosMesT_n:nuevosMesT.length,
     mrrProtOnb,pctRetCon:Math.round(retCon*100),pctRetSin:Math.round(retSin*100),
     baiben:{ total:baibenAll.length, churnN:baibenChurnMes.length, pct:baibenPct, avgCycles, avgGapDias, avgGapMes, avgCyclesRec, avgGapDiasRec, avgGapMesRec, baibenRecN, recentGapsN, niches:baibenNiches, nichesMes:baibenNichesMes, objs:baibenObjs, objsMes:baibenObjsMes, baibenTotal, plans:baibenPlans, trend:baibenTrend },
-    activacion:{ n:newLast4w.length, withData:niveles.length, avg:avgNivel, buckets:nivelBuckets, byPlan:nivelByPlan, bySeg:nivelBySeg, byObj:nivelByObj, flowDist, gruposDist, flowsActivos, gruposActivos, totalBase, apiSi, businessSi, avgConOnb, avgSinOnb, avgConSes, avgSinSes, nConOnb:newConOnb.length, nSinOnb:newSinOnb.length },
+    activacion:{ n:newLast4w.length, withData:niveles.length, avg:avgNivel, buckets:nivelBuckets, byPlan:nivelByPlan, bySeg:nivelBySeg, byObj:nivelByObj, flowDist, gruposDist, flowsActivos, gruposActivos, totalBase, apiSi, businessSi, avgConOnb, avgSinOnb, avgConSes, avgSinSes, nConOnb:newConOnb.length, nSinOnb:newSinOnb.length, onbPeriodN, onbPeriodAvg, onbPeriodNuevas, onbPeriodPrevias },
     tiempoOnb:{ all:diasStats(onbDiasAll), nuevas:diasStats(onbDiasNew), antiguas:diasStats(onbDiasOld), histo:onbHisto, byPlan:onbByPlanStats, bySeg:onbBySegStats },
     noNeed:{ n:noNeedRows.length, seg:noNeedSeg, nicho:noNeedNichoArr, plan:noNeedPlanArr },
     onbImpact,sesImpact,embImpactData,
@@ -1588,7 +1742,7 @@ function calcMonth(off){
     const months = [];
     for (let i = -5; i <= 0; i++) {
       const mRange = getMonthRange(off + i);
-      const lbl = fmtMonthShort(mRange.start);
+      const lbl = fmtMonth(mRange.start).slice(0,6);
 
       // Datos duros
       const newP  = C.filter(r=>inRange(getCA(r),mRange)&&isPaga(r));
@@ -1598,6 +1752,21 @@ function calcMonth(off){
         return d && inRange(d, mRange) && (p['Plan Name']||'').toLowerCase().includes('reposo');
       }).length;
       const newT  = C.filter(r=>inRange(getCA(r),mRange)&&isTrial(r));
+      // Trials que INICIARON el periodo como trial, según payments (pago 0), sin importar si convirtieron
+      const trialStartsM = trialStartsFromPayments.filter(t => inRange(t.trialDate, mRange));
+      const newTpay = trialStartsM.length;
+      // % conversión (cohorte): de los trials que iniciaron en la semana, cuántos ya convirtieron
+      const convCohorte = trialStartsM.filter(t => convertedUids.has(t.uid)).length;
+      const convRate = newTpay > 0 ? Math.round(convCohorte/newTpay*1000)/10 : null;
+      // Trials convertidos a pago EN ESTE MES — derivado de la tabla payments (no de users)
+      const convM = convFromPayments.filter(c => inRange(c.convDate, mRange)).length;
+      // ── Nuevas cuentas de la semana: total → nacieron pagas / nacieron trial → de trial, convertidas ──
+      const idOf = r => (r['id']||'').toString().trim();
+      const convertidasNew = newP.filter(r=>convertedUids.has(idOf(r))).length; // creadas en la semana que ya convirtieron (hoy pagas)
+      const newTotal = newP.length + newT.length;                              // todas las creadas en la semana (pagas + trial)
+      const bornPaga = newP.length - convertidasNew;                           // nacieron pagando directo
+      const bornTrial = newT.length + convertidasNew;                          // nacieron en trial (siguen trial + ya convertidas)
+      const convRateNew = bornTrial>0 ? Math.round(convertidasNew/bornTrial*1000)/10 : null;
       const canM  = canP.filter(r=>inRange(cancelDate(r),mRange));
       const atrM  = C.filter(r=>{
         if((r['Vigencia del servicio']||'').trim()!=='Atrasado'||!isPaga(r))return false;
@@ -1641,6 +1810,12 @@ function calcMonth(off){
       const avgDiasM     = arr => { const v=arr.map(getOnbDias).filter(x=>x!==null); return v.length?Math.round(v.reduce((a,b)=>a+b,0)/v.length):null; };
       const diasNuevasM  = avgDiasM(onbGHLNuevasM);
       const diasAntiguasM= avgDiasM(onbGHLAntiguasM);
+      // Composición de los asistentes a onboarding: % que eran cuentas pagas vs trial
+      const onbAsistPM = onbAsistAllM.filter(r=>getOnbType(r)==='paga').length;
+      const onbAsistTM = onbAsistAllM.filter(r=>getOnbType(r)==='trial').length;
+      const onbAsistClasif = onbAsistPM + onbAsistTM;
+      const onbCompPaga  = onbAsistClasif>0 ? Math.round(onbAsistPM/onbAsistClasif*100) : null;
+      const onbCompTrial = onbAsistClasif>0 ? Math.round(onbAsistTM/onbAsistClasif*100) : null;
 
       // AHA — tiempo al hito por semana, con ONB vs sin ONB
       const conOnbM = newP.filter(r => (r['Onboarding']||'').trim()==='Con onboarding');
@@ -1700,7 +1875,8 @@ function calcMonth(off){
       months.push({
         lbl,
         // Sección 1
-        newP:newP.length, newT:newT.length, reposoM,
+        newP:newP.length, newT:newT.length, newTpay, convM, convRate, reposoM,
+        newTotal, bornPaga, bornTrial, convertidasNew, convRateNew,
         canM:canM.length, atrM:atrM.length,
         vigIni:vigIni.length, mrrM, churnRate,
         retNeta:newP.length-canM.length,
@@ -1719,7 +1895,7 @@ function calcMonth(off){
         diasNuevasM, diasAntiguasM,
         onbProp:onbM.length, onbAgen:onbAgenM,
         onbAsist:onbAsistM, onbNS:onbNSM,
-        onbCob:cobM, onbAsistTasa:asistTasaM,
+        onbCob:cobM, onbAsistTasa:asistTasaM, onbCompPaga, onbCompTrial,
         onbRetPct, onbRetVig,
         ahaM,
         // Sesiones
@@ -1798,7 +1974,7 @@ function render(m){
       </div>
       <div class="p-value" style="color:var(--yellow)">${m.convMesNuevas}</div>
       <div class="p-delta ${dCv.cls}">${dCv.txt}</div>
-      <div class="p-context">+ ${m.convMesPrevias} convertidos de meses anteriores</div></div>
+      <div class="p-context">+ ${m.convMesPrevias} convertidos de semanas anteriores</div></div>
     <div class="p-card c-orange">
       <div class="p-label">
         <span class="tip">Atrasadas pagas
@@ -2078,7 +2254,7 @@ function render(m){
       <div class="rm-icon">${r.icon}</div>
       <div class="rm-count">${r.mes}<span style="font-size:14px;font-weight:500;color:var(--muted);margin-left:6px">/ ${r.tot}</span></div>
       <div style="font-family:'Syne',sans-serif;font-size:13px;font-weight:700;margin:3px 0" class="rm-mrr">${pctPeriod}% <span style="font-size:10px;font-weight:400;color:var(--muted)">de nuevas pagas</span></div>
-      <div class="rm-label">${r.label}<br><small>${r.sub}</small><br><small style="color:var(--muted)">Esta semana / total vigentes</small></div>
+      <div class="rm-label">${r.label}<br><small>${r.sub}</small><br><small style="color:var(--muted)">Este mes / total vigentes</small></div>
       <div class="rm-mrr" style="font-size:10px;margin-top:4px">${fmt$(r.mrrMes)} mes · ${fmt$(r.mrrTot)} total</div>
       <button class="risk-dl-btn" onclick="downloadCSV('${r.key}','${r.label}')">
         ↓ Descargar lista (${r.tot})
@@ -2192,6 +2368,9 @@ function renderPerfilTable() {
     return ` <span style="font-size:9px;color:${c}">${curr>prev?'▲':'▼'}${ds}pp</span>`;
   }
 
+  // Polaridad de color (inv): con inv:true, BAJAR = verde. Con inv:false, SUBIR = verde.
+  // 'Cancelaciones' inv:true (bajar es bueno). Las filas '% Sin [activación]' van inv:false:
+  // si el % Sin BAJA significa que se están yendo más clientes YA ACTIVADOS → es malo (rojo).
   const rows = [
     {label:'Cancelaciones pagas',      values:H.map(h=>h.canM||0),            inv:true,  fmt:'n'},
     {label:'% Sin onboarding',         values:H.map(h=>h.pSinOnb),  inv:false, fmt:'%'},
@@ -2251,25 +2430,26 @@ function openGruposModal(preselect) {
   ).join('');
   if (!objectives.length) {
     document.getElementById('gruposModalContent').innerHTML =
-      '<div style="color:var(--muted);font-size:12px;padding:20px 0">Sin datos de objetivos en la semana seleccionado.</div>';
+      '<div style="color:var(--muted);font-size:12px;padding:20px 0">Sin datos de objetivos en el semana seleccionada.</div>';
     return;
   }
 
   renderGruposModal();
 }
 
-function renderGruposModal() {
+function renderCancelModal(cfg) {
   const m = window._mesMet;
   if (!m) return;
-  const sel = document.getElementById('gruposObjSelect');
-  const TARGET = sel ? sel.value : 'Optimizar la gestión de grupos / comunidades';
+  const keyFn = cfg.keyFn;
+  const sel = document.getElementById(cfg.selId);
+  const TARGET = sel ? sel.value : '';
   const pool     = (m.cancelMesArr||[]);
-  const seg      = pool.filter(r => (r['Objetivo con Funnelchat']||'').trim() === TARGET);
+  const seg      = pool.filter(r => keyFn(r) === TARGET);
   const total    = seg.length;
 
   if (!total) {
-    document.getElementById('gruposModalContent').innerHTML =
-      `<div style="color:var(--muted);font-size:12px;padding:20px 0">Sin cancelados con el objetivo "<strong>${TARGET}</strong>" en ${m.label}.</div>`;
+    document.getElementById(cfg.contentId).innerHTML =
+      `<div style="color:var(--muted);font-size:12px;padding:20px 0">Sin cancelados con ${cfg.dimWord} "<strong>${TARGET}</strong>" en ${m.label}.</div>`;
     return;
   }
 
@@ -2292,43 +2472,52 @@ function renderGruposModal() {
 
   const pct = (n,d) => d>0 ? Math.round(n/d*100) : 0;
 
-  // ── 1. Tendencia 6 semanas — usa allCancelP (histórico completo) ──
+  // ── 1. Tendencia 6 semanas — cancelaciones (allCancelP) vs ingresos de nuevas cuentas (allCuentas) ──
   const hist6 = m.hist6 || [];
   const allC  = m.allCancelP || [];
+  const allCta = m.allCuentas || [];
   const trendReal = hist6.map((h, i) => {
-    // Reconstruct month range from hist6 label using off
     const off6 = -(5-i);
     const mR   = getMonthRange ? getMonthRange(m.off !== undefined ? m.off + off6 : off6) : null;
-    if (!mR) return { lbl: h.lbl, n: 0 };
-    const inMon = allC.filter(r => {
+    if (!mR) return { lbl: h.lbl, out: 0, inn: 0 };
+    const out = allC.filter(r => {
       const cd = cancelDate(r);
-      return cd && cd >= mR.start && cd <= mR.end &&
-             (r['Objetivo con Funnelchat']||'').trim() === TARGET;
-    });
-    return { lbl: h.lbl, n: inMon.length };
+      return cd && cd >= mR.start && cd <= mR.end && keyFn(r) === TARGET;
+    }).length;
+    const inn = allCta.filter(r => {
+      const ca = getCA(r);
+      return ca && ca >= mR.start && ca <= mR.end && keyFn(r) === TARGET;
+    }).length;
+    return { lbl: h.lbl, out, inn };
   });
 
-  const maxTrend = Math.max(...trendReal.map(t=>t.n), 1);
+  const maxTrend = Math.max(...trendReal.map(t=>Math.max(t.out,t.inn)), 1);
   const trendBars = trendReal.map((t,i) => {
     const isLast = i === trendReal.length-1;
-    const h = Math.round(t.n/maxTrend*60);
-    return `<div style="display:flex;flex-direction:column;align-items:center;gap:4px;flex:1">
-      <div style="font-size:10px;font-weight:700;color:${isLast?'var(--orange)':'var(--muted)'}">${t.n||''}</div>
-      <div style="width:100%;height:${Math.max(h,2)}px;background:${isLast?'rgba(251,146,60,.6)':'rgba(100,116,139,.3)'};border-radius:3px 3px 0 0"></div>
+    const hIn  = Math.max(Math.round(t.inn/maxTrend*54), t.inn>0?3:1);
+    const hOut = Math.max(Math.round(t.out/maxTrend*54), t.out>0?3:1);
+    const net = t.inn - t.out;
+    const netColor = net>0?'var(--green2)':(net<0?'var(--red)':'var(--muted)');
+    return `<div style="display:flex;flex-direction:column;align-items:center;gap:3px;flex:1">
+      <div style="font-size:8px;font-weight:700;color:${netColor};line-height:1" title="Neto (entran − salen)">${net>0?'+'+net:net}</div>
+      <div style="display:flex;align-items:flex-end;gap:2px;height:56px">
+        <div title="Ingresos: ${t.inn}" style="width:10px;height:${hIn}px;background:${isLast?'#0d9488':'rgba(13,148,136,.45)'};border-radius:2px 2px 0 0"></div>
+        <div title="Cancelaciones: ${t.out}" style="width:10px;height:${hOut}px;background:${isLast?'#ea580c':'rgba(234,88,12,.45)'};border-radius:2px 2px 0 0"></div>
+      </div>
       <div style="font-size:9px;color:var(--muted);white-space:nowrap">${t.lbl}</div>
     </div>`;
   }).join('');
 
-  // ── Evolución mes a mes de los indicadores (mismo objetivo, cohorte de cada mes) ──
+  // ── Evolución semana a semana de los indicadores (mismo objetivo, cohorte de cada semana) ──
   const evoMonths = hist6.map((h, i) => {
     const off6 = -(5-i);
     const mR = getMonthRange ? getMonthRange(m.off !== undefined ? m.off + off6 : off6) : null;
     const cohort = mR ? allC.filter(r => {
       const cd = cancelDate(r);
-      return cd && cd >= mR.start && cd <= mR.end && (r['Objetivo con Funnelchat']||'').trim() === TARGET;
+      return cd && cd >= mR.start && cd <= mR.end && keyFn(r) === TARGET;
     }) : [];
     const n = cohort.length;
-    const nm = {}; cohort.forEach(r => { const x=getNiche(r); nm[x]=(nm[x]||0)+1; });
+    const nm = {}; cohort.forEach(r => { const x=cfg.crossFn(r); nm[x]=(nm[x]||0)+1; });
     const top = Object.entries(nm).sort((a,b)=>b[1]-a[1])[0];
     return {
       lbl: h.lbl, n,
@@ -2337,8 +2526,8 @@ function renderGruposModal() {
       pGrupos: pct(cohort.filter(usaGrupos).length, n),
       pWA:     pct(cohort.filter(usaWA).length, n),
       pOnb:    pct(cohort.filter(r=>getOnb(r)==='Con onboarding').length, n),
-      topNiche:    top ? top[0] : '—',
-      topNichePct: top ? pct(top[1], n) : 0,
+      topCross:    top ? top[0] : '—',
+      topCrossPct: top ? pct(top[1], n) : 0,
     };
   });
   const evoLast = evoMonths.length-1;
@@ -2349,8 +2538,8 @@ function renderGruposModal() {
     </tr>`;
   const evoTable = `
     <div style="background:rgba(15,23,42,.02);border:1px solid rgba(15,23,42,.07);border-radius:10px;padding:14px;margin-bottom:20px;overflow-x:auto">
-      <div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:4px">📊 Evolución semana a semana · este objetivo</div>
-      <div style="font-size:9px;color:var(--muted);margin-bottom:10px">Cómo cambia el perfil de quienes cancelan con este objetivo, tomando la cohorte de cada semana. Última columna = semana actual. "—" = sin cancelados esa semana.</div>
+      <div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:4px">📊 Evolución semana a semana · ${cfg.evoTitle}</div>
+      <div style="font-size:9px;color:var(--muted);margin-bottom:10px">Cómo cambia el perfil de quienes cancelan con ${cfg.dimWord}, tomando la cohorte de cada semana. Última columna = semana actual. "—" = sin cancelados ese mes.</div>
       <table style="width:100%;border-collapse:collapse">
         <thead><tr><th style="padding:5px 8px;font-size:9px;color:var(--muted);text-align:left">Indicador</th>${evoTh}</tr></thead>
         <tbody>
@@ -2360,7 +2549,7 @@ function renderGruposModal() {
           ${evoRow('% usó grupos',      e=>e.pGrupos+'%')}
           ${evoRow('% conectó WA',      e=>e.pWA+'%')}
           ${evoRow('% con onboarding',  e=>e.pOnb+'%')}
-          ${evoRow('Nicho más común',   e=>`${e.topNiche.length>16?e.topNiche.slice(0,15)+'…':e.topNiche} <span style="color:var(--muted)">· ${e.topNichePct}%</span>`)}
+          ${evoRow(cfg.crossLabel,   e=>`${e.topCross.length>16?e.topCross.slice(0,15)+'…':e.topCross} <span style="color:var(--muted)">· ${e.topCrossPct}%</span>`)}
         </tbody>
       </table>
     </div>`;
@@ -2397,11 +2586,13 @@ function renderGruposModal() {
   const ahaWA  = seg.filter(r=>(r['AHA WA']||'').trim()!=='').length;
   const ahaFl  = seg.filter(r=>(r['AHA flows']||'').trim()!=='').length;
   const ahaGr  = seg.filter(r=>(r['AHA grupos']||'').trim()!=='').length;
+  // Sin activar ni flow ni 1a1 (WA): no alcanzaron el hito de flows NI el de WhatsApp
+  const noFlowNo1a1 = seg.filter(r=>(r['AHA flows']||'').trim()==='' && (r['AHA WA']||'').trim()==='').length;
 
   // ── Diagnosis ────────────────────────────────────
   const diag = [];
   if (lt181p / total > 0.4)
-    diag.push({ color:'var(--orange)', txt:`<strong>${pct(lt181p,total)}%</strong> son clientes maduros (+180d) — llevan más de 6 meses en la plataforma antes de cancelar.` });
+    diag.push({ color:'var(--orange)', txt:`<strong>${pct(lt181p,total)}%</strong> son clientes maduros (+180d) — llevan más de 6 semanas en la plataforma antes de cancelar.` });
   else if (lt0_30 / total > 0.4)
     diag.push({ color:'var(--red)', txt:`<strong>${pct(lt0_30,total)}%</strong> canceló en los primeros 30 días — señal de problema en adopción inicial o fit del producto.` });
   if (pct(nGrupos,total) < 30)
@@ -2433,7 +2624,7 @@ function renderGruposModal() {
 
   const planColors = {'Plan Starter':'#2563eb','Plan Growth':'#7c3aed','Plan Advanced':'#0d9488','Advanced Personalizado':'#b45309'};
 
-  document.getElementById('gruposModalContent').innerHTML = `
+  document.getElementById(cfg.contentId).innerHTML = `
 
     <!-- DIAGNÓSTICO -->
     <div style="margin-bottom:20px">
@@ -2450,19 +2641,26 @@ function renderGruposModal() {
     </div>
 
     <!-- KPIs AHA -->
-    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:20px">
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:20px">
       ${kpi('Conectaron WA (AHA)', pct(ahaWA,total)+'%', `${ahaWA} alcanzaron hito`, 'var(--blue)')}
       ${kpi('Activaron Flow (AHA)', pct(ahaFl,total)+'%', `${ahaFl} alcanzaron hito`, 'var(--blue)')}
       ${kpi('Crearon Grupo (AHA)', pct(ahaGr,total)+'%', `${ahaGr} alcanzaron hito`, 'var(--blue)')}
+      ${kpi('Sin flow ni 1a1 (WA)', pct(noFlowNo1a1,total)+'%', `${noFlowNo1a1} no activaron ninguno`, 'var(--red)')}
     </div>
 
     <!-- TENDENCIA 6M + LT -->
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:20px">
 
       <div style="background:rgba(15,23,42,.02);border:1px solid rgba(15,23,42,.07);border-radius:10px;padding:14px">
-        <div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:12px">Tendencia 6 semanas</div>
-        <div style="display:flex;align-items:flex-end;gap:4px;height:80px">${trendBars}</div>
-        <div style="font-size:9px;color:var(--muted);margin-top:8px">↑ Volumen de cancelados con este objetivo</div>
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;flex-wrap:wrap;gap:4px">
+          <div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.08em">Tendencia 6 semanas · entran vs salen</div>
+          <div style="display:flex;gap:10px;font-size:9px;color:var(--muted)">
+            <span><span style="color:#0d9488">■</span> Ingresos</span>
+            <span><span style="color:#ea580c">■</span> Cancelaciones</span>
+          </div>
+        </div>
+        <div style="display:flex;align-items:flex-end;gap:4px;height:86px">${trendBars}</div>
+        <div style="font-size:9px;color:var(--muted);margin-top:8px">Cuentas nuevas que <strong>entran</strong> vs cancelados que <strong>salen</strong>, por semana, en este segmento. El número de arriba es el <strong>neto</strong> (verde = entran más de las que se van · rojo = se van más de las que entran).</div>
       </div>
 
       <div style="background:rgba(15,23,42,.02);border:1px solid rgba(15,23,42,.07);border-radius:10px;padding:14px">
@@ -2478,7 +2676,7 @@ function renderGruposModal() {
       </div>
     </div>
 
-    <!-- EVOLUCIÓN SEMANA A SEMANA -->
+    <!-- EVOLUCIÓN MES A MES -->
     ${evoTable}
 
     <!-- USO PLATAFORMA + PLANES -->
@@ -2537,24 +2735,219 @@ function renderGruposModal() {
     </div>
 
     <div style="font-size:9px;color:var(--muted);border-top:1px solid rgba(15,23,42,.06);padding-top:10px">
-      Base: cancelados pagas · ${m.label} · Objetivo = "${TARGET}"
+      Base: cancelados pagas · ${m.label} · ${cfg.footLabel} = "${TARGET}"
     </div>`;
 }
 
+function renderGruposModal(){ renderCancelModal({ selId:'gruposObjSelect', contentId:'gruposModalContent',
+  keyFn:r=>(r['Objetivo con Funnelchat']||'').trim(), dimWord:'el objetivo', footLabel:'Objetivo', evoTitle:'este objetivo',
+  crossFn:r=>(r['Tipo de negocio']||'(sin tipo)').trim(), crossLabel:'Nicho más común' }); }
+function renderNichoModal(){ renderCancelModal({ selId:'nichoSelect', contentId:'nichoModalContent',
+  keyFn:nicheOf, dimWord:'el nicho', footLabel:'Nicho', evoTitle:'este nicho',
+  crossFn:r=>((r['Objetivo con Funnelchat']||'').trim()||'—'), crossLabel:'Objetivo más común' }); }
+
 function closeGruposModal() {
   document.getElementById('gruposModal').style.display = 'none';
+}
+
+function openNichoModal(preselect) {
+  const m = window._mesMet; if (!m) return;
+  document.getElementById('nichoModal').style.display = 'block';
+  const pool = (m.cancelMesArr||[]);
+  const niches = [...new Set(pool.map(r => nicheOf(r)).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'es'));
+  const cnt={}; pool.forEach(r=>{const n=nicheOf(r); if(n)cnt[n]=(cnt[n]||0)+1;});
+  const def = preselect || (Object.entries(cnt).sort((a,b)=>b[1]-a[1])[0]||[''])[0];
+  const sel = document.getElementById('nichoSelect');
+  sel.innerHTML = niches.map(o => `<option value="${o}" ${o===def?'selected':''}>${o}</option>`).join('');
+  if (!niches.length) {
+    document.getElementById('nichoModalContent').innerHTML =
+      '<div style="color:var(--muted);font-size:12px;padding:20px 0">Sin datos de nicho en el semana seleccionada.</div>';
+    return;
+  }
+  renderNichoModal();
+}
+function closeNichoModal() {
+  document.getElementById('nichoModal').style.display = 'none';
+}
+
+// ── Modal detalle nicho "Otros" (por columna NICHO INTERPRETADO) ──
+function openOtrosModal(){ if(!window._mesMet)return; document.getElementById('otrosModal').style.display='block'; renderOtrosModal(); }
+function closeOtrosModal(){ document.getElementById('otrosModal').style.display='none'; }
+function renderOtrosModal(){
+  const m=window._mesMet; const el=document.getElementById('otrosModalContent'); if(!m||!el)return;
+  const rows=(m.otrosInterpRows||[]);
+  if(!rows.length){ el.innerHTML='<div style="color:var(--muted);font-size:12px">No hay cancelados pagas con Tipo de negocio "Otros" en el histórico.</div>'; return; }
+  const dist={}; rows.forEach(r=>{ const c=getNichoInterp(r)||'Sin interpretar'; dist[c]=(dist[c]||0)+1; });
+  const entries=Object.entries(dist).sort((a,b)=>b[1]-a[1]);
+  const total=rows.length; const max=entries[0][1]||1;
+  const palette=['#2563eb','#7c3aed','#0d9488','#b45309','#db2777','#0891b2','#65a30d','#e11d48','#0ea5e9','#9333ea','#059669','#ea580c'];
+  const bars=entries.map(([cat,n],i)=>{ const p=Math.round(n/total*100); const col=cat==='Sin interpretar'?'#94a3b8':palette[i%palette.length];
+    return '<div style="display:flex;align-items:center;gap:8px;margin-bottom:7px">'
+      + '<div style="font-size:11px;color:#334155;width:230px;flex-shrink:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="'+cat+'">'+cat+'</div>'
+      + '<div style="flex:1;height:14px;background:rgba(15,23,42,.05);border-radius:7px;overflow:hidden"><div style="width:'+Math.round(n/max*100)+'%;height:100%;background:'+col+';border-radius:7px"></div></div>'
+      + '<div style="font-size:10px;color:var(--muted);width:74px;text-align:right;flex-shrink:0">'+n+' · '+p+'%</div></div>'; }).join('');
+  const fmtD=d=>{ if(!d)return'—'; const p=x=>('0'+x).slice(-2); return p(d.getDate())+'/'+p(d.getMonth()+1)+'/'+d.getFullYear(); };
+  const sorted=[...rows].sort((a,b)=>{ const ca=(getNichoInterp(a)||'zzz'), cb=(getNichoInterp(b)||'zzz'); return ca.localeCompare(cb) || ((cancelDate(b)||0)-(cancelDate(a)||0)); });
+  const trs=sorted.map(r=>{
+    const id=(r['id']||'').toString();
+    const pais=(r['country_name']||r['País']||'').toString();
+    const plan=(r['Planes Funnelchat']||'').toString().replace('Plan ','');
+    const fecha=fmtD(cancelDate(r));
+    const iv=getNichoInterp(r);
+    const interp=iv?iv:'<span style="color:#94a3b8">Sin interpretar</span>';
+    const abierto=(r['nicho otro']||'').toString().trim();
+    return '<tr style="border-bottom:1px solid rgba(15,23,42,.06)">'
+      + '<td style="padding:5px 8px;font-size:10px;color:#334155">'+id+'</td>'
+      + '<td style="padding:5px 8px;font-size:10px;color:#334155">'+interp+'</td>'
+      + '<td style="padding:5px 8px;font-size:10px;color:var(--muted)">'+(abierto||'—')+'</td>'
+      + '<td style="padding:5px 8px;font-size:10px;color:var(--muted)">'+(plan||'—')+'</td>'
+      + '<td style="padding:5px 8px;font-size:10px;color:var(--muted)">'+(pais||'—')+'</td>'
+      + '<td style="padding:5px 8px;font-size:10px;color:var(--muted);text-align:right">'+fecha+'</td></tr>'; }).join('');
+  el.innerHTML =
+    '<div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px">Distribución · '+total+' cuentas</div>'
+    + bars
+    + '<div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin:18px 0 6px">Cuentas ('+total+')</div>'
+    + '<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse">'
+    + '<thead><tr style="border-bottom:1px solid var(--border)">'
+    +   '<th style="padding:5px 8px;font-size:9px;color:var(--muted);text-align:left">ID</th>'
+    +   '<th style="padding:5px 8px;font-size:9px;color:var(--muted);text-align:left">Nicho interpretado</th>'
+    +   '<th style="padding:5px 8px;font-size:9px;color:var(--muted);text-align:left">Texto abierto</th>'
+    +   '<th style="padding:5px 8px;font-size:9px;color:var(--muted);text-align:left">Plan</th>'
+    +   '<th style="padding:5px 8px;font-size:9px;color:var(--muted);text-align:left">País</th>'
+    +   '<th style="padding:5px 8px;font-size:9px;color:var(--muted);text-align:right">Cancelación</th>'
+    + '</tr></thead><tbody>'+trs+'</tbody></table></div>';
+}
+
+window._cancelEvoDim = window._cancelEvoDim || 'objetivo';
+function setCancelEvoDim(d){
+  window._cancelEvoDim=d;
+  document.querySelectorAll('#cancelEvoToggle .mn-btn').forEach(b=>b.classList.toggle('active', b.dataset.dim===d));
+  renderCancelEvo(d);
+}
+function renderCancelEvo(dim){
+  const m=window._mesMet; const box=document.getElementById('cancelEvoBox'); if(!m||!box)return;
+  const colMap={objetivo:'Objetivo con Funnelchat', nicho:'Tipo de negocio', facturacion:'Facturación promedio semanal', experiencia:'Experiencia automatizando'};
+  const dimLabel={objetivo:'Objetivo', nicho:'Nicho', facturacion:'Facturación', experiencia:'Experiencia'};
+  const col=colMap[dim]||colMap.objetivo;
+  const cancels=m.allCancelP||[];
+  const months=[]; for(let i=-5;i<=0;i++){const r=getMonthRange(currentMonthOffset+i); months.push({r,label:fmtMonthShort(r.start)});}
+  const catTotals={};
+  const perMonth=months.map(mo=>{
+    const byCat={};
+    cancels.filter(r=>inRange(cancelDate(r),mo.r)).forEach(r=>{const c=(r[col]||'').toString().trim()||'Sin dato'; byCat[c]=(byCat[c]||0)+1; catTotals[c]=(catTotals[c]||0)+1;});
+    return byCat;
+  });
+  const cats=Object.entries(catTotals).sort((a,b)=>b[1]-a[1]);
+  if(!cats.length){box.innerHTML='<div style="color:var(--muted);font-size:11px;padding:8px 0">Sin cancelados pagas en la ventana de 6 semanas.</div>';return;}
+  const TOP=7; const topCats=cats.slice(0,TOP).map(x=>x[0]); const hasOtros=cats.length>TOP;
+  const rows=topCats.map(cat=>({cat, vals:perMonth.map(bm=>bm[cat]||0)}));
+  if(hasOtros){ rows.push({cat:'Otros ('+(cats.length-TOP)+' perfiles)', isOtros:true, vals:perMonth.map(bm=>{let s=0;Object.entries(bm).forEach(([c,n])=>{if(!topCats.includes(c))s+=n;});return s;})}); }
+  let max=1; rows.forEach(r=>r.vals.forEach(v=>{if(v>max)max=v;}));
+  const trend=vals=>{const rec=vals.slice(3).reduce((a,b)=>a+b,0), pre=vals.slice(0,3).reduce((a,b)=>a+b,0); const d=rec-pre; if(d>0)return '<span style="color:var(--red)">▲ +'+d+'</span>'; if(d<0)return '<span style="color:var(--green2)">▼ '+d+'</span>'; return '<span style="color:var(--muted)">≈</span>';};
+  const cell=v=>{const a=v===0?0:0.1+0.55*(v/max); return '<td style="text-align:center;padding:5px 6px;font-size:11px;background:rgba(220,38,38,'+a.toFixed(2)+');color:'+(a>0.4?'#fff':'#334155')+'">'+(v||'')+'</td>';};
+  let html='<table style="width:100%;border-collapse:collapse"><thead><tr>'
+    +'<th style="text-align:left;padding:5px 8px;font-size:9px;color:var(--muted)">'+dimLabel[dim]+'</th>'
+    +months.map(mo=>'<th style="text-align:center;padding:5px 6px;font-size:9px;color:var(--muted)">'+mo.label+'</th>').join('')
+    +'<th style="text-align:center;padding:5px 8px;font-size:9px;color:var(--muted)">Tend.</th>'
+    +'<th style="text-align:right;padding:5px 8px;font-size:9px;color:var(--muted)">Total 6m</th></tr></thead><tbody>';
+  rows.forEach(r=>{
+    const tot=r.vals.reduce((a,b)=>a+b,0);
+    html+='<tr><td style="padding:5px 8px;font-size:11px;color:'+(r.isOtros?'var(--muted);font-style:italic':'#334155')+';max-width:180px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="'+r.cat+'">'+r.cat+'</td>'
+      +r.vals.map(cell).join('')
+      +'<td style="text-align:center;padding:5px 8px;font-size:10px">'+trend(r.vals)+'</td>'
+      +'<td style="text-align:right;padding:5px 8px;font-size:11px;font-weight:700;color:#0f172a">'+tot+'</td></tr>';
+  });
+  const colTot=perMonth.map(bm=>Object.values(bm).reduce((a,b)=>a+b,0));
+  html+='<tr style="border-top:2px solid var(--border)"><td style="padding:5px 8px;font-size:10px;font-weight:700;color:var(--muted)">Tota la semana</td>'
+    +colTot.map(v=>'<td style="text-align:center;padding:5px 6px;font-size:10px;font-weight:700;color:#0f172a">'+v+'</td>').join('')
+    +'<td></td><td style="text-align:right;padding:5px 8px;font-size:11px;font-weight:800;color:#0f172a">'+colTot.reduce((a,b)=>a+b,0)+'</td></tr>';
+  html+='</tbody></table>';
+  box.innerHTML=html;
+}
+
+window._onbFilter='todo'; window._onbActMet='nivel'; window._onbHito='wa';
+function setOnbFilter(v){window._onbFilter=v;document.querySelectorAll('#onbFilterToggle .mn-btn').forEach(b=>b.classList.toggle('active',b.dataset.fil===v));renderOnbRes();}
+function setOnbActMet(v){window._onbActMet=v;document.querySelectorAll('#onbActMetToggle .mn-btn').forEach(b=>b.classList.toggle('active',b.dataset.met===v));renderOnbRes();}
+function setOnbHito(v){window._onbHito=v;document.querySelectorAll('#onbHitoToggle .mn-btn').forEach(b=>b.classList.toggle('active',b.dataset.hito===v));renderOnbRes();}
+function renderOnbRes(){
+  const m=window._mesMet; if(!m||!m.onbResultados)return;
+  const R=m.onbResultados; const labels=R.monthsLabels;
+  const F=R.byFilter[window._onbFilter]||R.byFilter.todo;
+  const met=window._onbActMet, hito=window._onbHito;
+  const hitoLbl={wa:'WhatsApp (1a1)',flow:'Flow',grupo:'Grupo'}[hito];
+  const hitoTog=document.getElementById('onbHitoToggle'); if(hitoTog)hitoTog.style.display=(met==='nivel')?'none':'flex';
+  const diaBox=document.getElementById('onbResDias'), actBox=document.getElementById('onbResActiv'), cmpBox=document.getElementById('onbResCompara');
+  if(!diaBox||!actBox||!cmpBox)return;
+  const fmtV=(v,unit)=>v===null?'<span style="color:#cbd5e1">—</span>':v+unit;
+  const trendCell=(vals,betterUp,unit)=>{
+    const rec=vals.slice(3).filter(v=>v!==null), pre=vals.slice(0,3).filter(v=>v!==null);
+    if(!rec.length||!pre.length)return '<span style="color:var(--muted)">—</span>';
+    const ra=rec.reduce((a,b)=>a+b,0)/rec.length, pa=pre.reduce((a,b)=>a+b,0)/pre.length;
+    const d=Math.round((ra-pa)*10)/10;
+    if(d===0)return '<span style="color:var(--muted)">≈</span>';
+    const bueno=betterUp?d>0:d<0;
+    return '<span style="color:'+(bueno?'var(--green2)':'var(--red)')+'">'+(d>0?'▲ +'+d:'▼ '+d)+unit+'</span>';
+  };
+  const headRow=()=>'<thead><tr><th style="text-align:left;padding:5px 8px;font-size:9px;color:var(--muted)"></th>'
+    +labels.map(l=>'<th style="text-align:center;padding:5px 6px;font-size:9px;color:var(--muted)">'+l+'</th>').join('')
+    +'<th style="text-align:center;padding:5px 8px;font-size:9px;color:var(--muted)">Tend.</th></tr></thead>';
+  const rowLabel={general:'General', nuevas:'Nuevas (onb ≤30 días)', antiguas:'Antiguas (onb >30 días)',
+    'nue|Seg A':'↳ Segmento A','nue|Seg B':'↳ Segmento B','nue|Seg C':'↳ Segmento C','nue|Sin seg':'↳ Sin segmento',
+    'ant|Seg A':'↳ Segmento A','ant|Seg B':'↳ Segmento B','ant|Seg C':'↳ Segmento C','ant|Sin seg':'↳ Sin segmento'};
+
+  const buildKeyed=(series, unit, betterUp)=>{
+    let html='<table style="width:100%;border-collapse:collapse">'+headRow()+'<tbody>';
+    html+='<tr><td style="padding:4px 8px;font-size:9px;color:var(--muted)">Base: asistentes (n)</td>'
+      +(F.nDias.general||[]).map(v=>'<td style="text-align:center;padding:4px 6px;font-size:9px;color:var(--muted)">'+v+'</td>').join('')+'<td></td></tr>';
+    R.keysDias.forEach(k=>{
+      const vals=series[k]||[]; const isHdr=(k==='nuevas'||k==='antiguas'); const isSep=(k==='nuevas'||k==='antiguas');
+      const bold=(k==='general'||isHdr)?'font-weight:700;':'';
+      html+='<tr style="'+(isSep?'border-top:1px solid var(--border);':'')+'"><td style="padding:5px 8px;font-size:11px;color:#334155;white-space:nowrap;'+bold+'">'+(rowLabel[k]||k)+'</td>'
+        +vals.map((v,i)=>'<td style="text-align:center;padding:5px 6px;font-size:11px;color:#0f172a;'+bold+'" title="n='+((F.nDias[k]||[])[i]||0)+'">'+fmtV(v,unit)+'</td>').join('')
+        +'<td style="text-align:center;padding:5px 8px;font-size:10px">'+trendCell(vals,betterUp,unit)+'</td></tr>';
+    });
+    html+='</tbody></table>'; return html;
+  };
+  diaBox.innerHTML=buildKeyed(F.dias,'d',false);
+  let actSeries, actUnit, actUp;
+  if(met==='nivel'){ actSeries=F.nivel; actUnit='%'; actUp=true; }
+  else if(met==='activaron'){ actSeries=F.pct[hito]; actUnit='%'; actUp=true; }
+  else { actSeries=F.ttv[hito]; actUnit='d'; actUp=false; }
+  actBox.innerHTML=buildKeyed(actSeries, actUnit, actUp);
+
+  // Comparación con vs sin onboarding (cohorte de creación pagas) — responde al hito
+  const A=R.act;
+  const dataRow=(label,vals,betterUp,unit,nmap)=>'<tr><td style="padding:5px 8px 5px 20px;font-size:11px;color:#334155;white-space:nowrap">'+label+'</td>'
+    +vals.map((v,i)=>'<td style="text-align:center;padding:5px 6px;font-size:11px;color:#0f172a"'+(nmap?' title="n='+(nmap[i]||0)+'"':'')+'>'+fmtV(v,unit)+'</td>').join('')
+    +'<td style="text-align:center;padding:5px 8px;font-size:10px">'+(betterUp===null?'':trendCell(vals,betterUp,unit))+'</td></tr>';
+  const grpHdr=t=>'<tr style="border-top:1px solid var(--border)"><td colspan="'+(labels.length+2)+'" style="padding:7px 8px 2px;font-size:9px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.05em">'+t+'</td></tr>';
+  let ah='<table style="width:100%;border-collapse:collapse">'+headRow()+'<tbody>';
+  ah+=grpHdr('% Activación (nivel de implementación)');
+  ah+=dataRow('Con onboarding', A.nivelCon, true, '%', A.conN);
+  ah+=dataRow('Sin onboarding', A.nivelSin, true, '%', A.sinN);
+  ah+=grpHdr('% Cuentas que activaron · '+hitoLbl);
+  ah+=dataRow('Con onboarding', A.pctCon[hito], true, '%', A.conN);
+  ah+=dataRow('Sin onboarding', A.pctSin[hito], true, '%', A.sinN);
+  ah+=grpHdr('Tiempo medio de activación (días) · '+hitoLbl);
+  ah+=dataRow('Con onboarding', A.ttvCon[hito], false, 'd', A.conN);
+  ah+=dataRow('Sin onboarding', A.ttvSin[hito], false, 'd', A.sinN);
+  ah+=grpHdr('Base: cuentas pagas creadas en la semana (n)');
+  ah+=dataRow('Con onboarding', A.conN, null, '', null);
+  ah+=dataRow('Sin onboarding', A.sinN, null, '', null);
+  ah+='</tbody></table>';
+  cmpBox.innerHTML=ah;
 }
 
 function renderQuienesMes(mode) {
   const m = window._mesMet;
   if (!m) return;
 
-  // Desglose del nicho "Otros" (histórico, texto abierto clasificado) — independiente de la semana/modo
+  // Desglose del nicho "Otros" (histórico, columna NICHO INTERPRETADO) — independiente de la semana/modo
   (function(){
     const box=document.getElementById('otrosNichoBox');const hint=document.getElementById('otrosNichoHint');if(!box)return;
     const dist=m.otrosNichos||{}; const total=m.otrosNichosN||0;
     const entries=Object.entries(dist).sort((a,b)=>b[1]-a[1]);
-    if(!total){box.innerHTML='<div style="color:var(--muted);font-size:11px;padding:6px 0">Aún no hay cuentas canceladas con el nicho escrito en texto abierto (columna \'nicho otro\'). Si la columna es nueva, verifica que el Apps Script la esté exportando.</div>';return;}
+    if(!total){box.innerHTML='<div style="color:var(--muted);font-size:11px;padding:6px 0">Aún no hay cancelados en "Otros" con la columna NICHO INTERPRETADO diligenciada. Si la columna es nueva, verifica que el Apps Script la esté exportando.</div>';return;}
     const max=entries[0][1]||1;
     const palette=['#2563eb','#7c3aed','#0d9488','#b45309','#db2777','#0891b2','#65a30d','#e11d48','#0ea5e9','#9333ea','#059669','#ea580c'];
     box.innerHTML=entries.map(([cat,n],i)=>{
@@ -2565,8 +2958,11 @@ function renderQuienesMes(mode) {
         <div style="font-size:10px;color:var(--muted);width:74px;text-align:right;flex-shrink:0">${n} · ${p}%</div>
       </div>`;
     }).join('');
-    if(hint){const falt=m.otrosSinTexto||0;hint.innerHTML=`De los cancelados pagas (histórico), <strong>${total}</strong> escribieron su nicho en texto abierto y se agruparon con un clasificador por palabras clave. Quedan <strong>${falt}</strong> cancelados en "Otros" <strong>sin texto</strong> (el dato no se capturó): ese hueco no se puede clasificar hasta que se arregle el formulario.`;}
+    if(hint){const falt=m.otrosSinTexto||0;hint.innerHTML=`De los cancelados pagas (histórico) con Tipo de negocio "Otros", <strong>${total}</strong> tienen NICHO INTERPRETADO y se agrupan aquí. Quedan <strong>${falt}</strong> <strong>sin interpretar</strong> (la columna aún vacía para esas cuentas).`;}
   })();
+
+  // Resumen evolutivo por perfil (independiente del modo pagas/trial; usa pagas)
+  renderCancelEvo(window._cancelEvoDim||'objetivo');
 
   window._quienesMesMode = mode;
   const isP = mode === 'pagas';
@@ -2625,7 +3021,7 @@ function renderQuienesMes(mode) {
       if (pos0) {
         if (!pos1 && !pos2) {
           trendTxt = '★ nuevo'; trendColor = 'var(--yellow)';
-          trendTitle = 'No aparecía en las 2 semanas anteriores';
+          trendTitle = 'No aparecía en los 2 semanas anteriores';
         } else if (pos1 && pos0 < pos1 && pos2 && pos0 < pos2) {
           const moved = pos1 - pos0;
           trendTxt = `↑${moved} pos`; trendColor = 'var(--red)';
@@ -2757,7 +3153,7 @@ function ahaTable(statsMes, stats6m) {
       <thead>
         <tr>
           <th rowspan="2" style="padding:6px 12px;font-size:10px;font-weight:600;color:var(--muted);text-align:left;border-bottom:1px solid rgba(15,23,42,.08)">Hito</th>
-          <th colspan="3" style="padding:5px 8px;font-size:9px;font-weight:700;color:var(--green2);text-align:center;border-bottom:1px solid rgba(15,23,42,.06);border-right:1px solid rgba(15,23,42,.08)">Esta semana</th>
+          <th colspan="3" style="padding:5px 8px;font-size:9px;font-weight:700;color:var(--green2);text-align:center;border-bottom:1px solid rgba(15,23,42,.06);border-right:1px solid rgba(15,23,42,.08)">Este mes</th>
           <th colspan="2" style="padding:5px 8px;font-size:9px;font-weight:600;color:var(--muted);text-align:center;border-bottom:1px solid rgba(15,23,42,.06)">Referencia 6 semanas</th>
         </tr>
         <tr>
@@ -2770,7 +3166,7 @@ function ahaTable(statsMes, stats6m) {
       </thead>
       <tbody>${rows}</tbody>
     </table>
-    <div style="padding:6px 12px;font-size:9px;color:var(--muted)">Tiempo = media desde creación hasta el hito (en horas si es menor a 1 día) · Cuentas = las que lo lograron · Ref. 6m = promedio de las últimas 6 semanas</div>
+    <div style="padding:6px 12px;font-size:9px;color:var(--muted)">Tiempo = media desde creación hasta el hito (en horas si es menor a 1 día) · Cuentas = las que lo lograron · Ref. 6m = promedio de los últimas 6 semanas</div>
   </div>`;
 }
 
@@ -2805,7 +3201,7 @@ function impactTable(title, labelA, labelB, data, color) {
 
 
 // ══════════════════════════════════════════════════════
-// HISTÓRICO 6 SEMANAS
+// HISTÓRICO 6 MESES
 // ══════════════════════════════════════════════════════
 function renderHist6(m) {
   if (!m.hist6 || !m.hist6.length) return;
@@ -2870,13 +3266,14 @@ function renderHist6(m) {
   // SECCIÓN 1 — Datos duros
   const el1 = document.getElementById('hist6_s1');
   if (el1) el1.innerHTML = buildH('Histórico 6 semanas — Datos duros', 'var(--teal)', [
-    {label:'Activas inicio mes',  values:H.map(h=>h.vigIni),    inv:false, fmt:'n'},
-    {label:'Nuevas pagas',        values:H.map(h=>h.newP),      inv:false, fmt:'n'},
-    {label:'Nuevas trial',        values:H.map(h=>h.newT),      inv:false, fmt:'n'},
+    {label:'Nuevas cuentas (total)',        values:H.map(h=>h.newTotal),   inv:false, fmt:'n'},
+    {label:'↳ Pagas',                       values:H.map(h=>h.bornPaga),   inv:false, fmt:'n'},
+    {label:'↳ Trial',                       values:H.map(h=>h.bornTrial),  inv:false, fmt:'n'},
+    {label:'↳ Convertidas a paga (de trial)', values:H.map(h=>h.convertidasNew), inv:false, fmt:'n'},
+    {label:'% conversión de trial (cohorte de la semana)', values:H.map(h=>h.convRateNew), inv:false, fmt:'%'},
     {label:'Cancelaciones',       values:H.map(h=>h.canM),      inv:true,  fmt:'n'},
     {label:'Atrasadas de la semana',   values:H.map(h=>h.atrM),      inv:true,  fmt:'n'},
     {label:'Retención neta',      values:H.map(h=>h.retNeta),   inv:false, fmt:'n'},
-    {label:'Tasa churn (%)',      values:H.map(h=>h.churnRate), inv:true,  fmt:'%'},
         {label:'En plan reposo',       values:H.map(h=>h.reposoM??null), inv:true,  fmt:'n'},
   ]);
 
@@ -2909,15 +3306,11 @@ function renderHist6(m) {
         {label:'ONB propuesto',                values:H.map(h=>h.onbProp),       inv:false, fmt:'n'},
         {label:'Agendados',                    values:H.map(h=>h.onbAgen),       inv:false, fmt:'n'},
         {label:'Asistentes',                   values:H.map(h=>h.onbAsist),      inv:false, fmt:'n'},
-        {label:'↳ Cuentas nuevas',          values:H.map(h=>h.onbGHLNuevas??null),  inv:false, fmt:'n'},
-        {label:'↳ Cuentas antiguas',        values:H.map(h=>h.onbGHLAntiguas??null),inv:false, fmt:'n'},
-        {label:'Días prom. al ONB (nuevas)',  values:H.map(h=>h.diasNuevasM??null),  inv:true,  fmt:'n'},
-        {label:'Días prom. al ONB (antiguas)',values:H.map(h=>h.diasAntiguasM??null),inv:true,  fmt:'n'},
+        {label:'% Tasa asistencia',            values:H.map(h=>h.onbAsistTasa),  inv:false, fmt:'%'},
+        {label:'% Cobertura pagas (de asistentes)', values:H.map(h=>h.onbCompPaga),  inv:false, fmt:'%'},
+        {label:'% Cobertura trial (de asistentes)', values:H.map(h=>h.onbCompTrial), inv:false, fmt:'%'},
         {label:'No show',                      values:H.map(h=>h.onbNS),         inv:true,  fmt:'n'},
         {label:'% No show',                    values:H.map(h=>h.onbAgen>0?Math.round(h.onbNS/h.onbAgen*100):0), inv:true, fmt:'%'},
-        {label:'% Cobertura pagas',            values:H.map(h=>h.onbCob),        inv:false, fmt:'%'},
-        {label:'% Tasa asistencia',            values:H.map(h=>h.onbAsistTasa),  inv:false, fmt:'%'},
-        {label:'Asistentes vigentes',          values:H.map(h=>h.onbRetVig),     inv:false, fmt:'n'},
         {label:'% Retención asistentes',       values:H.map(h=>h.onbRetPct),     inv:false, fmt:'%'},
       ]) +
       buildH('Histórico 6 semanas — Tiempo al hito AHA', 'var(--yellow)', [
@@ -2945,6 +3338,7 @@ function renderHist6(m) {
     {label:'Sin flow activo',      values:H.map(h=>h.rSinFlw), inv:true,  fmt:'n'},
     {label:'Sin onboarding',       values:H.map(h=>h.rSinOnb), inv:true,  fmt:'n'},
   ]);
+  renderOnbRes();
 }
 
 function renderOnbEnriched(m) {
@@ -3507,7 +3901,7 @@ function renderActivacion(m) {
 
   return '<div style="background:rgba(15,23,42,.02);border:1px solid var(--border);border-radius:12px;padding:16px 18px;margin-top:4px">'
     + '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:8px">'
-    +   '<div><div style="font-size:10px;font-weight:700;color:var(--green2);text-transform:uppercase;letter-spacing:.08em">📊 Activación de cuentas nuevas — mes seleccionado</div>'
+    +   '<div><div style="font-size:10px;font-weight:700;color:var(--green2);text-transform:uppercase;letter-spacing:.08em">📊 Activación de cuentas nuevas — semana seleccionada</div>'
     +     '<div style="font-size:10px;color:var(--muted);margin-top:2px">' + a.n + ' cuentas pagas creadas · ' + a.withData + ' con datos de implementación (' + pct(a.withData,a.n) + '%)</div></div>'
     +   '<div style="text-align:center">'
     +     '<div style="font-family:Syne,sans-serif;font-size:32px;font-weight:800;color:' + gaugeColor + ';line-height:1">' + (a.avg!==null?a.avg+'%':'—') + '</div>'
@@ -3516,6 +3910,13 @@ function renderActivacion(m) {
     + '</div>'
     // General ONB/Sessions comparison indicator
     + onbVsSinPanel(a)
+    // Segundo indicador: cohorte por ASISTENCIA a onboarding en el período (cualquier fecha de creación)
+    + '<div style="background:rgba(251,146,60,.06);border:1px solid rgba(251,146,60,.22);border-radius:10px;padding:12px 14px;margin-bottom:14px;display:flex;align-items:center;gap:16px;flex-wrap:wrap">'
+    +   '<div style="min-width:220px;flex:1"><div style="font-size:9px;font-weight:700;color:var(--orange);text-transform:uppercase;letter-spacing:.06em">🎓 Con onboarding en el período · cohorte de asistencia</div>'
+    +     '<div style="font-size:9px;color:var(--muted);margin-top:3px">Cuentas pagas que <strong>asistieron a onboarding este período</strong>, sin importar cuándo se crearon · '+a.onbPeriodNuevas+' creadas esta semana · '+a.onbPeriodPrevias+' de semanas anteriores</div></div>'
+    +   '<div style="text-align:center"><div style="font-family:Syne,sans-serif;font-size:26px;font-weight:800;color:var(--orange);line-height:1">'+a.onbPeriodN+'</div><div style="font-size:9px;color:var(--muted)">cuentas</div></div>'
+    +   '<div style="text-align:center"><div style="font-family:Syne,sans-serif;font-size:26px;font-weight:800;color:var(--green2);line-height:1">'+(a.onbPeriodAvg!==null?a.onbPeriodAvg+'%':'—')+'</div><div style="font-size:9px;color:var(--muted)">implementación prom.</div></div>'
+    + '</div>'
     + ahaTable(m.ahaStatsMes, m.ahaStats)
     + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:14px">'
     +   '<div><div style="font-size:9px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:2px">Distribución por nivel</div>'+'<div style="font-size:8px;color:rgba(148,163,184,.6);margin-bottom:7px">Solo de las '+a.withData+' de '+a.n+' cuentas con % registrado (no incluye sin dato)</div>' + bucketBars + '</div>'
@@ -3525,7 +3926,7 @@ function renderActivacion(m) {
     +   '<div><div style="font-size:9px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:2px">Por segmento</div>'+'<div style="font-size:8px;color:rgba(148,163,184,.6);margin-bottom:7px">% promedio sobre el total de cada grupo (sin dato = 0%)</div>' + segActRows + '</div>'
     +   '<div><div style="font-size:9px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:2px">Por objetivo declarado</div>'+'<div style="font-size:8px;color:rgba(148,163,184,.6);margin-bottom:7px">% promedio sobre el total de cuentas del objetivo (sin dato = 0%)</div>' + objRows + '</div>'
     + '</div>'
-    + '<div style="font-size:9px;color:var(--muted);margin-top:10px">Fuente: columna % Nivel de implementación · cuentas pagas creadas durante la semana seleccionado · promedios por plan/segmento/objetivo usan el total de cuentas del grupo, tratando las sin dato como 0%</div>'
+    + '<div style="font-size:9px;color:var(--muted);margin-top:10px">Fuente: columna % Nivel de implementación · cuentas pagas creadas durante el semana seleccionada · promedios por plan/segmento/objetivo usan el total de cuentas del grupo, tratando las sin dato como 0%</div>'
 
     // Feature usage section
     + '<div style="border-top:1px solid var(--border);margin-top:14px;padding-top:14px">'
@@ -3569,7 +3970,7 @@ function onbVsSinPanel(a) {
       + '</div></div>';
   }).join('');
   return '<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:6px">' + cards + '</div>'
-    + '<div style="font-size:9px;color:rgba(148,163,184,.75);margin-bottom:14px;line-height:1.4">"Con ONB (n)" = de las cuentas <strong>creadas este período</strong>, cuántas ya asistieron a onboarding (cohorte de creación). No confundir con las <strong>asistencias del período</strong> del panel de onboarding, que cuentan todas las sesiones realizadas e incluyen cuentas creadas antes.</div>';
+    + '<div style="font-size:9px;color:rgba(148,163,184,.75);margin-bottom:14px;line-height:1.4">"Con ONB (n)" = de las cuentas <strong>creadas esta semana</strong>, cuántas ya asistieron a onboarding (cohorte de creación). No confundir con las <strong>asistencias del período</strong> del panel de onboarding, que cuentan todas las sesiones realizadas esta semana e incluyen cuentas de semanas anteriores.</div>';
 }
 
 function boolPanel(label, siCount, total, color) {
@@ -3812,7 +4213,7 @@ function renderUpgDown(m) {
       ${movTable(downs,'var(--red)',    'Downgrades', '▼')}
     </div>
     <div style="margin-top:12px;font-size:10px;color:var(--muted);line-height:1.6">
-      Basado en la tabla payments · el plan se identifica por el precio mensual (Starter ≈$49 · Growth ≈$99 · Advanced ≈$199) y los pagos anuales se reparten entre los meses que cubren · una renovación al mismo plan no cuenta como movimiento.
+      Basado en la tabla payments · el plan se identifica por el precio semanal (Starter ≈$49 · Growth ≈$99 · Advanced ≈$199) y los pagos anuales se reparten entre las semanas que cubren · una renovación al mismo plan no cuenta como movimiento.
     </div>`;
 
   // Gráfica única de barras agrupadas: upgrades vs downgrades por semana
@@ -3945,7 +4346,7 @@ function renderKamSection(m) {
     ${sep('Valor de la cartera por RAM — seguimiento semana a semana')}
     <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px 20px">
       <div style="height:270px;position:relative"><canvas id="kamValueChart"></canvas></div>
-      <div style="font-size:10px;color:var(--muted);margin-top:8px;text-align:center">Valor recurrente estimado de cada cartera (suma del precio mensual de las cuentas activas). Línea que sube = la cartera crece; que baja = decrece. Excluye "Sin asignar" para lectura.</div>
+      <div style="font-size:10px;color:var(--muted);margin-top:8px;text-align:center">Valor recurrente estimado de cada cartera (suma del precio semanal de las cuentas activas). Línea que sube = la cartera crece; que baja = decrece. Excluye "Sin asignar" para lectura.</div>
     </div>
     ${sep('Crecimiento vs decrecimiento en dinero — neto por RAM por semana (por cambios de plan)')}
     <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px 20px">
@@ -4082,7 +4483,7 @@ function downloadChurnCSV(planFilter) {
   const a    = document.createElement('a');
   const planSlug = planFilter.replace(/\s+/g,'-').toLowerCase();
   a.href     = url;
-  const mesLabel = (m&&m.range&&m.range.start) ? fmtMonth(new Date(m.range.start)).replace(/[\s\/,]/g,'-') : 'semana';
+  const mesLabel = (m&&m.range&&m.range.start) ? fmtMonth(new Date(m.range.start)).replace(/[\s\/,]/g,'-') : 'mes';
   a.download = `cancelados_${planSlug}_${mesLabel}.csv`;
   a.click();
   URL.revokeObjectURL(url);
@@ -4094,13 +4495,11 @@ function rotateStatus(el){const i=SC.findIndex(s=>s.l===el.textContent.trim()),n
 
 function buildMonthNav(){
   const c=document.getElementById('monthBtns');c.innerHTML='';
-  for(let i=-9;i<=0;i++){
+  for(let i=-5;i<=0;i++){
     const r=getMonthRange(i);
-    const e=new Date(r.start); e.setDate(e.getDate()+6);
-    const f=x=>x.toLocaleDateString('es-CO',{day:'numeric',month:'short'});
     const b=document.createElement('button');
     b.className='mn-btn'+(i===currentMonthOffset?' active':'');
-    b.textContent = i===0 ? 'Esta semana' : `${f(r.start)}–${f(e)}`;
+    b.textContent=fmtMonth(r.start);
     b.onclick=()=>{currentMonthOffset=i;buildMonthNav();document.getElementById('planBody').innerHTML='';render(calcMonth(i));};
     c.appendChild(b);
   }
@@ -4111,8 +4510,8 @@ function buildMonthNav(){
     await loadAll();
     document.getElementById('loadingState').style.display='none';
     document.getElementById('mainContent').style.display='block';
-    // Auto-detect most recent week with data
-    for(let _off=0;_off>=-52;_off--){
+    // Auto-detect most recent month with data
+    for(let _off=0;_off>=-23;_off--){
       const _r=getMonthRange(_off);
       const _hasData=RAW.cuentas.some(r=>{
         const cd=cancelDate(r);
@@ -4152,6 +4551,38 @@ function buildMonthNav(){
       </select>
     </div>
     <div id="gruposModalContent">cargando...</div>
+  </div>
+</div>
+
+<div id="nichoModal" style="display:none;position:fixed;inset:0;z-index:1000;background:rgba(0,0,0,.65);backdrop-filter:blur(4px)" onclick="if(event.target===this)closeNichoModal()">
+  <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:min(920px,96vw);max-height:85vh;overflow-y:auto;background:#ffffff;border:1px solid rgba(15,23,42,.1);border-radius:16px;padding:28px 32px;box-shadow:0 8px 32px rgba(15,23,42,.15)">
+    <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:20px">
+      <div>
+        <div style="font-family:'Syne',sans-serif;font-size:16px;font-weight:800;color:#0f172a">🔍 Análisis por nicho</div>
+        <div style="font-size:11px;color:var(--muted);margin-top:4px">Perfil de quienes cancelan, por nicho (NICHO INTERPRETADO · fallback Tipo de negocio)</div>
+      </div>
+      <button onclick="closeNichoModal()" style="background:rgba(15,23,42,.06);border:none;color:var(--muted);font-size:18px;cursor:pointer;border-radius:6px;padding:4px 10px;line-height:1">✕</button>
+    </div>
+    <div style="margin-bottom:16px">
+      <label style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;display:block;margin-bottom:6px">Nicho</label>
+      <select id="nichoSelect" onchange="renderNichoModal()"
+        style="width:100%;background:#f8fafc;border:1px solid rgba(15,23,42,.15);border-radius:8px;color:#0f172a;font-family:'DM Sans',sans-serif;font-size:12px;padding:8px 12px;cursor:pointer;outline:none">
+      </select>
+    </div>
+    <div id="nichoModalContent">cargando...</div>
+  </div>
+</div>
+
+<div id="otrosModal" style="display:none;position:fixed;inset:0;z-index:1000;background:rgba(0,0,0,.65);backdrop-filter:blur(4px)" onclick="if(event.target===this)closeOtrosModal()">
+  <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:min(920px,96vw);max-height:85vh;overflow-y:auto;background:#ffffff;border:1px solid rgba(15,23,42,.1);border-radius:16px;padding:28px 32px;box-shadow:0 8px 32px rgba(15,23,42,.15)">
+    <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:20px">
+      <div>
+        <div style="font-family:'Syne',sans-serif;font-size:16px;font-weight:800;color:#0f172a">🔍 Detalle · cancelados en nicho "Otros"</div>
+        <div style="font-size:11px;color:var(--muted);margin-top:4px">Cuentas pagas canceladas con Tipo de negocio "Otros", agrupadas por la columna NICHO INTERPRETADO · histórico</div>
+      </div>
+      <button onclick="closeOtrosModal()" style="background:rgba(15,23,42,.06);border:none;color:var(--muted);font-size:18px;cursor:pointer;border-radius:6px;padding:4px 10px;line-height:1">✕</button>
+    </div>
+    <div id="otrosModalContent">cargando...</div>
   </div>
 </div>
 
