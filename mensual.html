@@ -146,6 +146,15 @@ body{background:var(--navy);color:var(--text);font-family:'DM Sans',sans-serif;f
     <div id="monthBtns" style="display:flex;gap:8px;overflow-x:auto;padding-bottom:6px"></div>
     <button class="mn-refresh" onclick="location.reload()">↻ Actualizar datos</button>
   </div>
+  <div class="month-nav" style="margin-top:6px">
+    <span class="mn-label">Tipo</span>
+    <div id="tipoCliToggle" style="display:flex;gap:8px">
+      <button class="mn-btn active" data-tc="pagas" onclick="setTipoCli('pagas')">Pagas</button>
+      <button class="mn-btn" data-tc="trial" onclick="setTipoCli('trial')">Trial</button>
+      <button class="mn-btn" data-tc="todas" onclick="setTipoCli('todas')">Todas</button>
+    </div>
+    <span style="font-size:10px;color:var(--muted)">Aplica a: vigentes/atrasadas, nuevas del periodo, activación de nuevas y perfiles de cancelación. No cambia el embudo de nuevas ni la conversión.</span>
+  </div>
 
   <!-- BLOQUE 1 -->
   <div class="block">
@@ -481,6 +490,8 @@ function cancelDate(r){
 }
 function isPaga(r){const t=(r['trial']||'').toString().trim().toUpperCase();return t!=='TRUE'&&t!=='1'&&t!=='SI'&&t!=='SÍ';}
 function isTrial(r){return!isPaga(r);}
+// Selector global de tipo de cliente (Pagas / Trial / Todas). Aplica a poblaciones de periodo.
+function matchTipo(r){const t=window._tipoCli||'pagas';return t==='trial'?isTrial(r):(t==='todas'?true:isPaga(r));}
 function getCA(r){return parseISO(r['created_at'])||parseISO(r['Fecha creación']);}
 // Clasificador de nicho en texto abierto (columna 'nicho otro'). Devuelve categoría o null si vacío.
 const NICHO_RULES=[
@@ -721,14 +732,14 @@ function calcMonth(off){
   const C=RAW.cuentas,O=RAW.onboarding,S=RAW.sesiones;
   const acctById={};C.forEach(r=>{const id=(r['id']||'').toString().trim();if(id)acctById[id]=r;});
 
-  const vigP=C.filter(r=>(r['Vigencia del servicio']||'').trim()==='Vigente'&&isPaga(r));
+  const vigP=C.filter(r=>(r['Vigencia del servicio']||'').trim()==='Vigente'&&matchTipo(r));
 
   // ── Plan de reposo ─────────────────────────────────
   const isReposo = r => (r['Plan (Nombre original)']||'').toLowerCase().includes('reposo');
   const reposoAll = C.filter(r => isReposo(r) && (r['Vigencia del servicio']||'').trim()==='Vigente');
   const vigT=C.filter(r=>(r['Vigencia del servicio']||'').trim()==='Vigente'&&isTrial(r));
-  const canP=C.filter(r=>(r['Vigencia del servicio']||'').trim()==='Cancelado'&&isPaga(r));
-  const atrP=C.filter(r=>(r['Vigencia del servicio']||'').trim()==='Atrasado'&&isPaga(r));
+  const canP=C.filter(r=>(r['Vigencia del servicio']||'').trim()==='Cancelado'&&matchTipo(r));
+  const atrP=C.filter(r=>(r['Vigencia del servicio']||'').trim()==='Atrasado'&&matchTipo(r));
 
   // Activas al inicio del mes: pagas creadas antes del mes que no habían cancelado aún
   const activasInicioMes = C.filter(r => {
@@ -743,7 +754,7 @@ function calcMonth(off){
     return true; // Vigente o Atrasado = estaba activa al inicio
   }).length;
 
-  const nuevosMesP=C.filter(r=>inRange(getCA(r),range)&&isPaga(r));
+  const nuevosMesP=C.filter(r=>inRange(getCA(r),range)&&matchTipo(r));
   const nuevosMesT=C.filter(r=>inRange(getCA(r),range)&&isTrial(r));
 
   // Calidad de datos: campos del perfil vacíos en las cuentas creadas en el periodo
@@ -1295,7 +1306,7 @@ function calcMonth(off){
 
   // ── Activación de cuentas nuevas ─────────────────
   // Use full selected month (not just last 4 weeks) for activation
-  const newLast4w = C.filter(r => { const ca=getCA(r); return ca&&inRange(ca,range)&&isPaga(r); });
+  const newLast4w = C.filter(r => { const ca=getCA(r); return ca&&inRange(ca,range)&&matchTipo(r); });
   const niveles  = newLast4w.map(r=>parseNivel(r)).filter(x=>x!==null);
   // Average % implementation over the FULL group (missing data counts as 0%) — consistent denominator
   const avgNivTotal = arr => {
@@ -1339,7 +1350,7 @@ function calcMonth(off){
 
   // ── Cohorte por ASISTENCIA a onboarding EN EL PERÍODO (cualquier fecha de creación) ──
   const onbPeriodIds   = new Set(onbAsistAll.map(r=>getOnbUserId(r)).filter(Boolean));
-  const onbPeriodAccts = C.filter(r => onbPeriodIds.has((r['id']||'').toString().trim()) && isPaga(r));
+  const onbPeriodAccts = C.filter(r => onbPeriodIds.has((r['id']||'').toString().trim()) && matchTipo(r));
   const onbPeriodN     = onbPeriodAccts.length;
   const onbPeriodAvg   = avgNivTotal(onbPeriodAccts);
   const onbPeriodNuevas  = onbPeriodAccts.filter(r=>{const ca=getCA(r);return ca&&inRange(ca,range);}).length;
@@ -4594,6 +4605,13 @@ function destroyChart(id){const c=Chart.getChart(id);if(c)c.destroy();}
 const SC=[{l:'Completado',c:'s-verde'},{l:'En curso',c:'s-verde'},{l:'En progreso',c:'s-amarillo'},{l:'En riesgo',c:'s-rojo'},{l:'Pendiente',c:'s-gris'}];
 function rotateStatus(el){const i=SC.findIndex(s=>s.l===el.textContent.trim()),n=SC[(i+1)%SC.length];el.textContent=n.l;el.className='status-badge '+n.c;}
 
+window._tipoCli='pagas';
+function setTipoCli(v){
+  window._tipoCli=v;
+  document.querySelectorAll('#tipoCliToggle .mn-btn').forEach(b=>b.classList.toggle('active',b.dataset.tc===v));
+  document.getElementById('planBody').innerHTML='';
+  render(calcMonth(currentMonthOffset));
+}
 function buildMonthNav(){
   const c=document.getElementById('monthBtns');c.innerHTML='';
   const MAXB=24; // hasta 24 periodos atrás si hay datos
