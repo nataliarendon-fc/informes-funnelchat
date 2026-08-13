@@ -175,6 +175,11 @@ body{background:var(--navy);color:var(--text);font-family:'DM Sans',sans-serif;f
     </div>
   </div>
 
+    <div class="card" style="margin-top:14px">
+      <div class="chart-title">Calidad de datos del perfil · cuentas del periodo</div>
+      <div class="chart-sub" id="camposVaciosSub">—</div>
+      <div id="camposVaciosBox" style="overflow-x:auto;margin-top:8px"></div>
+    </div>
     <div id="hist6_s1" style="margin-top:14px;margin-bottom:28px"></div>
 
   <!-- BLOQUE 3 -->
@@ -740,6 +745,26 @@ function calcMonth(off){
 
   const nuevosMesP=C.filter(r=>inRange(getCA(r),range)&&isPaga(r));
   const nuevosMesT=C.filter(r=>inRange(getCA(r),range)&&isTrial(r));
+
+  // Calidad de datos: campos del perfil vacíos en las cuentas creadas en el periodo
+  const camposVacios = (() => {
+    const targets=[
+      {lbl:'Tipo de negocio',norm:'tipo de negocio'},
+      {lbl:'Personas que trabajan en la empresa',norm:'personas que trabajan en la empresa'},
+      {lbl:'Facturación promedio mensual',norm:'facturacion promedio mensual'},
+      {lbl:'Objetivo con Funnelchat',norm:'objetivo con funnelchat'},
+      {lbl:'Experiencia automatizando',norm:'experiencia automatizando'},
+    ];
+    const nrm=s=>(s||'').toString().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/\s+/g,' ').trim();
+    const cols=C.length?Object.keys(C[0]):[];
+    const keys=targets.map(t=>cols.find(c=>nrm(c)===t.norm)||t.lbl);
+    const vacio=v=>{ if(v===undefined||v===null)return true; const s=v.toString().trim().toLowerCase(); return s===''||['na','n/a','-','—','sin dato','ninguno','null','undefined'].includes(s); };
+    const pop=C.filter(r=>inRange(getCA(r),range));
+    const rows=targets.map((t,i)=>{ const k=keys[i]; const vac=pop.filter(r=>vacio(r[k])); return {lbl:t.lbl, vacias:vac.length, pagas:vac.filter(isPaga).length}; });
+    const algun=pop.filter(r=>keys.some(k=>vacio(r[k])));
+    const todos=pop.filter(r=>keys.every(k=>vacio(r[k])));
+    return { base:pop.length, rows, algunN:algun.length, algunPagas:algun.filter(isPaga).length, todosN:todos.length, todosPagas:todos.filter(isPaga).length };
+  })();
   const cancelMes=canP.filter(r=>inRange(cancelDate(r),range));
   if(canP.length>0){
     const s=canP[0];
@@ -1699,6 +1724,7 @@ function calcMonth(off){
     cancelMesArr:cancelMes,cancelMesTrial:cancelMesTrial,
     allCancelP:allCancelP,
     allCuentas:C,
+    camposVacios,
     otrosInterpRows:allCancelP.filter(esNichoOtros),
     otrosNichos:(()=>{const d={};allCancelP.forEach(r=>{if(!esNichoOtros(r))return;const c=getNichoInterp(r);if(c)d[c]=(d[c]||0)+1;});return d;})(),
     otrosNichosN:allCancelP.filter(r=>esNichoOtros(r)&&getNichoInterp(r)).length,
@@ -2076,6 +2102,7 @@ function render(m){
     ?`Motivo principal: <strong>${m.motivos[0].label}</strong> (${m.motivos[0].count} casos · ${pct(m.motivos[0].count,tr||1)}% de respuestas). ${tr<m.cancelMes*0.3?'Solo el '+pct(tr,m.cancelMes)+'% respondió.':''}`
     :'Sin datos de motivos.';
   renderMotivosEvo(m);
+  renderCamposVacios(m);
 
   document.getElementById('ltAvgBadge').textContent=m.cp_lt_avg>0?`· ${m.cp_lt_avg} días promedio`:'';
 
@@ -2899,6 +2926,28 @@ function setOnbFilter(v){window._onbFilter=v;document.querySelectorAll('#onbFilt
 function setOnbActMet(v){window._onbActMet=v;document.querySelectorAll('#onbActMetToggle .mn-btn').forEach(b=>b.classList.toggle('active',b.dataset.met===v));renderOnbRes();}
 function setOnbHito(v){window._onbHito=v;document.querySelectorAll('#onbHitoToggle .mn-btn').forEach(b=>b.classList.toggle('active',b.dataset.hito===v));renderOnbRes();}
 let _motivosEvoChart=null;
+function renderCamposVacios(m){
+  const box=document.getElementById('camposVaciosBox'); if(!box||!m||!m.camposVacios)return;
+  const D=m.camposVacios, base=D.base||0;
+  const pctb=n=>base?Math.round(n/base*100):0;
+  const rowH=(lbl,vac,pag,strong)=>`<tr${strong?' style="border-top:2px solid var(--border)"':''}>
+    <td style="padding:6px 8px;font-size:11px;color:#334155;${strong?'font-weight:700':''}">${lbl}</td>
+    <td style="text-align:center;padding:6px 8px;font-size:11px;font-weight:700">${vac}</td>
+    <td style="text-align:center;padding:6px 8px;font-size:11px;color:var(--muted)">${pctb(vac)}%</td>
+    <td style="text-align:center;padding:6px 8px;font-size:11px;color:var(--red);font-weight:600">${pag}</td></tr>`;
+  let html='<table style="width:100%;border-collapse:collapse"><thead><tr>'
+    +'<th style="text-align:left;padding:6px 8px;font-size:9px;color:var(--muted)">Campo vacío</th>'
+    +'<th style="text-align:center;padding:6px 8px;font-size:9px;color:var(--muted)">Cuentas (n)</th>'
+    +'<th style="text-align:center;padding:6px 8px;font-size:9px;color:var(--muted)">% del periodo</th>'
+    +'<th style="text-align:center;padding:6px 8px;font-size:9px;color:var(--muted)">De esas, pagas (trial=0)</th></tr></thead><tbody>';
+  D.rows.forEach(r=>{ html+=rowH(r.lbl,r.vacias,r.pagas,false); });
+  html+=rowH('Con ≥1 campo vacío', D.algunN, D.algunPagas, true);
+  html+=rowH('Con los 5 campos vacíos', D.todosN, D.todosPagas, false);
+  html+='</tbody></table>';
+  box.innerHTML=html;
+  const sub=document.getElementById('camposVaciosSub');
+  if(sub)sub.innerHTML=`Sobre <b>${base}</b> cuentas creadas en el periodo. "Vacío" = celda en blanco o con NA/–/sin dato. La última columna cuenta, de las vacías, cuántas son <b>pagas</b> (trial = 0).`;
+}
 function renderMotivosEvo(m){
   const cv=document.getElementById('motivosEvoCanvas'); if(!cv||!m||!m.motivosEvo)return;
   const E=m.motivosEvo;
