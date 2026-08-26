@@ -1,0 +1,2114 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Funnelchat · Informe de Servicio · Agosto 2026 · corte 19 ago</title>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: 'Manrope', sans-serif; background: #e9e7e1; font-size: 13px; color: #1a1a1a; line-height: 1.5; }
+.tabs { display: flex; gap: 4px; padding: 12px 20px 0; background: #0d0e14; flex-wrap: wrap; }
+.tab { background: rgba(255,255,255,0.07); color: rgba(255,255,255,0.55); border: none; font-family: inherit; font-size: 11.5px; font-weight: 700; padding: 9px 16px; border-radius: 8px 8px 0 0; cursor: pointer; }
+.tab:hover { background: rgba(255,255,255,0.13); color: rgba(255,255,255,0.8); }
+.tab.on { background: #f5f4f0; color: #14151f; }
+.slide { display: none; background: #f5f4f0; }
+.slide.on { display: block; }
+.slide-header { background: #14151f; padding: 18px 28px; display: flex; align-items: center; justify-content: space-between; }
+.slide-header h1 { font-size: 19px; font-weight: 800; color: #fff; }
+.badge { font-size: 11px; font-weight: 700; padding: 5px 12px; border-radius: 20px; background: rgba(117,211,31,0.15); border: 1px solid rgba(117,211,31,0.4); color: #75D31F; }
+.badge.amber { background: rgba(255,183,0,0.15); border-color: rgba(255,183,0,0.45); color: #ffb300; }
+.month-nav { display:flex; align-items:center; gap:8px; padding:9px 20px; background:#14151f; flex-wrap:wrap; }
+.month-nav .mn-label { font-size:10px; color:rgba(255,255,255,.5); text-transform:uppercase; letter-spacing:.06em; font-weight:700; margin-right:2px; }
+.month-nav .mn-btn { font-size:11px; padding:5px 13px; border-radius:20px; border:1px solid rgba(255,255,255,.15); background:rgba(255,255,255,.06); color:rgba(255,255,255,.6); cursor:pointer; font-family:'Manrope',sans-serif; font-weight:700; white-space:nowrap; }
+.month-nav .mn-btn:hover { border-color:#75D31F; color:#75D31F; }
+.month-nav .mn-btn.active { background:#75D31F; color:#0d0e14; border-color:#75D31F; }
+.month-nav .mn-refresh { margin-left:auto; font-size:11px; padding:5px 13px; border-radius:20px; border:1px solid rgba(255,255,255,.15); background:transparent; color:rgba(255,255,255,.5); cursor:pointer; font-family:'Manrope',sans-serif; font-weight:700; }
+.month-nav .mn-refresh:hover { border-color:#1565c0; color:#7fb4ee; }
+.loading { display:flex; flex-direction:column; align-items:center; justify-content:center; min-height:70vh; gap:14px; background:#f5f4f0; }
+.spinner { width:36px; height:36px; border:3px solid #e8e6e0; border-top-color:#166534; border-radius:50%; animation:spin .8s linear infinite; }
+@keyframes spin { to { transform:rotate(360deg); } }
+.loading-text { color:#666; font-size:12.5px; font-weight:600; }
+.plan-table { width:100%; border-collapse:collapse; }
+.plan-table th { text-align:left; font-size:9.5px; font-weight:700; letter-spacing:.06em; text-transform:uppercase; color:#888; padding:8px 14px; background:#faf9f6; border-bottom:1.5px solid #e8e6e0; }
+.plan-table td { padding:11px 14px; border-bottom:1px solid #f0ede6; font-size:12.5px; cursor:pointer; vertical-align:top; }
+.plan-table td[contenteditable]:focus { outline:none; background:#faf9f6; }
+.plan-table tr:last-child td { border-bottom:none; }
+.status-badge { display:inline-flex; align-items:center; gap:5px; font-size:10px; font-weight:700; padding:3px 10px; border-radius:100px; cursor:pointer; user-select:none; white-space:nowrap; }
+.status-badge::before { content:''; width:5px; height:5px; border-radius:50%; }
+.s-verde { background:#e8f5e9; color:#166534; } .s-verde::before { background:#166534; }
+.s-amarillo { background:#fff8e1; color:#e65100; } .s-amarillo::before { background:#e65100; }
+.s-rojo { background:#fdecea; color:#c62828; } .s-rojo::before { background:#c62828; }
+.s-gris { background:#eef2f7; color:#4b5563; } .s-gris::before { background:#4b5563; }
+.body { padding: 15px 26px 20px; }
+
+.msg { background: #14151f; border-radius: 13px; padding: 14px 20px; margin-bottom: 12px; display: flex; align-items: center; gap: 16px; }
+.msg-tag { font-size: 9px; font-weight: 800; color: #75D31F; text-transform: uppercase; letter-spacing: .1em; white-space: nowrap; }
+.msg-txt { font-size: 16.5px; font-weight: 700; color: #fff; line-height: 1.35; }
+.msg-txt em { font-style: normal; color: #75D31F; }
+.msg-txt s { text-decoration: none; color: #ef5350; }
+.msg.amber .msg-tag { color: #ffb300; } .msg.amber .msg-txt em { color: #ffb300; }
+
+.kpis { display: grid; gap: 10px; margin-bottom: 12px; }
+.k3 { grid-template-columns: repeat(3,1fr); } .k4 { grid-template-columns: repeat(4,1fr); } .k5 { grid-template-columns: repeat(5,1fr); }
+.kpi { background: white; border: 1px solid #e8e6e0; border-radius: 12px; padding: 13px 15px; }
+.kpi.hi { border-color: #86efac; background: #f4fdf6; }
+.kpi.lo { border-color: #ef9a9a; background: #fffafa; }
+.kl { font-size: 9.5px; font-weight: 700; color: #888; text-transform: uppercase; letter-spacing: .05em; margin-bottom: 5px; }
+.kv { font-size: 31px; font-weight: 800; line-height: 1; }
+.ks { font-size: 10.5px; color: #888; margin-top: 5px; }
+.green { color: #166534; } .red { color: #c62828; } .blue { color: #1565c0; } .orange { color: #e65100; } .purple { color: #5b21b6; } .teal { color: #0097a7; }
+
+.card { background: white; border: 1px solid #e8e6e0; border-radius: 12px; overflow: hidden; }
+.ch { padding: 10px 18px; background: #faf9f6; border-bottom: 2px solid #e8e6e0; font-size: 10px; font-weight: 800; color: #555; text-transform: uppercase; letter-spacing: .06em; display: flex; justify-content: space-between; align-items: baseline; }
+.chs { font-size: 9.5px; font-weight: 400; color: #888; text-transform: none; letter-spacing: 0; }
+table { width: 100%; border-collapse: collapse; }
+th { font-size: 9.5px; font-weight: 700; color: #888; text-transform: uppercase; letter-spacing: .04em; padding: 8px 16px; background: #faf9f6; border-bottom: 1.5px solid #e8e6e0; text-align: right; }
+th.left { text-align: left; }
+td { padding: 10px 16px; border-bottom: 1px solid #f0ede6; text-align: right; font-size: 13.5px; }
+td.left { text-align: left; font-weight: 600; }
+tbody tr:last-child td { border-bottom: none; }
+tr.tot td { background: #f5f4f0; font-weight: 800; border-top: 2px solid #e8e6e0; }
+.big { font-size: 18px; font-weight: 800; }
+.dp { display: inline-flex; font-size: 11.5px; font-weight: 700; padding: 2px 9px; border-radius: 100px; }
+.dp-ok { background: #e8f5e9; color: #2e7d32; } .dp-bad { background: #fdecea; color: #c62828; } .dp-warn { background: #fff8e1; color: #e65100; } .dp-eq { background: #eef2f7; color: #4b5563; }
+.bar { height: 21px; border-radius: 5px; display: flex; align-items: center; padding-left: 9px; font-size: 11.5px; font-weight: 700; color: #fff; }
+.barwrap { background: #f0ede6; border-radius: 5px; overflow: hidden; }
+.two { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.g21 { display: grid; grid-template-columns: 1.5fr 1fr; gap: 12px; }
+.foot { padding: 8px 16px; font-size: 10.5px; font-weight: 600; }
+.f-ok { background: #e8f5e9; border-top: 1px solid #a5d6a7; color: #2e7d32; }
+.f-bad { background: #fdecea; border-top: 1px solid #ef9a9a; color: #c62828; }
+.f-warn { background: #fff8e1; border-top: 1px solid #fde68a; color: #92400e; }
+.f-info { background: #e3f2fd; border-top: 1px solid #90caf9; color: #1565c0; }
+.acts { display: grid; grid-template-columns: repeat(3,1fr); gap: 10px; margin-top: 12px; }
+.act { background: white; border: 1px solid #e8e6e0; border-left: 3px solid #e65100; border-radius: 10px; padding: 11px 13px; }
+.at { font-size: 12px; font-weight: 800; margin-bottom: 3px; }
+.ad { font-size: 11px; color: #555; line-height: 1.5; }
+</style>
+</head>
+<body>
+
+<div class="tabs" id="mainTabs" style="display:none">
+  <button class="tab on" data-t="x1">Resumen</button>
+  <button class="tab" data-t="x2">RAM · carterización</button>
+  <button class="tab" data-t="x3">Por qué se van</button>
+  <button class="tab" data-t="x4">Onboarding y retención</button>
+  <button class="tab" data-t="x5">Plan de acción</button>
+</div>
+<div class="month-nav" id="monthNav" style="display:none">
+  <span class="mn-label">Mes</span>
+  <div id="monthBtns" style="display:flex;gap:8px;overflow-x:auto"></div>
+  <button class="mn-refresh" onclick="location.reload()">↻ Actualizar</button>
+</div>
+
+<div id="loadingState" class="loading">
+  <div class="spinner"></div>
+  <div class="loading-text" id="loadingText">Conectando con Google Sheets...</div>
+  <div style="font-size:11px;color:#999;margin-top:2px" id="loadingHint">Puede tardar hasta 30 segundos</div>
+</div>
+
+<div id="appRoot" style="display:none">
+
+<!-- ===== 1 RESUMEN ===== -->
+<div class="slide on" id="x1">
+<div class="slide-header">
+  <h1 id="x1Title">RESUMEN · INFORME MENSUAL</h1>
+  <span class="badge" id="x1Badge">Cargando...</span>
+</div>
+<div class="body" id="x1Body"></div>
+</div>
+
+<!-- ===== 2 RAM ===== -->
+<div class="slide" id="x2">
+<div class="slide-header">
+  <h1>CARTERIZACIÓN · CON RAM vs SIN RAM</h1>
+  <span class="badge" id="x2Badge">Cargando...</span>
+</div>
+<div class="body" id="x2Body"></div>
+</div>
+
+<!-- ===== 3 POR QUÉ SE VAN ===== -->
+<div class="slide" id="x3">
+<div class="slide-header">
+  <h1 id="x3Title">POR QUÉ SE VAN</h1>
+  <span class="badge amber" id="x3Badge">Cargando...</span>
+</div>
+<div class="body" id="x3Body"></div>
+</div>
+
+<!-- ===== 4 ONBOARDING Y RETENCIÓN ===== -->
+<div class="slide" id="x4">
+<div class="slide-header">
+  <h1 id="x4Title">ONBOARDING Y RETENCIÓN</h1>
+  <span class="badge amber" id="x4Badge">Cargando...</span>
+</div>
+<div class="body" id="x4Body"></div>
+</div>
+
+<!-- ===== 5 PLAN DE ACCIÓN ===== -->
+<div class="slide" id="x5">
+<div class="slide-header">
+  <h1>PLAN DE ACCIÓN — MES SIGUIENTE</h1>
+  <span class="badge">Editable</span>
+</div>
+<div class="body">
+  <div class="card">
+    <table class="plan-table">
+      <thead>
+        <tr>
+          <th style="width:10%">Tipo</th>
+          <th style="width:34%">Acción comprometida</th>
+          <th style="width:12%">Responsable</th>
+          <th style="width:10%">Fecha</th>
+          <th style="width:11%">Estado</th>
+          <th style="width:23%">Contexto / dato que la origina</th>
+        </tr>
+      </thead>
+      <tbody id="planBody"></tbody>
+    </table>
+  </div>
+</div>
+</div>
+
+</div>
+
+<script>
+const API_URL='https://script.google.com/macros/s/AKfycbwNp-Hnmi1imEggg6Qz7xRP_fR57ZvcQb9hFR2WUPn1c-BdsN23x2vrnlU5zY6Rydrlng/exec';
+const ARPU=69;
+let RAW={cuentas:[],onboarding:[],sesiones:[],embudos:[],cancelaciones:[],payments:[]};
+let currentMonthOffset=0;
+
+function parseISO(s){
+  if(!s||!s.toString().trim())return null;
+  s=s.toString().trim();
+  if(/^\d{4}-\d{2}-\d{2}/.test(s)){const d=new Date(s);return isNaN(d)?null:d;}
+  const m=s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+  if(m){const d=new Date(parseInt(m[3]),parseInt(m[2])-1,parseInt(m[1]));return isNaN(d)?null:d;}
+  try{const d=new Date(s);return isNaN(d)?null:d;}catch{return null;}
+}
+function parseSpanishLong(s) {
+  if (!s||!s.trim()) return null;
+  const mo={enero:0,febrero:1,marzo:2,abril:3,mayo:4,junio:5,julio:6,agosto:7,septiembre:8,octubre:9,noviembre:10,diciembre:11};
+  const m = s.toString().toLowerCase().match(/([a-záéíóúü]+)\s+(\d{1,2}),\s+(\d{4})/);
+  if (m) { const mv=mo[m[1]]; if(mv!==undefined) return new Date(parseInt(m[3]),mv,parseInt(m[2])); }
+  return null;
+}
+
+function parseSpDate(s){
+  if(!s)return null;
+  const m=s.toString().match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+  if(m)return new Date(parseInt(m[3]),parseInt(m[2])-1,parseInt(m[1]));
+  return parseISO(s);
+}
+function parseSlash(s){
+  if(!s)return null;
+  const m=s.toString().match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+  if(!m)return null;
+  return new Date(parseInt(m[3]),parseInt(m[2])-1,parseInt(m[1]));
+}
+function getMonthRange(off=0){
+  const t=new Date();
+  const s=new Date(t.getFullYear(),t.getMonth()+off,1);s.setHours(0,0,0,0);
+  const e=new Date(t.getFullYear(),t.getMonth()+off+1,0,23,59,59,999);
+  return{start:s,end:e};
+}
+function inRange(d,r){return d&&d>=r.start&&d<=r.end;}
+function fmtMonth(d){return d.toLocaleDateString('es-CO',{month:'long',year:'numeric'});}
+function fmtMonthShort(d){return d.toLocaleDateString('es-CO',{month:'short',year:'2-digit'});}
+function cancelDate(r){
+  const pt=parseSpDate(r['payment till']);
+  if(!pt)return null;
+  const d=new Date(pt);d.setDate(d.getDate()+21);return d;
+}
+function isPaga(r){const t=(r['trial']||'').toString().trim().toUpperCase();return t!=='TRUE'&&t!=='1'&&t!=='SI'&&t!=='SÍ';}
+function isTrial(r){return!isPaga(r);}
+// Selector global de tipo de cliente (Pagas / Trial / Todas). Aplica a poblaciones de periodo.
+function matchTipo(r){const t=window._tipoCli||'pagas';return t==='trial'?isTrial(r):(t==='todas'?true:isPaga(r));}
+function getCA(r){return parseISO(r['created_at'])||parseISO(r['Fecha creación']);}
+// Clasificador de nicho en texto abierto (columna 'nicho otro'). Devuelve categoría o null si vacío.
+const NICHO_RULES=[
+  ['Ruido / inválido', /^(k|n|as|lina|593|otro|otra cosa|ninguno|recomendacion|dinamicas|publicaciones|soy el mejor|prueba.*|\.+)$/],
+  ['Veterinaria y mascotas', /veterinari|mascota|esteriliza|animales/],
+  ['Seguros y finanzas', /seguro|finanz|trading|inversion|fondo de deuda|crowfunding|crowdfunding|financ|contab|empeno|credito|pronosticos deportivos/],
+  ['Inmobiliaria', /inmobiliari|bienes raices|raices/],
+  ['Tecnología y software', /software|informatic|telecomunicac|tecnologia|fibra|fiber|desarrollo de tecnologia|saas|plataforma/],
+  ['Belleza y estética', /belleza|estetic|capilar|barber|salon|depilaci|laser|cosmet|unas|aparatologia|protesis/],
+  ['Salud y bienestar', /salud|medic|clinic|consultorio|odontolog|dental|fisio|nutricion|suplement|farmacia|terapeut|terapia|psicolog|psic\.|bienestar|wellness|masaj|spa|holistic|meditacion|ice bath|estimulacion temprana|funerari/],
+  ['Fitness y deporte', /fitness|gym|gimnasio|gimancio|musculacion|pilates|entrenamiento fisic|futbol|academia deportiva|deport/],
+  ['Turismo y viajes', /turismo|turistic|viajes|hotel|posada|complejo rural|migratoria/],
+  ['Automotriz y motos', /automotriz|taller|mecanic|repuesto|(^| )moto|vehiculo|lubricante|conces|aire acondicionado/],
+  ['Alimentos y restaurantes', /restaurante|comida|aliment|viandas|gastronom|pollo|delivery|mar y despensa|chocolate/],
+  ['Educación, coaching y desarrollo', /educacion|formacion|curso|academia|escuela|mentor|coach|couching|desarrollo personal|constelaciones|interventora|instructora/],
+  ['Infoproductos y negocios digitales', /infoproduct|producto digital|productos digitales|ebook|ebooxs|afiliad|hotmart|emprendimiento digital|negocios digitales|franquicia digital|activos digitales|trafico digital|automatizacion|ecomerce|ecommerce|dropship/],
+  ['Eventos y entretenimiento', /evento|music|artista|concierto|danza|sorteo|rifa|club|parque|playground|entretenimiento|fotografia/],
+  ['Política, ONG y comunidad', /politic|campana|ong|sin animo de lucro|iglesia|cooperativa|gremio|camara de comercio|comunidad|sindicato/],
+  ['Retail y comercio', /tienda|ropa|calzado|zapatilla|joyeria|mueble|supermerc|supermerado|surtidora|autoservicio|refaccionaria|comestible|regalos|import|distribu|mayorista|empaque|electronica|accesorios|venta|surtido|cotillon|joyer|retail/],
+  ['Servicios y otros negocios', /servicio|logistic|transporte|carpinteria|tratamiento de agua|operador|constructora|construccion|publicidad|marketing|consultor|asesor|agencia|fumigacion|limpieza|seguridad|registrales|despacho|prefabricados|fabrica|emprendimiento|coach|dinamica/],
+];
+function clasificarNicho(txt){const t=(txt||'').toString().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/\s+/g,' ').trim();if(!t)return null;for(const [cat,re] of NICHO_RULES){if(re.test(t))return cat;}return 'Otros sin clasificar';}
+// Lee la columna 'NICHO INTERPRETADO' del archivo principal de forma robusta (tolera mayúsculas/espacios/tildes).
+function getNichoInterp(r){ if(r&&r['NICHO INTERPRETADO']!==undefined) return (r['NICHO INTERPRETADO']||'').toString().trim(); for(const k in r){ if(k.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/\s+/g,' ').trim()==='nicho interpretado') return (r[k]||'').toString().trim(); } return ''; }
+// ¿La cuenta tiene Tipo de negocio = "Otros"?
+function esNichoOtros(r){ const t=(r['Tipo de negocio']||'').toString().trim().toLowerCase(); return t==='otros'||t==='otro'; }
+// Nicho autoritativo: NICHO INTERPRETADO si existe, si no Tipo de negocio.
+function nicheOf(r){ const ni=getNichoInterp(r); if(ni) return ni; const t=(r['Tipo de negocio']||'').toString().trim(); return t||'(sin tipo)'; }
+function getOnbDate(r){return parseISO(r['Fecha registro'])||parseISO(r['Fecha estado onboarding'])||null;}
+function getOnbGHLDate(r){return parseSpDate(r['Fecha de ONB GHL'])||parseISO(r['Fecha de ONB GHL'])||null;}
+function getContactId(r){return (r['contact_id']||r['id_unico']||'').toString().trim();}
+function parseNivel(r) {
+  const v = (r['% Nivel de implementación']||'').toString().replace('%','').trim();
+  const n = parseFloat(v);
+  return isNaN(n) ? null : Math.min(100, Math.max(0, n));
+}
+// ── Helpers sección RAM / KAM ──
+// El rol aplica solo a cuentas Advanced y superiores
+function isAdvanced(r){ return /advanced/i.test((r['Planes Funnelchat']||'').toString()); }
+// Normaliza el nombre del RAM (agrupa "OWNER NICOLAS", "Nicolás", "Nicolas" en uno solo)
+const KAM_LABELS = { nicolas:'Nicolás', natalia:'Natalia' };
+function normKam(r){
+  let v=(r['RAM']||'').toString().trim();
+  if(!v || /sin\s*(ram|kam)/i.test(v)) return { key:'__none__', label:'Sin asignar' };
+  v=v.replace(/^owner\s+/i,'').trim();
+  const key=v.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+  const label=KAM_LABELS[key] || (v.charAt(0).toUpperCase()+v.slice(1).toLowerCase());
+  return { key, label };
+}
+function getKamAssignDate(r){
+  // Fecha de asignación del RAM (con respaldo a la columna del KAM si no existe la de RAM)
+  const raw = r['Fecha asignación RAM'] != null && r['Fecha asignación RAM'] !== '' ? r['Fecha asignación RAM'] : r['Fecha asignación KAM'];
+  return parseSpDate(raw) || parseISO(raw) || parseSpanishLong(raw) || null;
+}
+// Implementación, pero ignorando valores corruptos (>100%) para no inflar el promedio del RAM
+function kamNivel(r){
+  const raw=parseFloat((r['% Nivel de implementación']||'').toString().replace('%','').trim());
+  return (isNaN(raw)||raw<0||raw>100) ? null : raw;
+}
+function kamFlowsN(r){ const n=parseInt((r['Usa flows']||'0').toString().replace(/[^0-9]/g,''),10); return isNaN(n)?0:n; }
+function getOnbPrimaryDate(r){
+  // Fecha asignación etiqueta = primary date for ALL onb filtering
+  return parseSpDate(r['Fecha asignación etiqueta'])
+    || parseISO(r['Fecha asignación etiqueta'])
+    || getOnbGHLDate(r)
+    || parseSpDate(r['Fecha extraida']) || parseISO(r['Fecha extraida'])
+    || null;
+}
+function getOnbAnyDate(r){
+  // Best available date: GHL date > registro > extraida > asignación etiqueta > actualización
+  return getOnbGHLDate(r)
+    || parseSpDate(r['Fecha registro'])              || parseISO(r['Fecha registro'])
+    || parseSpDate(r['Fecha extraida'])              || parseISO(r['Fecha extraida'])
+    || parseSpDate(r['Fecha asignación etiqueta'])   || parseISO(r['Fecha asignación etiqueta'])
+    || parseSpDate(r['Fecha actualización etiqueta'])|| parseISO(r['Fecha actualización etiqueta'])
+    || null;
+}
+function getOnbUserId(r){return (r['user_id']||'').toString().trim();}
+
+// Deduplicate onboarding rows: per contact_id keep the most recent record
+// "Most recent" = latest Fecha de ONB GHL, else Fecha registro, else Fecha actualización etiqueta
+function dedupeOnb(rows) {
+  const map = {};
+  rows.forEach(r => {
+    const cid = getContactId(r);
+    if (!cid) return;
+    const d = getOnbGHLDate(r) || parseISO(r['Fecha registro']) || parseISO(r['Fecha actualización etiqueta']) || new Date(0);
+    const prev = map[cid];
+    const prevD = prev ? (getOnbGHLDate(prev) || parseISO(prev['Fecha registro']) || parseISO(prev['Fecha actualización etiqueta']) || new Date(0)) : new Date(0);
+    if (!prev || d > prevD) map[cid] = r;
+  });
+  return Object.values(map);
+}
+function getOnbDias(r) {
+  // First try the explicit column
+  const v = parseInt((r['Días para ONB']||'').toString().replace(/[^0-9]/g,''));
+  if (!isNaN(v) && v >= 0) return v;
+  // Fallback: calculate from Fecha de creación → Fecha asignación etiqueta
+  // (Fecha asignación etiqueta tiene mejor cobertura que Fecha de ONB GHL, que suele venir vacía)
+  const asign   = parseSpDate(r['Fecha asignación etiqueta']) || parseISO(r['Fecha asignación etiqueta']);
+  const created = parseSpDate(r['Fecha de creación']) || parseISO(r['Fecha de creación']);
+  if (asign && created) {
+    const days = Math.round((asign - created) / 86400000);
+    return days >= 0 ? days : null;
+  }
+  return null;
+}
+function getOnbPlan(r, acctMap){
+  // 1) Try the 'Plan' column directly from the onboarding row (case/space tolerant)
+  let raw = '';
+  if (r['Plan'] !== undefined && r['Plan'] !== null) raw = r['Plan'].toString();
+  if (!raw.trim()) {
+    const key = Object.keys(r).find(k => k.trim().toLowerCase() === 'plan');
+    if (key) raw = (r[key]||'').toString();
+  }
+  let p = raw.trim().replace(/\*/g,'').trim();
+  // 2) Fallback: cross-reference via acctMap using user_id (in case Plan col is empty/missing)
+  if (!p && acctMap) {
+    const uid = getOnbUserId(r);
+    const acct = acctMap[uid];
+    if (acct) p = (acct['Planes Funnelchat']||'').trim();
+  }
+  if (!p) return null;
+  // Normalize to standard plan names
+  if(p.toLowerCase().includes('advanced personalizado')||p.toLowerCase().includes('adv. pers')) return 'Advanced Personalizado';
+  if(p.toLowerCase().includes('advanced')) return 'Plan Advanced';
+  if(p.toLowerCase().includes('growth'))   return 'Plan Growth';
+  if(p.toLowerCase().includes('starter'))  return 'Plan Starter';
+  return p; // return as-is if doesn't match known plans
+}
+function getOnbTipo(r){
+  // Clasificación exclusivamente por días: Fecha de creación vs fecha de ONB validada
+  // (Días para ONB, o fallback Fecha asignación etiqueta - Fecha de creación)
+  // ≤30 días = cuenta nueva · >30 días = cuenta antigua
+  // No se usa la columna de texto "Tipo de usuario" porque puede venir desactualizada/incorrecta.
+  const d = getOnbDias(r);
+  if(d !== null) return d <= 30 ? 'nuevas' : 'antiguo';
+  return null;
+}
+function parseEmbDate(s){
+  if(!s)return null;
+  const str=s.toString().trim();
+  if(/^[0-9]{4}-/.test(str)){const d=new Date(str);return isNaN(d)?null:d;}
+  const mo={enero:0,febrero:1,marzo:2,abril:3,mayo:4,junio:5,julio:6,agosto:7,septiembre:8,octubre:9,noviembre:10,diciembre:11};
+  const lw=str.toLowerCase();
+  const m2=lw.match(/([a-záéíóú]+)\s+(\d{1,2}),\s+(\d{4})/);
+  if(m2){const mv=mo[m2[1]];if(mv!==undefined)return new Date(parseInt(m2[3]),mv,parseInt(m2[2]));}
+  const sl=str.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+  if(sl)return new Date(parseInt(sl[3]),parseInt(sl[2])-1,parseInt(sl[1]));
+  try{const d=new Date(str);return isNaN(d)?null:d;}catch{return null;}
+}
+// ── AHA / TTV helpers ────────────────────────────────
+function getTTV(r, ahaCol) {
+  const ca  = parseISO(r['created_at']) || parseISO(r['Fecha creación']);
+  const aha = parseISO(r[ahaCol]);
+  if (!ca || !aha || aha < ca) return null;
+  return (aha - ca) / 86400000; // fractional days — keeps sub-day precision
+}
+function ahaStats(arr, ahaCol) {
+  const vals = arr.map(r => getTTV(r, ahaCol)).filter(v => v !== null && v >= 0);
+  if (!vals.length) return { avg: null, n: 0, pct: 0, total: arr.length };
+  const avg = Math.round((vals.reduce((a,b) => a+b, 0) / vals.length)*10)/10; // 1-decimal precision
+  return { avg, n: vals.length, pct: Math.round(vals.length/arr.length*100), total: arr.length };
+}
+
+function getMRR(r){
+  const amt=parseFloat((r['payment_amount']||'0').toString().replace(/[^0-9.]/g,''))||0;
+  const t=parseInt((r['payment_type']||'0').toString())||0;
+  const d={0:1,1:3,2:6,3:12,4:0};
+  const div=d[t]!==undefined?d[t]:1;
+  return div===0?0:Math.round(amt/div*100)/100;
+}
+function avg(a){return a.length?Math.round(a.reduce((s,v)=>s+v,0)/a.length):0;}
+function pct(n,d){return Math.round(n/(d||1)*100);}
+function fmt$(n){return'$'+(n||0).toLocaleString('es-CO');}
+function topN(arr,key,n=5){
+  const c={};
+  arr.forEach(r=>{const v=(r[key]||'').toString().trim();if(v&&v!=='NA')c[v]=(c[v]||0)+1;});
+  return Object.entries(c).sort((a,b)=>b[1]-a[1]).slice(0,n).map(([l,ct])=>({label:l,count:ct}));
+}
+
+// ── Clasificación de plan por PRECIO (payments usa un nombre genérico) ──
+// Orden de niveles para decidir si un movimiento es subida o bajada
+const PLAN_RANK = {'Plan Starter':1,'Plan Growth':2,'Plan Advanced':3,'Advanced Personalizado':4};
+// Precios mensuales de referencia para estimar el cambio en dinero de un movimiento.
+// Aproximación derivada de payments (NO es el MRR oficial de Yasmin). Adv. Pers. es ajustable.
+const PLAN_PRICE = {'Plan Starter':49,'Plan Growth':99,'Plan Advanced':199,'Advanced Personalizado':399};
+// Devuelve el plan a partir del valor mensual normalizado.
+// Bandas tolerantes a cobros de pasarela con unos dólares de menos (ej. 195 sigue siendo Advanced).
+// Referencia de precios mensuales: Starter ≈49 · Growth ≈99 · Advanced ≈199.
+function planFromMonthlyVal(mv){
+  if(!(mv>0)) return null;        // pago en 0 = trial/gratis, no es un nivel de plan
+  if(mv < 74)  return 'Plan Starter';
+  if(mv < 149) return 'Plan Growth';
+  if(mv < 280) return 'Plan Advanced';
+  return 'Advanced Personalizado'; // claramente por encima de Advanced (ajustable: umbral 280)
+}
+// Convierte un pago a "precio de un mes" usando la vigencia (Expiration − Date).
+// Así un pago anual no se confunde con un upgrade: se reparte entre los meses que cubre.
+function paymentMonthlyVal(p){
+  const val = parseFloat((p['Plan Value']||'0').toString().replace(/[^0-9.]/g,'')) || 0;
+  if(val<=0) return 0;
+  const d = parseSpanishLong(p['Date'])||parseSpDate(p['Date'])||parseISO(p['Date']);
+  const e = parseSpanishLong(p['Expiration'])||parseSpDate(p['Expiration'])||parseISO(p['Expiration']);
+  let months = 1;
+  if(d && e){ const days=Math.round((e-d)/86400000); if(days>0) months=Math.max(1, Math.round(days/30)); }
+  return val/months;
+}
+
+// LOAD
+async function loadAll(){
+  const setMsg=(t,h='')=>{document.getElementById('loadingText').textContent=t;document.getElementById('loadingHint').textContent=h;};
+  setMsg('Conectando con Google Sheets...','Puede tardar hasta 30 segundos');
+  const timeout=new Promise((_,rej)=>setTimeout(()=>rej(new Error('Tiempo agotado. Recarga la página.')),35000));
+  const fetchData=fetch(API_URL).then(async res=>{
+    setMsg('Descargando datos...','');
+    if(!res.ok)throw new Error('HTTP '+res.status);
+    const text=await res.text();
+    setMsg('Procesando...','');
+    let json;try{json=JSON.parse(text);}catch(e){throw new Error('Respuesta inválida. Redesplegar Apps Script.');}
+    return json;
+  });
+  const json=await Promise.race([fetchData,timeout]);
+  RAW.cuentas=(json.cuentas||[]).filter(r=>Object.keys(r).length>1);
+
+
+  RAW.onboarding=(json.onboarding||[]).filter(r=>Object.keys(r).length>0);
+  RAW.sesiones=(json.sesiones||[]).filter(r=>Object.keys(r).length>0);
+  RAW.embudos=(json.embudos||[]).filter(r=>Object.keys(r).length>0);
+  RAW.cancelaciones=(json.cancelaciones||[]).filter(r=>Object.keys(r).length>0);
+  RAW.payments     =(json.payments     ||[]).filter(r=>Object.keys(r).length>0);
+  if(!RAW.cuentas.length)throw new Error('Hoja de cuentas vacía. Verificar Apps Script.');
+}
+
+// CALC
+function calcMonth(off){
+  const range=getMonthRange(off);
+  const C=RAW.cuentas,O=RAW.onboarding,S=RAW.sesiones;
+  const acctById={};C.forEach(r=>{const id=(r['id']||'').toString().trim();if(id)acctById[id]=r;});
+
+  const vigP=C.filter(r=>(r['Vigencia del servicio']||'').trim()==='Vigente'&&matchTipo(r));
+
+  // ── Plan de reposo ─────────────────────────────────
+  const isReposo = r => (r['Plan (Nombre original)']||'').toLowerCase().includes('reposo');
+  const reposoAll = C.filter(r => isReposo(r) && (r['Vigencia del servicio']||'').trim()==='Vigente');
+  const vigT=C.filter(r=>(r['Vigencia del servicio']||'').trim()==='Vigente'&&isTrial(r));
+  const canP=C.filter(r=>(r['Vigencia del servicio']||'').trim()==='Cancelado'&&matchTipo(r));
+  const atrP=C.filter(r=>(r['Vigencia del servicio']||'').trim()==='Atrasado'&&matchTipo(r));
+
+  // Activas al inicio del mes: pagas creadas antes del mes que no habían cancelado aún
+  const activasInicioMes = C.filter(r => {
+    if (!isPaga(r)) return false;
+    const ca = getCA(r);
+    if (!ca || ca >= range.start) return false; // creada durante o después del mes
+    const vigencia = (r['Vigencia del servicio']||'').trim();
+    if (vigencia === 'Cancelado') {
+      const cd = cancelDate(r);
+      return cd && cd >= range.start; // canceló durante o después del mes
+    }
+    return true; // Vigente o Atrasado = estaba activa al inicio
+  }).length;
+
+  const nuevosMesP=C.filter(r=>inRange(getCA(r),range)&&matchTipo(r));
+  const nuevosMesT=C.filter(r=>inRange(getCA(r),range)&&isTrial(r));
+
+  // Calidad de datos: campos del perfil vacíos en las cuentas creadas en el periodo
+  const camposVacios = (() => {
+    const targets=[
+      {lbl:'Tipo de negocio',norm:'tipo de negocio'},
+      {lbl:'Personas que trabajan en la empresa',norm:'personas que trabajan en la empresa'},
+      {lbl:'Facturación promedio mensual',norm:'facturacion promedio mensual'},
+      {lbl:'Objetivo con Funnelchat',norm:'objetivo con funnelchat'},
+      {lbl:'Experiencia automatizando',norm:'experiencia automatizando'},
+    ];
+    const nrm=s=>(s||'').toString().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/\s+/g,' ').trim();
+    const cols=C.length?Object.keys(C[0]):[];
+    const keys=targets.map(t=>cols.find(c=>nrm(c)===t.norm)||t.lbl);
+    const vacio=v=>{ if(v===undefined||v===null)return true; const s=v.toString().trim().toLowerCase(); return s===''||['na','n/a','-','—','sin dato','ninguno','null','undefined'].includes(s); };
+    const pop=C.filter(r=>inRange(getCA(r),range));
+    const rows=targets.map((t,i)=>{ const k=keys[i]; const vac=pop.filter(r=>vacio(r[k])); return {lbl:t.lbl, vacias:vac.length, pagas:vac.filter(isPaga).length}; });
+    const algun=pop.filter(r=>keys.some(k=>vacio(r[k])));
+    const todos=pop.filter(r=>keys.every(k=>vacio(r[k])));
+    return { base:pop.length, rows, algunN:algun.length, algunPagas:algun.filter(isPaga).length, todosN:todos.length, todosPagas:todos.filter(isPaga).length };
+  })();
+  const cancelMes=canP.filter(r=>inRange(cancelDate(r),range));
+  if(canP.length>0){
+    const s=canP[0];
+        }
+  if(C.length>0){
+    const vigencias=[...new Set(C.slice(0,50).map(r=>(r['Vigencia del servicio']||'').trim()))];
+    }
+
+  const PD={0:30,1:90,2:180,3:365,4:3};
+  // Trial conversions from payments table:
+  // A conversion = user who had a Plan Value=0 payment (trial start)
+  // followed by a subsequent payment with Plan Value > 0 (first paid payment = conversion date)
+  const convFromPayments = (() => {
+    const byUser = {};
+    RAW.payments.forEach(p => {
+      const uid = (p['User ID']||'').toString().trim();
+      if (!uid) return;
+      const d   = parseSpanishLong(p['Date']) || parseSpDate(p['Date']) || parseISO(p['Date']);
+      const val = parseFloat((p['Plan Value']||'0').toString().replace(/[^0-9.]/g,'')) || 0;
+      if (!d) return;
+      if (!byUser[uid]) byUser[uid] = [];
+      byUser[uid].push({ d, val });
+    });
+    const conversions = []; // { uid, convDate }
+    Object.entries(byUser).forEach(([uid, pays]) => {
+      const sorted = pays.sort((a,b) => a.d - b.d);
+      const firstZero = sorted.find(p => p.val === 0);
+      if (!firstZero) return; // never had a trial (free) payment
+      // Find the first paid payment AFTER the zero-value payment
+      const firstPaid = sorted.find(p => p.val > 0 && p.d > firstZero.d);
+      if (firstPaid) conversions.push({ uid, convDate: firstPaid.d });
+    });
+    return conversions;
+  })();
+  // Inicios de trial derivados de la tabla payments: cuentas cuyo primer pago fue en 0 (trial),
+  // contadas por la fecha de ese pago 0 — independiente de si luego se pasaron a pagas.
+  const trialStartsFromPayments = (() => {
+    const byUser = {};
+    RAW.payments.forEach(p => {
+      const uid = (p['User ID']||'').toString().trim(); if(!uid) return;
+      const d   = parseSpanishLong(p['Date']) || parseSpDate(p['Date']) || parseISO(p['Date']);
+      const val = parseFloat((p['Plan Value']||'0').toString().replace(/[^0-9.]/g,'')) || 0;
+      if(!d) return;
+      (byUser[uid] = byUser[uid] || []).push({ d, val });
+    });
+    const starts = []; // { uid, trialDate }
+    Object.entries(byUser).forEach(([uid, pays]) => {
+      const sorted = pays.sort((a,b)=>a.d-b.d);
+      const firstZero = sorted.find(p => p.val === 0);
+      if (firstZero) starts.push({ uid, trialDate: firstZero.d });
+    });
+    return starts;
+  })();
+  const convertedUids = new Set(convFromPayments.map(c => c.uid));
+  const convMesArr = convFromPayments.filter(c => inRange(c.convDate, range));
+  const convMes = convMesArr.length;
+  // ── Separar conversiones del mes según cuándo empezó el trial ──
+  // "Nuevas del mes" = la cuenta se creó (created_at) DENTRO del mismo mes en que convirtió.
+  //   Esto la vuelve un subconjunto de los trials nuevos del mes → coherente, nunca puede superarlos.
+  // "De meses anteriores" = convirtió este mes pero la cuenta se creó en un mes previo (o sin fecha de creación).
+  const startedInRange = c => { const a=acctById[c.uid]; const ca=a?getCA(a):null; return inRange(ca,range); };
+  const convMesNuevasArr  = convMesArr.filter(startedInRange);
+  const convMesNuevas     = convMesNuevasArr.length;
+  const convMesPreviasArr = convMesArr.filter(c => !startedInRange(c));
+  const convMesPrevias    = convMesPreviasArr.length;
+
+  const mrrActivo=Math.round(vigP.reduce((s,r)=>s+getMRR(r),0));
+  const mrrRiesgo=Math.round(atrP.reduce((s,r)=>s+getMRR(r),0));
+  const mrrNuevo=Math.round(nuevosMesP.reduce((s,r)=>s+getMRR(r),0));
+  const mrrPerdido=Math.round(cancelMes.reduce((s,r)=>s+getMRR(r),0));
+  const mrrConv=0; // removed (MRR retired)
+
+  const prevR=getMonthRange(off-1);
+  const prevCancelMesArr=canP.filter(r=>inRange(cancelDate(r),prevR));
+  const prevNuevos=C.filter(r=>inRange(getCA(r),prevR)&&isPaga(r)).length;
+  const prevCancel=canP.filter(r=>inRange(cancelDate(r),prevR)).length;
+  const prevConv=convFromPayments.filter(c=>inRange(c.convDate,prevR)).length;
+  // Mismo criterio "nuevas del mes" pero para el mes anterior (para la flecha de comparación)
+  const prevConvNuevas=convFromPayments.filter(c=>{
+    if(!inRange(c.convDate,prevR))return false;
+    const a=acctById[c.uid]; const ca=a?getCA(a):null; return inRange(ca,prevR);
+  }).length;
+
+  // 6-month trend
+  const trend6=Array.from({length:6},(_,i)=>{
+    const r=getMonthRange(off-5+i);
+    const nuevas=C.filter(rr=>inRange(getCA(rr),r)&&isPaga(rr)).length;
+    const cancels=canP.filter(rr=>inRange(cancelDate(rr),r)).length;
+    // Activos al cierre: pagas creadas antes del fin del período que no habían cancelado aún
+    // Incluye Vigente y Atrasado (siguen siendo clientes activos durante ese mes)
+    const activos=C.filter(rr=>{
+      if(!isPaga(rr))return false;
+      const ca=getCA(rr);
+      if(!ca||ca>r.end)return false; // no existía aún
+      const vigencia=(rr['Vigencia del servicio']||'').trim();
+      if(vigencia==='Cancelado'){
+        const cd=cancelDate(rr);
+        return cd&&cd>r.end; // canceló después del período
+      }
+      return true; // Vigente o Atrasado = activo
+    }).length;
+    return{label:fmtMonthShort(r.start),nuevas,cancels,activos};
+  });
+
+  const churnByPlan=['Plan Starter','Plan Growth','Plan Advanced'].map(plan=>({
+    plan,
+    data:Array.from({length:6},(_,i)=>{
+      const r=getMonthRange(off-5+i);
+      const base=C.filter(rr=>rr['Planes Funnelchat']===plan&&isPaga(rr));
+      const act=base.filter(rr=>(rr['Vigencia del servicio']||'').trim()!=='Cancelado').length;
+      const can=base.filter(rr=>(rr['Vigencia del servicio']||'').trim()==='Cancelado'&&inRange(cancelDate(rr),r)).length;
+      return act>0?Math.round(can/act*1000)/10:0;
+    })
+  }));
+
+  // Motivos — from cancelaciones table filtered by created_at of survey response
+  const cancelSurveyMes = RAW.cancelaciones.filter(r => {
+    const fecha = parseISO(r['created_at']);
+    return fecha && inRange(fecha, range);
+  });
+  const mc={};
+  cancelSurveyMes.forEach(r => {
+    const m = (r['Macromotivo']||'').toString().trim();
+    if (m && m !== 'NA' && m !== '') mc[m] = (mc[m]||0) + 1;
+  });
+  const motivos=Object.entries(mc).sort((a,b)=>b[1]-a[1]).slice(0,6).map(([l,c])=>({label:l,count:c}));
+  const cancelConMotivo = cancelSurveyMes.length;
+
+  // Evolución de motivos (Macromotivo) — encuesta de salida, 6 meses
+  const motivosEvo = (() => {
+    const rmonths=[]; for(let i=-5;i<=0;i++){const rr=getMonthRange(off+i);rmonths.push({r:rr,label:fmtMonthShort(rr.start)});}
+    const perMonth = rmonths.map(mo=>{
+      const cc={};
+      RAW.cancelaciones.forEach(r=>{
+        const f=parseISO(r['created_at']); if(!f||!inRange(f,mo.r))return;
+        const mm=(r['Macromotivo']||'').toString().trim(); if(mm&&mm!=='NA'&&mm!=='') cc[mm]=(cc[mm]||0)+1;
+      });
+      return cc;
+    });
+    const totals={}; perMonth.forEach(cc=>Object.entries(cc).forEach(([k,v])=>totals[k]=(totals[k]||0)+v));
+    const top=Object.entries(totals).sort((a,b)=>b[1]-a[1]).slice(0,7).map(x=>x[0]);
+    const totalResp = perMonth.map(cc=>Object.values(cc).reduce((a,b)=>a+b,0));
+    return { labels:rmonths.map(x=>x.label), motivos:top, data:top.map(mm=>perMonth.map(cc=>cc[mm]||0)), totalResp };
+  })();
+
+  // Perfil cancelados
+  const cm=cancelMes.length||1;
+  const cp_sin_onb=pct(cancelMes.filter(r=>(r['Onboarding']||'').trim()!=='Con onboarding').length,cm);
+  const cp_sin_flow=pct(cancelMes.filter(r=>(v=>v===''||v==='0')((r['Usa flows']||'').toString().trim())).length,cm);
+  const cp_sin_wa=pct(cancelMes.filter(r=>(r['Usa API?']||'')!=='Sí'&&(r['Usa Business?']||'')!=='Sí').length,cm);
+  const cp_sin_ses=pct(cancelMes.filter(r=>r['Sesiones en vivo']==='No asistió').length,cm);
+  const cp_sin_grupos=pct(cancelMes.filter(r=>(v=>v===''||v==='0')((r['Usa grupos?']||'').toString().trim())).length,cm);
+  const cp_sin_trial=pct(cancelMes.filter(r=>(r['flow trial']||'').includes('No pasó')).length,cm);
+  const cp_lt_avg=avg(cancelMes.map(r=>parseFloat(r['LT']||'0')).filter(n=>n>0));
+  // ── Pagas cancelados este mes ──────────────────────
+  const nichoCancel=topN(cancelMes,'Tipo de negocio');
+  const objCancel=topN(cancelMes,'Objetivo con Funnelchat');
+  const expCancel=topN(cancelMes,'Experiencia automatizando');
+  const factCancel=topN(cancelMes,'Facturación promedio mensual');
+
+  // Nuevas del mes por segmento — para comparar con cancelados
+  const nichoNuevas=topN(nuevosMesP,'Tipo de negocio');
+  const objNuevas=topN(nuevosMesP,'Objetivo con Funnelchat');
+  const expNuevas=topN(nuevosMesP,'Experiencia automatizando');
+  const factNuevas=topN(nuevosMesP,'Facturación promedio mensual');
+  // Trial nuevas too
+  const nichoNuevasT=topN(nuevosMesT,'Tipo de negocio');
+  const objNuevasT=topN(nuevosMesT,'Objetivo con Funnelchat');
+  const expNuevasT=topN(nuevosMesT,'Experiencia automatizando');
+  const factNuevasT=topN(nuevosMesT,'Facturación promedio mensual');
+
+  // ── Trial cancelados este mes ───────────────────────
+  const cancelMesTrial=C.filter(r=>(r['Vigencia del servicio']||'').trim()==='Cancelado'&&isTrial(r)&&inRange(cancelDate(r),range));
+  const nichoT=topN(cancelMesTrial,'Tipo de negocio');
+  const objT=topN(cancelMesTrial,'Objetivo con Funnelchat');
+  const expT=topN(cancelMesTrial,'Experiencia automatizando');
+  const factT=topN(cancelMesTrial,'Facturación promedio mensual');
+
+  // ── Histórico pagas cancelados (acumulado total) ───
+  const allCancelP=canP;
+  const allCancelT=C.filter(r=>(r['Vigencia del servicio']||'').trim()==='Cancelado'&&isTrial(r));
+  const nichoHistP=topN(allCancelP,'Tipo de negocio');
+  const objHistP=topN(allCancelP,'Objetivo con Funnelchat');
+  const expHistP=topN(allCancelP,'Experiencia automatizando');
+  const factHistP=topN(allCancelP,'Facturación promedio mensual');
+  const nichoHistT=topN(allCancelT,'Tipo de negocio');
+  const objHistT=topN(allCancelT,'Objetivo con Funnelchat');
+  const expHistT=topN(allCancelT,'Experiencia automatizando');
+  const factHistT=topN(allCancelT,'Facturación promedio mensual');
+
+  // ── Histórico barras perfil ─────────────────────────
+  const allCm=allCancelP.length||1;
+  const hist_sin_onb=pct(allCancelP.filter(r=>(r['Onboarding']||'').trim()!=='Con onboarding').length,allCm);
+  const hist_sin_flow=pct(allCancelP.filter(r=>(v=>v===''||v==='0')((r['Usa flows']||'').toString().trim())).length,allCm);
+  const hist_sin_wa=pct(allCancelP.filter(r=>(r['Usa API?']||'')!=='Sí'&&(r['Usa Business?']||'')!=='Sí').length,allCm);
+  const hist_sin_ses=pct(allCancelP.filter(r=>r['Sesiones en vivo']==='No asistió').length,allCm);
+  const hist_sin_grupos=pct(allCancelP.filter(r=>(v=>v===''||v==='0')((r['Usa grupos?']||'').toString().trim())).length,allCm);
+  const hist_sin_trial=pct(allCancelP.filter(r=>(r['flow trial']||'').includes('No pasó')).length,allCm);
+
+  // ── Mes anterior comparativa ────────────────────────
+  const cancelPrev=canP.filter(r=>inRange(cancelDate(r),prevR));
+  const cancelPrevT=C.filter(r=>(r['Vigencia del servicio']||'').trim()==='Cancelado'&&isTrial(r)&&inRange(cancelDate(r),prevR));
+  const nichoCancelPrev=topN(cancelPrev,'Tipo de negocio');
+  const objCancelPrev=topN(cancelPrev,'Objetivo con Funnelchat');
+  const expCancelPrev=topN(cancelPrev,'Experiencia automatizando');
+  const factCancelPrev=topN(cancelPrev,'Facturación promedio mensual');
+  const nichoTPrev=topN(cancelPrevT,'Tipo de negocio');
+  const objTPrev=topN(cancelPrevT,'Objetivo con Funnelchat');
+  const expTPrev=topN(cancelPrevT,'Experiencia automatizando');
+  const factTPrev=topN(cancelPrevT,'Facturación promedio mensual');
+
+  // ── Ranking history — últimos 3 meses ────────────────
+  // For each key, build a ranking per month to detect trends
+  const buildRankHistory = (key, isTrialMode) => {
+    const history = [];
+    for (let i = -2; i <= 0; i++) {
+      const r = getMonthRange(off + i);
+      const base = isTrialMode
+        ? C.filter(rr => (rr['Vigencia del servicio']||'').trim()==='Cancelado' && isTrial(rr) && inRange(cancelDate(rr),r))
+        : canP.filter(rr => inRange(cancelDate(rr),r));
+      const ranked = topN(base, key, 10);
+      const posMap = {};
+      ranked.forEach((d,idx) => { posMap[d.label] = idx + 1; });
+      history.push(posMap);
+    }
+    return history; // [2m ago, 1m ago, this month]
+  };
+
+  const rankHistP = {
+    nicho: buildRankHistory('Tipo de negocio', false),
+    obj:   buildRankHistory('Objetivo con Funnelchat', false),
+    exp:   buildRankHistory('Experiencia automatizando', false),
+    fact:  buildRankHistory('Facturación promedio mensual', false),
+  };
+  const rankHistT = {
+    nicho: buildRankHistory('Tipo de negocio', true),
+    obj:   buildRankHistory('Objetivo con Funnelchat', true),
+    exp:   buildRankHistory('Experiencia automatizando', true),
+    fact:  buildRankHistory('Facturación promedio mensual', true),
+  };
+
+  const ltBuckets={'0-30d':0,'31-60d':0,'61-90d':0,'91-180d':0,'181-365d':0,'+365d':0};
+  cancelMes.forEach(r=>{
+    const lt=parseFloat(r['LT']||'0');
+    if(lt<=30)ltBuckets['0-30d']++;
+    else if(lt<=60)ltBuckets['31-60d']++;
+    else if(lt<=90)ltBuckets['61-90d']++;
+    else if(lt<=180)ltBuckets['91-180d']++;
+    else if(lt<=365)ltBuckets['181-365d']++;
+    else ltBuckets['+365d']++;
+  });
+
+  // Onboarding
+  // ── ONB counters — consistent with Fecha de ONB GHL ─────────────
+  // Propuestas: all contacts with ANY onboarding state, GHL or registro date in range, deduped
+  const onbAllByAnyDate = O.filter(r => inRange(getOnbPrimaryDate(r), range));
+  const onbAll = onbAllByAnyDate; // alias for backward compatibility
+  // Enriched ONB using Fecha de ONB GHL
+  // For attendance: filter Asistió + GHL in range FIRST, then dedup by contact_id
+  // This avoids discarding valid Asistió records because a newer non-Asistió row took priority
+  const onbAsistAll   = O.filter(r => (r['Estado del onboarding']||'').trim().toLowerCase().replace(/ó/g,'o').replace(/í/g,'i')==='asistio' && inRange(getOnbPrimaryDate(r), range));
+  // No dedup — count all Asistió rows (each row = one attendance event)
+  const onbGHLAsist   = onbAsistAll;
+  // For other statuses (no-show, pending): dedup all O first, then filter by any date in range
+  const onbGHL        = O.filter(r => inRange(getOnbPrimaryDate(r), range));
+  const avgDias    = arr => { const v=arr.map(getOnbDias).filter(x=>x!==null); return v.length?Math.round(v.reduce((a,b)=>a+b,0)/v.length):null; };
+  const onbNuevas  = onbGHLAsist.filter(r => getOnbTipo(r)==='nuevas');
+  const onbAntiguas= onbGHLAsist.filter(r => getOnbTipo(r)==='antiguo');
+  const diasNuevas = avgDias(onbNuevas);
+  const diasAntiguas=avgDias(onbAntiguas);
+  // Responsable breakdown
+  const respMap={};
+  onbGHLAsist.forEach(r=>{const resp=(r['Responsable ONB GHL']||'Sin asignar').trim();respMap[resp]=(respMap[resp]||0)+1;});
+  const onbResponsables=Object.entries(respMap).sort((a,b)=>b[1]-a[1]);
+
+  // No-show + Agendados sin asistir profile
+  // No-show and pending: use ALL deduped records filtered by any available date
+  const onbDeduped_range = O.filter(r => inRange(getOnbPrimaryDate(r), range));
+  const _normEst = r => (r['Estado del onboarding']||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim();
+  const onbNoShowRows  = onbDeduped_range.filter(r => { const s=(r['Estado del onboarding']||'').trim(); return s==='No show'||s==='No asistió'||s==='No Asistió'; });
+  const onbPendingRows = onbDeduped_range.filter(r => { const s=(r['Estado del onboarding']||'').toLowerCase().replace(/ó/g,'o').trim(); return s==='agendo'||s==='agendado'||s==='agendar reunion'; });
+  const profileSegment = (rows) => {
+    const result = { pagas:0, trial:0, plans:{}, nicho:{}, seg:{} };
+    rows.forEach(r => {
+      const uid  = getOnbUserId(r);
+      const acct = acctById[uid];
+      if (!acct) return;
+      if (isPaga(acct)) result.pagas++; else result.trial++;
+      const plan = (acct['Planes Funnelchat']||'Sin plan').trim();
+      result.plans[plan] = (result.plans[plan]||0)+1;
+      const n = (acct['Tipo de negocio']||'Sin tipo').trim();
+      result.nicho[n] = (result.nicho[n]||0)+1;
+      const s = (acct['Segmento de cliente (priorización de cliente)']||'Sin seg').trim();
+      result.seg[s] = (result.seg[s]||0)+1;
+    });
+    result.plansArr = Object.entries(result.plans).sort((a,b)=>b[1]-a[1]).slice(0,5);
+    result.nichoArr  = Object.entries(result.nicho).sort((a,b)=>b[1]-a[1]).slice(0,5);
+    result.segArr    = Object.entries(result.seg).sort((a,b)=>b[1]-a[1]);
+    result.total     = rows.length;
+    result.matched   = result.pagas + result.trial;
+    return result;
+  };
+  const noShowProfile  = profileSegment(onbNoShowRows);
+  const pendingProfile = profileSegment(onbPendingRows);
+  // Tipo ONB breakdown
+  const tipoMap={};
+  onbGHLAsist.forEach(r=>{const t=(r['Tipo de ONB GHL']||'Sin tipo').trim();tipoMap[t]=(tipoMap[t]||0)+1;});
+  const onbTipos=Object.entries(tipoMap).sort((a,b)=>b[1]-a[1]);
+  // Días al ONB por plan — cross con tabla cuentas
+  const planes4=['Plan Starter','Plan Growth','Plan Advanced','Advanced Personalizado'];
+  const onbByPlan=planes4.map(plan=>{
+    // Only 'Cuentas nuevas' to avoid skew from legacy accounts
+    const rows=onbGHLAsist.filter(r=>{
+      if(getOnbTipo(r)!=='nuevas') return false;
+      const uid=getOnbUserId(r);
+      const acct=acctById[uid];
+      return acct&&(acct['Planes Funnelchat']||'').trim()===plan;
+    });
+    const dias=rows.map(getOnbDias).filter(x=>x!==null);
+    const avg=dias.length?Math.round(dias.reduce((a,b)=>a+b,0)/dias.length):null;
+    const min=dias.length?Math.min(...dias):null;
+    const max=dias.length?Math.max(...dias):null;
+    return {plan,n:rows.length,avg,min,max};
+  }).filter(p=>p.n>0);
+  const onbProp=onbAll.length;
+  const onbAgen=onbAll.filter(r=>['Agendó','Asistió','No show','No asistió'].includes(r['Estado del onboarding'])).length;
+  const onbAsist=onbGHLAsist.length; // uses GHL-consistent dedup logic
+  const onbNoShow=onbNoShowRows.length; // uses consistent date/dedup logic
+  const onbNoShowReal=(onbNoShowRows.length+onbPendingRows.length); // agendados sin asistir
+
+  // Previous month onboarding for deltas
+  const onbAllPrev=O.filter(r=>inRange(getOnbPrimaryDate(r),prevR));
+  const onbPropPrev=onbAllPrev.length;
+  const onbAgenPrev=onbAllPrev.filter(r=>['Agendó','Asistió','No show','No asistió'].includes(r['Estado del onboarding'])).length;
+  const onbAsistPrev=dedupeOnb(O.filter(r=>(r['Estado del onboarding']||'').trim()==='Asistió'&&inRange(getOnbPrimaryDate(r),prevR))).length;
+  const onbNoShowPrev=onbAllPrev.filter(r=>['No show','No asistió'].includes(r['Estado del onboarding'])).length;
+
+  // Previous month coverage
+  const nuevosMesPPrev=C.filter(r=>inRange(getCA(r),prevR)&&isPaga(r));
+  const nuevosMesTPrev=C.filter(r=>inRange(getCA(r),prevR)&&isTrial(r));
+  const onbAllPrevMap={};C.forEach(r=>{const id=(r['id']||'').toString().trim();if(id)onbAllPrevMap[id]=isPaga(r)?'paga':'trial';});
+  const getOnbTypePrev=r=>{const uid=(r['user_id']||'').toString().trim();return uid?(onbAllPrevMap[uid]||'unknown'):'unknown';};
+  const onbAsistPPrev=onbAllPrev.filter(r=>r['Estado del onboarding']==='Asistió'&&getOnbTypePrev(r)==='paga').length;
+  const onbAsistTPrev=onbAllPrev.filter(r=>r['Estado del onboarding']==='Asistió'&&getOnbTypePrev(r)==='trial').length;
+  const cobPPrev=pct(onbAsistPPrev,nuevosMesPPrev.length);
+  const cobTPrev=pct(onbAsistTPrev,nuevosMesTPrev.length);
+
+  const acctMap={};C.forEach(r=>{const id=(r['id']||'').toString().trim();if(id)acctMap[id]=isPaga(r)?'paga':'trial';});
+  const getOnbType=r=>{const uid=(r['user_id']||'').toString().trim();return uid?(acctMap[uid]||'unknown'):'unknown';};
+  const onbAsistP=onbAll.filter(r=>r['Estado del onboarding']==='Asistió'&&getOnbType(r)==='paga').length;
+  const onbAsistT=onbAll.filter(r=>r['Estado del onboarding']==='Asistió'&&getOnbType(r)==='trial').length;
+  const cobP=pct(onbAsistP,nuevosMesP.length);
+  const cobT=pct(onbAsistT,nuevosMesT.length);
+
+  const conOnbAll=C.filter(r=>r['Onboarding']==='Con onboarding'&&isPaga(r));
+  const sinOnbAll=C.filter(r=>(r['Onboarding']||'').trim()!=='Con onboarding'&&isPaga(r));
+  const retCon=conOnbAll.length>0?conOnbAll.filter(r=>(r['Vigencia del servicio']||'').trim()==='Vigente').length/conOnbAll.length:0;
+  const retSin=sinOnbAll.length>0?sinOnbAll.filter(r=>(r['Vigencia del servicio']||'').trim()==='Vigente').length/sinOnbAll.length:0;
+  const retDiff=Math.max(0,retCon-retSin);
+  const mrrPerCli=vigP.length>0?mrrActivo/vigP.length:ARPU;
+  const mrrProtOnb=Math.max(0,Math.round(onbAsist*retDiff*mrrPerCli*12));
+
+  // ── Impact comparison metrics — últimos 12 meses ──
+  // Filter to last 12 months to avoid bias from pre-implementation accounts
+  const range12m = { start: new Date(range.end.getFullYear()-1, range.end.getMonth(), 1), end: range.end };
+  const C12 = C.filter(r => { const ca=getCA(r); return ca && ca >= range12m.start; });
+
+  const getLTavg=arr=>avg(arr.map(r=>parseFloat(r['LT']||'0')).filter(n=>n>0));
+  const getLTVavg=arr=>avg(arr.filter(isPaga).map(r=>{
+    const amt=parseFloat((r['payment_amount']||'0').toString().replace(/[^0-9.]/g,''))||0;
+    return amt;
+  }).filter(n=>n>0));
+
+  // Helper: calc impact stats for a filtered set
+  const calcImpact=(conArr,sinArr)=>({
+    conRet: conArr.length>0?Math.round(conArr.filter(r=>(r['Vigencia del servicio']||'').trim()==='Vigente').length/conArr.length*100):0,
+    sinRet: sinArr.length>0?Math.round(sinArr.filter(r=>(r['Vigencia del servicio']||'').trim()==='Vigente').length/sinArr.length*100):0,
+    conLT: getLTavg(conArr), sinLT: getLTavg(sinArr),
+    conLTV: getLTVavg(conArr), sinLTV: getLTVavg(sinArr),
+    conN: conArr.length, sinN: sinArr.length
+  });
+
+  // Onboarding impact — 12m
+  const conOnb12=C12.filter(r=>r['Onboarding']==='Con onboarding'&&isPaga(r));
+  const sinOnb12=C12.filter(r=>(r['Onboarding']||'').trim()!=='Con onboarding'&&isPaga(r));
+  const onbImpact={
+    ...calcImpact(conOnb12, sinOnb12),
+    // Historical for context
+    histConRet: Math.round(retCon*100), histSinRet: Math.round(retSin*100),
+    histConN: conOnbAll.length, histSinN: sinOnbAll.length
+  };
+
+  // Sessions impact — 12m (using Sesiones en vivo column)
+  const conSes12=C12.filter(r=>r['Sesiones en vivo']==='Asistió'&&isPaga(r));
+  const sinSes12=C12.filter(r=>r['Sesiones en vivo']==='No asistió'&&isPaga(r));
+  const sesImpact={
+    ...calcImpact(conSes12, sinSes12),
+    histConN: C.filter(r=>r['Sesiones en vivo']==='Asistió'&&isPaga(r)).length,
+    histSinN: C.filter(r=>r['Sesiones en vivo']==='No asistió'&&isPaga(r)).length
+  };
+
+  // Embudos impact — 12m only
+  const embImpactData={};
+  ['Pago Atrasado','TRIAL SIN WA','TRIAL SIN FLOW','Cancelación'].forEach(f=>{
+    const impactedIds=new Set(RAW.embudos.filter(r=>(r['Flujo']||'').trim()===f)
+      .map(r=>(r['user_id']||'').toString().trim()).filter(Boolean));
+    // Use 12m base for fair comparison
+    const impacted12  = C12.filter(r=>impactedIds.has((r['id']||'').toString().trim())&&isPaga(r));
+    const notImpacted12=C12.filter(r=>!impactedIds.has((r['id']||'').toString().trim())&&isPaga(r));
+    embImpactData[f]={
+      ...calcImpact(impacted12, notImpacted12)
+    };
+  });
+
+  // Sessions 6m
+  const ses6=Array.from({length:6},(_,i)=>{
+    const r=getMonthRange(off-5+i);
+    const asistentes=S.filter(rr=>{const d=parseSlash(rr['FECHA ATENCIÓN']);return d&&inRange(d,r)&&(rr['Asistio?']==='1'||rr['Asistio?']===1);}).length;
+    const sesiones=new Set(S.filter(rr=>{const d=parseSlash(rr['FECHA ATENCIÓN']);return d&&inRange(d,r);}).map(rr=>rr['FECHA ATENCIÓN'])).size;
+    const porSesion=sesiones>0?Math.round(asistentes/sesiones*10)/10:0;
+    return{label:fmtMonthShort(r.start),asist:asistentes,sesiones,porSesion};
+  });
+  const sesMesActual=ses6[5];
+
+  // Risk — total acumulado (vigentes pagas)
+  const sinWa=vigP.filter(r=>(r['Usa API?']||'')!=='Sí'&&(r['Usa Business?']||'')!=='Sí');
+  const sinFlow=vigP.filter(r=>(v=>v===''||v==='0')((r['Usa flows']||'').toString().trim()));
+  const sinGrupos=vigP.filter(r=>(v=>v===''||v==='0')((r['Usa grupos?']||'').toString().trim()));
+  const sinLogin=vigP.filter(r=>{const ll=parseISO(r['last_login_at']);return!ll||(new Date()-ll)/86400000>14;});
+  const sinOnb=vigP.filter(r=>(r['Onboarding']||'').trim()!=='Con onboarding');
+
+  // Export columns for each risk group
+  const exportCols=['id','country_name','Planes Funnelchat','payment_type','payment_amount',
+    'last_login_at','created_at','Tipo de negocio','Objetivo con Funnelchat','Onboarding','Sesiones en vivo'];
+  const toExport=(arr,tag)=>arr.map(r=>{
+    const ca=getCA(r);
+    const esPrioritaria=ca&&inRange(ca,range)?'Sí':'No';
+    const row={Señal:tag, Prioritaria:esPrioritaria};
+    exportCols.forEach(c=>{row[c]=r[c]||'';});
+    return row;
+  });
+  const exportData={
+    sinWa:     toExport(sinWa,     'Sin WA conectado'),
+    sinFlow:   toExport(sinFlow,   'Sin flow activo'),
+    sinGrupos: toExport(sinGrupos, 'Sin grupos activos'),
+    sinLogin:  toExport(sinLogin,  'Sin login +14 días'),
+    sinOnb:    toExport(sinOnb,    'Sin onboarding'),
+  };
+
+  // Risk — del período (nuevas pagas del mes con señales de riesgo)
+  const nuevosMesPSet=new Set(nuevosMesP.map(r=>(r['id']||'').toString()));
+  const sinWaMes=nuevosMesP.filter(r=>(r['Usa API?']||'')!=='Sí'&&(r['Usa Business?']||'')!=='Sí');
+  const sinFlowMes=nuevosMesP.filter(r=>(v=>v===''||v==='0')((r['Usa flows']||'').toString().trim()));
+  const sinGruposMes=nuevosMesP.filter(r=>(v=>v===''||v==='0')((r['Usa grupos?']||'').toString().trim()));
+  const sinLoginMes=nuevosMesP.filter(r=>{const ll=parseISO(r['last_login_at']);return!ll||(new Date()-ll)/86400000>14;});
+  const sinOnbMes=nuevosMesP.filter(r=>(r['Onboarding']||'').trim()!=='Con onboarding');
+
+  // ── AHA stats — últimos 6 meses ─────────────────
+  const range6mAha = { start: new Date(range.end.getFullYear(), range.end.getMonth()-5, 1), end: range.end };
+  const C6aha = C.filter(r => { const ca=getCA(r); return ca && ca >= range6mAha.start; });
+  const ahaStatsData = (() => {
+    const conOnb6 = C6aha.filter(r => (r['Onboarding']||'').trim()==='Con onboarding' && isPaga(r));
+    const sinOnb6 = C6aha.filter(r => (r['Onboarding']||'').trim()!=='Con onboarding' && isPaga(r));
+    return {
+      wa:     { con: ahaStats(conOnb6,'AHA WA'),     sin: ahaStats(sinOnb6,'AHA WA')     },
+      flows:  { con: ahaStats(conOnb6,'AHA flows'),  sin: ahaStats(sinOnb6,'AHA flows')  },
+      grupos: { con: ahaStats(conOnb6,'AHA grupos'), sin: ahaStats(sinOnb6,'AHA grupos') },
+    };
+  })();
+
+  // AHA del mes actual
+  const conOnbMes = nuevosMesP.filter(r => (r['Onboarding']||'').trim()==='Con onboarding');
+  const ahaStatsMes = {
+    wa:     { con: ahaStats(conOnbMes,'AHA WA'),     sin: ahaStats(sinOnbMes,'AHA WA')     },
+    flows:  { con: ahaStats(conOnbMes,'AHA flows'),  sin: ahaStats(sinOnbMes,'AHA flows')  },
+    grupos: { con: ahaStats(conOnbMes,'AHA grupos'), sin: ahaStats(sinOnbMes,'AHA grupos') },
+  };
+
+  // ── Movimientos de plan (upgrades / downgrades) desde payments ──────────────
+  // Cada pago se clasifica por NIVEL de plan (precio mensual normalizado), no por el
+  // monto bruto. Un movimiento = cambio de nivel entre dos pagos consecutivos del
+  // mismo usuario. Renovar al mismo nivel (aunque cambie mensual↔anual) NO es movimiento.
+  const tiersByUser = {};
+  RAW.payments.forEach(p => {
+    const uid = (p['User ID']||'').toString().trim();
+    if (!uid) return;
+    const d = parseSpanishLong(p['Date']) || parseSpDate(p['Date']) || parseISO(p['Date']);
+    if (!d) return;
+    const tier = planFromMonthlyVal(paymentMonthlyVal(p));
+    if (!tier) return; // pago en 0 (trial) — no es un nivel de plan
+    if (!tiersByUser[uid]) tiersByUser[uid] = [];
+    tiersByUser[uid].push({ d, tier });
+  });
+  // Lista única de todos los movimientos (con fecha), para el mes y la tendencia
+  const allMovements = [];
+  Object.entries(tiersByUser).forEach(([uid, arr]) => {
+    arr.sort((a,b) => a.d - b.d);
+    for (let i=1; i<arr.length; i++) {
+      const from = arr[i-1].tier, to = arr[i].tier;
+      if (from === to) continue; // renovación al mismo nivel
+      allMovements.push({
+        uid, date: arr[i].d, fromTier: from, toTier: to,
+        dir: PLAN_RANK[to] > PLAN_RANK[from] ? 'up' : 'down',
+        delta: (PLAN_PRICE[to]||0) - (PLAN_PRICE[from]||0),
+        acct: acctById[uid] || {}
+      });
+    }
+  });
+  const upgrades   = allMovements.filter(m => m.dir==='up'   && inRange(m.date, range));
+  const downgrades = allMovements.filter(m => m.dir==='down' && inRange(m.date, range));
+
+  // Agregados del mes: ¿desde qué plan? ¿hacia qué plan? ¿qué par es más común?
+  const tallyBy   = (arr,key) => arr.reduce((c,m)=>{const v=m[key];c[v]=(c[v]||0)+1;return c;},{});
+  const tallyPair = arr => arr.reduce((c,m)=>{const k=m.fromTier+' → '+m.toTier;c[k]=(c[k]||0)+1;return c;},{});
+  const topEntry  = obj => { const e=Object.entries(obj).sort((a,b)=>b[1]-a[1]); return e.length?{label:e[0][0],count:e[0][1]}:null; };
+  const upAgg = { fromCount:tallyBy(upgrades,'fromTier'), toCount:tallyBy(upgrades,'toTier'), pairs:tallyPair(upgrades),
+                  topFrom:topEntry(tallyBy(upgrades,'fromTier')), topTo:topEntry(tallyBy(upgrades,'toTier')), topPair:topEntry(tallyPair(upgrades)) };
+  const downAgg={ fromCount:tallyBy(downgrades,'fromTier'),toCount:tallyBy(downgrades,'toTier'),pairs:tallyPair(downgrades),
+                  topFrom:topEntry(tallyBy(downgrades,'fromTier')),topTo:topEntry(tallyBy(downgrades,'toTier')),topPair:topEntry(tallyPair(downgrades)) };
+
+  // Tendencia mes a mes — últimos 6 meses
+  const movTrend6 = Array.from({length:6},(_,i)=>{
+    const r=getMonthRange(off-5+i);
+    return { label:fmtMonthShort(r.start),
+      ups:  allMovements.filter(m=>m.dir==='up'   && inRange(m.date,r)).length,
+      downs:allMovements.filter(m=>m.dir==='down' && inRange(m.date,r)).length };
+  });
+
+  // ── Activación de cuentas nuevas ─────────────────
+  // Use full selected month (not just last 4 weeks) for activation
+  const newLast4w = C.filter(r => { const ca=getCA(r); return ca&&inRange(ca,range)&&matchTipo(r); });
+  const niveles  = newLast4w.map(r=>parseNivel(r)).filter(x=>x!==null);
+  // Average % implementation over the FULL group (missing data counts as 0%) — consistent denominator
+  const avgNivTotal = arr => {
+    if (!arr.length) return null;
+    const sum = arr.reduce((s,r) => { const v = parseNivel(r); return s + (v!==null ? v : 0); }, 0);
+    return Math.round(sum/arr.length*10)/10;
+  };
+  const avgNivel = avgNivTotal(newLast4w);
+  const nivelBuckets = [
+    { label:'0%',     min:0,  max:0,   n:0 },
+    { label:'1–25%',  min:1,  max:25,  n:0 },
+    { label:'26–50%', min:26, max:50,  n:0 },
+    { label:'51–75%', min:51, max:75,  n:0 },
+    { label:'76–100%',min:76, max:100, n:0 },
+  ];
+  niveles.forEach(v => { const b=nivelBuckets.find(b=>v>=b.min&&v<=b.max); if(b)b.n++; });
+  // By plan
+  const nivelByPlan = ['Plan Starter','Plan Growth','Plan Advanced','Advanced Personalizado'].map(plan => {
+    const rows = newLast4w.filter(r=>(r['Planes Funnelchat']||'').trim()===plan);
+    const vals = rows.map(r=>parseNivel(r)).filter(x=>x!==null);
+    return { plan, n:rows.length, withData:vals.length, avg:avgNivTotal(rows) };
+  }).filter(p=>p.n>0);
+
+  // ONB and sessions sets for new accounts
+  const onbAsistIds = new Set(
+    O.filter(r=>(r['Estado del onboarding']||'').toLowerCase().replace(/ó/g,'o').replace(/í/g,'i').trim()==='asistio')
+     .map(r=>getOnbUserId(r)).filter(Boolean)
+  );
+  const hasSes = r => parseInt((r['Sesiones en vivo']||'0').toString()) > 0;
+  const avgNiv = avgNivTotal; // unified: total-group denominator, missing=0
+
+  // Global ONB comparison
+  const newConOnb = newLast4w.filter(r=>onbAsistIds.has((r['id']||'').toString().trim()));
+  const newSinOnb = newLast4w.filter(r=>!onbAsistIds.has((r['id']||'').toString().trim()));
+  const newConSes = newLast4w.filter(r=>hasSes(r));
+  const newSinSes = newLast4w.filter(r=>!hasSes(r));
+  const avgConOnb = avgNiv(newConOnb);
+  const avgSinOnb = avgNiv(newSinOnb);
+  const avgConSes = avgNiv(newConSes);
+  const avgSinSes = avgNiv(newSinSes);
+
+  // ── Cohorte por ASISTENCIA a onboarding EN EL PERÍODO (cualquier fecha de creación) ──
+  const onbPeriodIds   = new Set(onbAsistAll.map(r=>getOnbUserId(r)).filter(Boolean));
+  const onbPeriodAccts = C.filter(r => onbPeriodIds.has((r['id']||'').toString().trim()) && matchTipo(r));
+  const onbPeriodN     = onbPeriodAccts.length;
+  const onbPeriodAvg   = avgNivTotal(onbPeriodAccts);
+  const onbPeriodNuevas  = onbPeriodAccts.filter(r=>{const ca=getCA(r);return ca&&inRange(ca,range);}).length;
+  const onbPeriodPrevias = onbPeriodN - onbPeriodNuevas;
+
+  // By segment with onb/ses split
+  const nivelBySeg = ['A','B','C'].map(seg => {
+    const rows    = newLast4w.filter(r=>(r['Segmento de cliente (priorización de cliente)']||'').trim()===seg);
+    const vals    = rows.map(r=>parseNivel(r)).filter(x=>x!==null);
+    const rowsOnb = rows.filter(r=>onbAsistIds.has((r['id']||'').toString().trim()));
+    const rowsSin = rows.filter(r=>!onbAsistIds.has((r['id']||'').toString().trim()));
+    const rowsSes = rows.filter(r=>hasSes(r));
+    return { seg, n:rows.length, withData:vals.length, avg:avgNivTotal(rows),
+      avgConOnb: avgNivTotal(rowsOnb), nConOnb: rowsOnb.length,
+      avgSinOnb: avgNivTotal(rowsSin), nSinOnb: rowsSin.length,
+      avgConSes: avgNivTotal(rowsSes), nConSes: rowsSes.length };
+  }).filter(s=>s.n>0);
+
+  // ── Resultados de onboarding — MISMA lógica de las 2 secciones de referencia ──
+  //  · Activación: cuentas creadas en el mes (pagas) con onboarding (∩ onbAsistIds), avg = avgNivTotal  [= "Activación de cuentas nuevas"]
+  //  · Días: asistentes del mes por fecha de onboarding, avgDias sobre getOnbDias, tipo por getOnbTipo   [= "Detalle ONB — tiempo al ONB"]
+  const onbResultados = (() => {
+    const rmonths=[]; for(let i=-5;i<=0;i++){const rr=getMonthRange(off+i);rmonths.push({r:rr,label:fmtMonthShort(rr.start)});}
+    const segOf=a=>{const s=(a['Segmento de cliente (priorización de cliente)']||'').trim();return (s==='A'||s==='B'||s==='C')?('Seg '+s):'Sin seg';};
+    const asistio = r => (r['Estado del onboarding']||'').toLowerCase().replace(/ó/g,'o').replace(/í/g,'i').trim()==='asistio';
+    const avgDias=arr=>{const v=arr.map(getOnbDias).filter(x=>x!==null);return v.length?Math.round(v.reduce((a,b)=>a+b,0)/v.length):null;};
+    const DKEYS=['general','nuevas','nue|Seg A','nue|Seg B','nue|Seg C','nue|Sin seg','antiguas','ant|Seg A','ant|Seg B','ant|Seg C','ant|Sin seg'];
+    const HITOS={wa:'AHA WA', flow:'AHA flows', grupo:'AHA grupos'}; const HKEYS=Object.keys(HITOS);
+
+    const metricsOf=att=>{
+      const accts=att.map(r=>acctById[getOnbUserId(r)]).filter(Boolean);
+      const pct={}, ttv={}; HKEYS.forEach(h=>{const s=ahaStats(accts,HITOS[h]); pct[h]=accts.length?s.pct:null; ttv[h]=s.avg;});
+      return { dias:att.length?avgDias(att):null, nivel:accts.length?avgNivTotal(accts):null, n:att.length, pct, ttv };
+    };
+    const groupAtt=att=>{
+      const g={}; DKEYS.forEach(k=>g[k]=[]); g.general=att;
+      att.forEach(r=>{const t=getOnbTipo(r);const a=acctById[getOnbUserId(r)];const s=a?segOf(a):'Sin seg';
+        if(t==='nuevas'){g.nuevas.push(r);g['nue|'+s].push(r);}
+        else if(t==='antiguo'){g.antiguas.push(r);g['ant|'+s].push(r);}});
+      return g;
+    };
+
+    const FILTERS=['todo','pago','trial'];
+    const byFilter={};
+    FILTERS.forEach(f=>{ byFilter[f]={dias:{},nDias:{},nivel:{},pct:{wa:{},flow:{},grupo:{}},ttv:{wa:{},flow:{},grupo:{}}};
+      DKEYS.forEach(k=>{byFilter[f].dias[k]=[];byFilter[f].nDias[k]=[];byFilter[f].nivel[k]=[];HKEYS.forEach(h=>{byFilter[f].pct[h][k]=[];byFilter[f].ttv[h][k]=[];});}); });
+    // Comparación con/sin onboarding (cohorte de creación, pagas) — todos los hitos
+    const act={ conN:[],sinN:[], nivelCon:[],nivelSin:[], pctCon:{wa:[],flow:[],grupo:[]},pctSin:{wa:[],flow:[],grupo:[]}, ttvCon:{wa:[],flow:[],grupo:[]},ttvSin:{wa:[],flow:[],grupo:[]} };
+
+    rmonths.forEach(mo=>{
+      const attAll=O.filter(r=>asistio(r)&&inRange(getOnbPrimaryDate(r),mo.r));
+      const filt={ todo:attAll,
+        pago:  attAll.filter(r=>{const a=acctById[getOnbUserId(r)];return a&&isPaga(a);}),
+        trial: attAll.filter(r=>{const a=acctById[getOnbUserId(r)];return a&&isTrial(a);}) };
+      FILTERS.forEach(f=>{ const g=groupAtt(filt[f]);
+        DKEYS.forEach(k=>{ const mm=metricsOf(g[k]);
+          byFilter[f].dias[k].push(mm.dias); byFilter[f].nDias[k].push(mm.n); byFilter[f].nivel[k].push(mm.nivel);
+          HKEYS.forEach(h=>{ byFilter[f].pct[h][k].push(mm.pct[h]); byFilter[f].ttv[h][k].push(mm.ttv[h]); }); });
+      });
+      const base=C.filter(r=>{const ca=getCA(r);return ca&&inRange(ca,mo.r)&&isPaga(r);});
+      const con=base.filter(r=>onbAsistIds.has((r['id']||'').toString().trim()));
+      const sin=base.filter(r=>!onbAsistIds.has((r['id']||'').toString().trim()));
+      act.conN.push(con.length); act.sinN.push(sin.length);
+      act.nivelCon.push(con.length?avgNivTotal(con):null); act.nivelSin.push(sin.length?avgNivTotal(sin):null);
+      HKEYS.forEach(h=>{ const sc=ahaStats(con,HITOS[h]), ss=ahaStats(sin,HITOS[h]);
+        act.pctCon[h].push(con.length?sc.pct:null); act.pctSin[h].push(sin.length?ss.pct:null);
+        act.ttvCon[h].push(sc.avg); act.ttvSin[h].push(ss.avg); });
+    });
+
+    const anyN=key=>FILTERS.some(f=>byFilter[f].nDias[key].some(x=>x>0));
+    const keysDias=['general','nuevas','nue|Seg A','nue|Seg B','nue|Seg C'].concat(anyN('nue|Sin seg')?['nue|Sin seg']:[])
+      .concat(['antiguas','ant|Seg A','ant|Seg B','ant|Seg C']).concat(anyN('ant|Sin seg')?['ant|Sin seg']:[]);
+    return { monthsLabels:rmonths.map(x=>x.label), keysDias, byFilter, act };
+  })();
+
+  const parseUsage = (r, col) => { const v=parseInt((r[col]||'').toString().replace(/[^0-9]/g,'')); return isNaN(v)?0:v; };
+  const flowDist   = [0,1,2,3].map(n => ({ n, count: newLast4w.filter(r=>parseUsage(r,'Usa flows')===n).length }));
+  const apiSi      = newLast4w.filter(r=>(r['Usa API?']||'').trim()==='Sí').length;
+  const businessSi = newLast4w.filter(r=>(r['Usa Business?']||'').trim()==='Sí').length;
+  const gruposDist= [0,1,2].map(n  => ({ n, count: newLast4w.filter(r=>parseUsage(r,'Usa grupos?')===n).length }));
+  const flowsActivos  = newLast4w.filter(r=>parseUsage(r,'Usa flows')>0).length;
+  const gruposActivos = newLast4w.filter(r=>parseUsage(r,'Usa grupos?')>0).length;
+  const totalBase = newLast4w.length || 1;
+
+  // By objetivo
+  const objGroups = {};
+  newLast4w.forEach(r => {
+    const obj = (r['Objetivo con Funnelchat']||'Sin objetivo').trim();
+    if (!objGroups[obj]) objGroups[obj] = [];
+    objGroups[obj].push(r);
+  });
+  const nivelByObj = Object.entries(objGroups)
+    .map(([obj, rows]) => ({
+      obj, n:rows.length, withData:rows.map(r=>parseNivel(r)).filter(x=>x!==null).length,
+      avg: avgNivTotal(rows),
+    }))
+    .sort((a,b) => (b.avg||0)-(a.avg||0));
+
+  // ── Tiempo al ONB ───────────────────────────────────
+  const onbDiasAll = onbGHLAsist.map(getOnbDias).filter(x=>x!==null&&x>=0);
+
+
+  // ── DIAG ONB ─────────────────────────────────────
+  console.log('[ONB] O.length='+O.length+' onbDeduped='+dedupeOnb(O).length);
+
+  const onbDiasNew = onbGHLAsist.filter(r=>getOnbTipo(r)==='nuevas').map(getOnbDias).filter(x=>x!==null&&x>=0);
+  const onbDiasOld = onbGHLAsist.filter(r=>getOnbTipo(r)==='antiguo').map(getOnbDias).filter(x=>x!==null&&x>=0);
+  const diasStats  = arr => {
+    if(!arr.length) return null;
+    const s=[...arr].sort((a,b)=>a-b);
+    return { n:s.length, avg:Math.round(s.reduce((a,b)=>a+b,0)/s.length),
+      min:s[0], max:s[s.length-1], p50:s[Math.floor(s.length/2)] };
+  };
+  const ONB_BUCKETS = [
+    {label:'0–3d',min:0,max:3},{label:'4–7d',min:4,max:7},{label:'8–14d',min:8,max:14},
+    {label:'15–21d',min:15,max:21},{label:'22–30d',min:22,max:30},{label:'31–60d',min:31,max:60},
+    {label:'61–90d',min:61,max:90},{label:'91+d',min:91,max:9999},
+  ];
+  const onbHisto = ONB_BUCKETS.map(b=>({
+    label:b.label,
+    nuevas: onbDiasNew.filter(d=>d>=b.min&&d<=b.max).length,
+    antiguas: onbDiasOld.filter(d=>d>=b.min&&d<=b.max).length,
+  }));
+
+  // By plan — use Plan column from ONB row directly
+  const onbByPlanStats = (() => {
+    const planMap = {};
+    onbGHLAsist.forEach(r => {
+      const plan = getOnbPlan(r, acctById) || 'Sin plan';
+      if(!planMap[plan]) planMap[plan] = [];
+      planMap[plan].push(r);
+    });
+    return Object.entries(planMap)
+      .map(([plan, rows]) => {
+        const dias  = rows.map(getOnbDias).filter(x=>x!==null&&x>=0);
+        const diasN = rows.filter(r=>getOnbTipo(r)==='nuevas').map(getOnbDias).filter(x=>x!==null&&x>=0);
+        const diasA = rows.filter(r=>getOnbTipo(r)==='antiguo').map(getOnbDias).filter(x=>x!==null&&x>=0);
+        return { plan, stats:diasStats(dias), nuevas:diasStats(diasN), antiguas:diasStats(diasA) };
+      })
+      .filter(p=>p.stats)
+      .sort((a,b)=>(a.stats?.avg||0)-(b.stats?.avg||0));
+  })();
+
+  // By segment — with new/old split
+  const onbBySegStats = ['A','B','C'].map(seg => {
+    const rows = onbGHLAsist.filter(r => {
+      const uid=getOnbUserId(r); const a=acctById[uid];
+      return a&&(a['Segmento de cliente (priorización de cliente)']||'').trim()===seg;
+    });
+    const diasAll    = rows.map(getOnbDias).filter(x=>x!==null&&x>=0);
+    const diasNuevas = rows.filter(r=>getOnbTipo(r)==='nuevas').map(getOnbDias).filter(x=>x!==null&&x>=0);
+    const diasAntig  = rows.filter(r=>getOnbTipo(r)==='antiguo').map(getOnbDias).filter(x=>x!==null&&x>=0);
+    return { seg, stats:diasStats(diasAll), nuevas:diasStats(diasNuevas), antiguas:diasStats(diasAntig) };
+  }).filter(s=>s.stats);
+
+  // ── Cuentas vaivén (van y vienen) ──────────────────
+  // Mapa de TODOS los pagos por usuario (incluye trials) — temporadas de actividad de pago
+  const paysByUserM = {};
+  RAW.payments.forEach(p => {
+    const uid = (p['User ID']||'').toString().trim();
+    if (!uid) return;
+    const d = parseSpanishLong(p['Date']) || parseSpDate(p['Date']) || parseISO(p['Date']);
+    if (!d) return;
+    (paysByUserM[uid] = paysByUserM[uid] || []).push({ d });
+  });
+  const GAP_DIAS = 60;
+  const baibenMap = {};
+  Object.entries(paysByUserM).forEach(([uid, pays]) => {
+    if (pays.length < 2) return;
+    const sorted = [...pays].sort((a,b) => a.d-b.d);
+    const seasons = [];
+    let season = [sorted[0]];
+    for (let i = 1; i < sorted.length; i++) {
+      const gap = (sorted[i].d - sorted[i-1].d) / 86400000;
+      if (gap >= GAP_DIAS) { seasons.push(season); season = [sorted[i]]; }
+      else season.push(sorted[i]);
+    }
+    seasons.push(season);
+    if (seasons.length < 2) return;
+    const gaps = [];
+    const gapReturns = [];
+    for (let i = 1; i < seasons.length; i++) {
+      const lastPay  = seasons[i-1][seasons[i-1].length-1].d;
+      const firstPay = seasons[i][0].d;
+      gaps.push(Math.round((firstPay - lastPay) / 86400000));
+      gapReturns.push(firstPay);
+    }
+    baibenMap[uid] = { seasons: seasons.length, gaps, gapReturns, lastPay: sorted[sorted.length-1].d, uid };
+  });
+  const baibenAll = Object.values(baibenMap);
+  const baibenChurnMes = cancelMes.filter(r => baibenMap[(r['id']||'').toString().trim()]);
+  const baibenPct  = cancelMes.length > 0 ? Math.round(baibenChurnMes.length/cancelMes.length*100) : 0;
+  const avgCycles  = baibenAll.length > 0
+    ? Math.round(baibenAll.reduce((s,b) => s+b.seasons,0)/baibenAll.length*10)/10 : 0;
+  const allGaps    = baibenAll.flatMap(b => b.gaps);
+  const avgGapDias = allGaps.length > 0
+    ? Math.round(allGaps.reduce((a,b)=>a+b,0)/allGaps.length) : 0;
+  const avgGapMes  = Math.round(avgGapDias/30*10)/10;
+  // --- Medias RECIENTES (últimos 90 días) ---
+  const RECENT_DIAS = 90;
+  const recentCut = new Date(Date.now() - RECENT_DIAS*86400000);
+  // Ciclos reciente: cuentas vaivén con su último pago dentro de la ventana
+  const baibenRec = baibenAll.filter(b => b.lastPay && b.lastPay >= recentCut);
+  const avgCyclesRec = baibenRec.length > 0
+    ? Math.round(baibenRec.reduce((s,b)=>s+b.seasons,0)/baibenRec.length*10)/10 : 0;
+  // Gap reciente: gaps cuyo REGRESO (primer pago de la nueva temporada) cae en la ventana
+  const recentGaps = baibenAll.flatMap(b => b.gaps.filter((g,i)=> b.gapReturns[i] && b.gapReturns[i] >= recentCut));
+  const avgGapDiasRec = recentGaps.length > 0
+    ? Math.round(recentGaps.reduce((a,b)=>a+b,0)/recentGaps.length) : 0;
+  const avgGapMesRec = Math.round(avgGapDiasRec/30*10)/10;
+  const baibenRecN = baibenRec.length, recentGapsN = recentGaps.length;
+  const nicheB = {}, objB = {}, nicheBMes = {}, objBMes = {};
+  baibenAll.forEach(b => {
+    const acct = acctById[b.uid];
+    if (!acct) return;
+    const n   = (acct['Tipo de negocio']||'Sin tipo').trim();
+    const obj = (acct['Objetivo con Funnelchat']||'Sin objetivo').trim();
+    nicheB[n]   = (nicheB[n]||0)+1;
+    objB[obj]   = (objB[obj]||0)+1;
+  });
+  // Period-specific: vaivén accounts that cancelled THIS month
+  baibenChurnMes.forEach(r => {
+    const n   = (r['Tipo de negocio']||'Sin tipo').trim();
+    const obj = (r['Objetivo con Funnelchat']||'Sin objetivo').trim();
+    nicheBMes[n]   = (nicheBMes[n]||0)+1;
+    objBMes[obj]   = (objBMes[obj]||0)+1;
+  });
+  const baibenNiches    = Object.entries(nicheB).sort((a,b)=>b[1]-a[1]).slice(0,6);
+  const baibenNichesMes = Object.entries(nicheBMes).sort((a,b)=>b[1]-a[1]).slice(0,6);
+  const baibenObjs      = Object.entries(objB).sort((a,b)=>b[1]-a[1]);
+  const baibenObjsMes   = Object.entries(objBMes).sort((a,b)=>b[1]-a[1]);
+  const baibenTotal     = baibenAll.filter(b=>acctById[b.uid]).length || 1;
+
+  // "No necesitan Funnelchat" segment analysis — from cancelaciones survey
+  const noNeedRows = RAW.cancelaciones.filter(r =>
+    (r['Motivo Cancelación']||'').trim() === 'Ya no la necesito'
+  );
+  const noNeedSeg = { A:0, B:0, C:0, Sin:0 };
+  const noNeedNicho = {};
+  const noNeedPlan  = {};
+  noNeedRows.forEach(r => {
+    const uid  = (r['Contact ID']||r['contact_id']||r['user_id']||'').toString().trim();
+    const acct = acctById[uid];
+    if (!acct) { noNeedSeg.Sin++; return; }
+    const s = (acct['Segmento de cliente (priorización de cliente)']||'Sin').trim();
+    noNeedSeg[s] = (noNeedSeg[s]||0)+1;
+    const n = (acct['Tipo de negocio']||'Sin tipo').trim();
+    noNeedNicho[n] = (noNeedNicho[n]||0)+1;
+    const p = (acct['Planes Funnelchat']||'Sin plan').trim();
+    noNeedPlan[p]  = (noNeedPlan[p]||0)+1;
+  });
+  const noNeedNichoArr = Object.entries(noNeedNicho).sort((a,b)=>b[1]-a[1]).slice(0,6);
+  const noNeedPlanArr  = Object.entries(noNeedPlan).sort((a,b)=>b[1]-a[1]);
+  const planB = {};
+  baibenChurnMes.forEach(r => {
+    const p = (r['Planes Funnelchat']||'Sin plan').trim();
+    planB[p] = (planB[p]||0)+1;
+  });
+  const baibenPlans = Object.entries(planB).sort((a,b)=>b[1]-a[1]);
+
+  // Monthly vaivén cancellations — last 8 months for bar chart
+  const baibenTrend = (() => {
+    const months = [];
+    for (let i = -7; i <= 0; i++) {
+      const r = getMonthRange(off + i);
+      const cancelled = canP.filter(rr => {
+        const cd = cancelDate(rr);
+        if (!cd || !inRange(cd, r)) return false;
+        return !!baibenMap[(rr['id']||'').toString().trim()];
+      });
+      // Expected return window based on average gap
+      const retDate = new Date(r.start);
+      retDate.setDate(retDate.getDate() + avgGapDias);
+      months.push({
+        label: fmtMonthShort(r.start),
+        n: cancelled.length,
+        retLabel: fmtMonthShort(retDate),
+      });
+    }
+    return months;
+  })();
+
+  // ── Gestión RAM — cartera por RAM sobre TODA la base (todos los planes), incl. canceladas ──
+  const carteraAll = C;
+  const kamGroups = {};
+  carteraAll.forEach(r => {
+    const { key, label } = normKam(r);
+    if (!kamGroups[key]) kamGroups[key] = { key, label, rows: [] };
+    kamGroups[key].rows.push(r);
+  });
+  const vigOf = r => (r['Vigencia del servicio']||'').trim();
+  const segOf = r => (r['Segmento de cliente (priorización de cliente)']||'').trim();
+  const kamData = Object.values(kamGroups).map(g => {
+    const rows = g.rows, total = rows.length;
+    return {
+      key:g.key, label:g.label, total,
+      vig: rows.filter(r=>vigOf(r)==='Vigente').length,
+      atr: rows.filter(r=>vigOf(r)==='Atrasado').length,
+      can: rows.filter(r=>vigOf(r)==='Cancelado').length,
+      segA: rows.filter(r=>segOf(r)==='A').length,
+      segB: rows.filter(r=>segOf(r)==='B').length,
+      segC: rows.filter(r=>segOf(r)==='C').length,
+      implAvg: total ? Math.round(rows.reduce((s,r)=>s+(kamNivel(r)||0),0)/total) : 0,
+      activas: rows.filter(r=>(kamNivel(r)||0)>0).length,
+      flowsSi: rows.filter(r=>kamFlowsN(r)>0).length,
+      apiSi:   rows.filter(r=>(r['Usa API?']||'').trim()==='Sí').length,
+      busSi:   rows.filter(r=>(r['Usa Business?']||'').trim()==='Sí').length,
+    };
+  }).sort((a,b) => (a.key==='__none__') - (b.key==='__none__') || b.total - a.total); // Sin asignar al final
+  // Crecimiento mes a mes: nuevas asignaciones por mes y por RAM (columna Fecha asignación RAM)
+  const kamMonths = Array.from({length:6},(_,i)=>getMonthRange(off-5+i));
+  const kamAssignKey = carteraAll.map(r => ({ key: normKam(r).key, d: getKamAssignDate(r) }));
+  const kamTrend = {
+    labels: kamMonths.map(rg=>fmtMonthShort(rg.start)),
+    series: kamData.map(k => ({
+      key:k.key, label:k.label,
+      data: kamMonths.map(rg => kamAssignKey.filter(x => x.key===k.key && inRange(x.d, rg)).length)
+    }))
+  };
+  // ── Dinero por KAM: crecimiento (upgrades) y decrecimiento (downgrades) ──
+  // Cada movimiento se atribuye al RAM actual de la cuenta (columna RAM).
+  const movKamKey = m => normKam(m.acct).key;
+  const upsMonthAll   = allMovements.filter(mv => mv.dir==='up'   && inRange(mv.date, range));
+  const downsMonthAll = allMovements.filter(mv => mv.dir==='down' && inRange(mv.date, range));
+  const kamMoney = {};
+  kamData.forEach(k => { kamMoney[k.key] = { gained:0, lost:0, upCount:0, downCount:0 }; });
+  upsMonthAll.forEach(mv => { const k=movKamKey(mv); if(kamMoney[k]){ kamMoney[k].gained += mv.delta; kamMoney[k].upCount++; } });
+  downsMonthAll.forEach(mv => { const k=movKamKey(mv); if(kamMoney[k]){ kamMoney[k].lost += Math.abs(mv.delta); kamMoney[k].downCount++; } });
+  // Tendencia 6 meses: dinero NETO por KAM por mes
+  const kamMoneyTrend = {
+    labels: kamMonths.map(rg=>fmtMonthShort(rg.start)),
+    series: kamData.map(k => ({
+      key:k.key, label:k.label,
+      data: kamMonths.map(rg => allMovements
+        .filter(mv => movKamKey(mv)===k.key && inRange(mv.date, rg))
+        .reduce((s,mv)=> s + mv.delta, 0))
+    }))
+  };
+  // ── Valor de la cartera por RAM ──
+  // Valor = suma del precio mensual de las cuentas ACTIVAS (con un pago que cubre ese mes),
+  // contando cada cuenta solo desde que fue asignada al RAM. Estimado desde payments (no MRR oficial).
+  const payByUser = {};
+  RAW.payments.forEach(p => {
+    const uid=(p['User ID']||'').toString().trim(); if(!uid) return;
+    const d = parseSpanishLong(p['Date'])||parseSpDate(p['Date'])||parseISO(p['Date']);
+    const e = parseSpanishLong(p['Expiration'])||parseSpDate(p['Expiration'])||parseISO(p['Expiration']);
+    const tier = planFromMonthlyVal(paymentMonthlyVal(p));
+    if(!d || !tier) return;
+    (payByUser[uid]=payByUser[uid]||[]).push({ d, e:e||d, price:(PLAN_PRICE[tier]||0) });
+  });
+  function userValueInMonth(uid, rg){
+    const ps=payByUser[uid]; if(!ps) return 0;
+    const cover=ps.filter(p=> p.d<=rg.end && p.e>=rg.start);
+    if(!cover.length) return 0;
+    cover.sort((a,b)=>b.d-a.d);   // el pago más reciente que cubre el mes
+    return cover[0].price;
+  }
+  const kamValueTrend = {
+    labels: kamMonths.map(rg=>fmtMonthShort(rg.start)),
+    series: kamData.map(k => {
+      const rows = kamGroups[k.key].rows;
+      return { key:k.key, label:k.label,
+        data: kamMonths.map(rg => rows.reduce((s,r)=>{
+          const asign=getKamAssignDate(r);
+          if(asign && asign>rg.end) return s;      // aún no estaba en la cartera ese mes
+          return s + userValueInMonth((r['id']||'').toString().trim(), rg);
+        },0)) };
+    })
+  };
+  const kamValueNow={}, kamValuePrev={};
+  kamValueTrend.series.forEach(s=>{ const n=s.data.length; kamValueNow[s.key]=s.data[n-1]||0; kamValuePrev[s.key]=s.data[n-2]||0; });
+
+  const kam = { data:kamData, trend:kamTrend, totalBase:carteraAll.length, money:kamMoney, moneyTrend:kamMoneyTrend, valueTrend:kamValueTrend, valueNow:kamValueNow, valuePrev:kamValuePrev };
+
+  return{
+    range, off, ahaStats:ahaStatsData, ahaStatsMes,
+    reposoN:reposoAll.length, reposoMRR:Math.round(reposoAll.reduce((s,r)=>s+getMRR(r),0)),
+    upgrades, downgrades, upAgg, downAgg, movTrend6, kam,
+    vigP:vigP.length,vigT:vigT.length,activasInicioMes,
+    nuevosMesP:nuevosMesP.length,nuevosMesT:nuevosMesT.length,
+    cancelMes:cancelMes.length,convMes:convMes,convMesNuevas:convMesNuevas,convMesPrevias:convMesPrevias,
+    cancelMesArr:cancelMes,cancelMesTrial:cancelMesTrial,
+    allCancelP:allCancelP,
+    allCuentas:C,
+    camposVacios,
+    otrosInterpRows:allCancelP.filter(esNichoOtros),
+    otrosNichos:(()=>{const d={};allCancelP.forEach(r=>{if(!esNichoOtros(r))return;const c=getNichoInterp(r);if(c)d[c]=(d[c]||0)+1;});return d;})(),
+    otrosNichosN:allCancelP.filter(r=>esNichoOtros(r)&&getNichoInterp(r)).length,
+    otrosSinTexto:allCancelP.filter(r=>esNichoOtros(r)&&!getNichoInterp(r)).length,
+    prevCancelMesArr:prevCancelMesArr,atrP:atrP.length,
+    mrrActivo,mrrRiesgo,mrrNuevo,mrrPerdido,mrrConv,
+    retNeta:nuevosMesP.length-cancelMes.length,
+    prevNuevos,prevCancel,prevConv,prevConvNuevas,
+    trend6,churnByPlan,
+    motivos,cancelConMotivo,motivosEvo,
+    cp_sin_onb,cp_sin_flow,cp_sin_wa,cp_sin_ses,cp_lt_avg,
+    nichoCancel,objCancel,ltBuckets,
+    hist_sin_onb,hist_sin_flow,hist_sin_wa,hist_sin_ses,hist_sin_grupos,hist_sin_trial,
+    cp_sin_grupos,cp_sin_trial,
+    nichoCancelPrev,objCancelPrev,expCancelPrev,factCancelPrev,
+    rankHistP, rankHistT,
+    expCancel,factCancel,
+    nichoNuevas,objNuevas,expNuevas,factNuevas,
+    nichoNuevasT,objNuevasT,expNuevasT,factNuevasT,
+    cancelMesTrialN:cancelMesTrial.length,
+    nichoT,objT,expT,factT,
+    nichoHistP,objHistP,expHistP,factHistP,
+    nichoHistT,objHistT,expHistT,factHistT,
+    nichoTPrev,objTPrev,expTPrev,factTPrev,
+    cancelPrevTotal:cancelPrev.length,
+    onbProp,onbAgen,onbAsist,onbNoShow,onbNoShowReal,
+    onbNuevas:onbNuevas.length,onbAntiguas:onbAntiguas.length,
+    diasNuevas,diasAntiguas,onbResponsables,onbTipos,onbByPlan,
+    noShowProfile, pendingProfile,
+    onbNoShowN:onbNoShowRows.length, onbPendingN:onbPendingRows.length,
+    onbPropPrev,onbAgenPrev,onbAsistPrev,onbNoShowPrev,
+    cobPPrev,cobTPrev,
+    onbAsistP,onbAsistT,cobP,cobT,
+    onbResultados,
+    nuevosMesP_n:nuevosMesP.length,nuevosMesT_n:nuevosMesT.length,
+    mrrProtOnb,pctRetCon:Math.round(retCon*100),pctRetSin:Math.round(retSin*100),
+    baiben:{ total:baibenAll.length, churnN:baibenChurnMes.length, pct:baibenPct, avgCycles, avgGapDias, avgGapMes, avgCyclesRec, avgGapDiasRec, avgGapMesRec, baibenRecN, recentGapsN, niches:baibenNiches, nichesMes:baibenNichesMes, objs:baibenObjs, objsMes:baibenObjsMes, baibenTotal, plans:baibenPlans, trend:baibenTrend },
+    activacion:{ n:newLast4w.length, withData:niveles.length, avg:avgNivel, buckets:nivelBuckets, byPlan:nivelByPlan, bySeg:nivelBySeg, byObj:nivelByObj, flowDist, gruposDist, flowsActivos, gruposActivos, totalBase, apiSi, businessSi, avgConOnb, avgSinOnb, avgConSes, avgSinSes, nConOnb:newConOnb.length, nSinOnb:newSinOnb.length, onbPeriodN, onbPeriodAvg, onbPeriodNuevas, onbPeriodPrevias },
+    tiempoOnb:{ all:diasStats(onbDiasAll), nuevas:diasStats(onbDiasNew), antiguas:diasStats(onbDiasOld), histo:onbHisto, byPlan:onbByPlanStats, bySeg:onbBySegStats },
+    noNeed:{ n:noNeedRows.length, seg:noNeedSeg, nicho:noNeedNichoArr, plan:noNeedPlanArr },
+    onbImpact,sesImpact,embImpactData,
+    retDiff:Math.round(retDiff*100),
+    ses6,sesMes:ses6[5]?.asist||0,sesSesiones:ses6[5]?.sesiones||0,sesPorSesion:ses6[5]?.porSesion||0,
+    exportData,
+    sinWa:sinWa.length,sinFlow:sinFlow.length,sinGrupos:sinGrupos.length,
+    sinLogin:sinLogin.length,sinOnb:sinOnb.length,
+    mrrSinWa:Math.round(sinWa.reduce((s,r)=>s+getMRR(r),0)),
+    mrrSinFlow:Math.round(sinFlow.reduce((s,r)=>s+getMRR(r),0)),
+    mrrSinGrupos:Math.round(sinGrupos.reduce((s,r)=>s+getMRR(r),0)),
+    mrrSinLogin:Math.round(sinLogin.reduce((s,r)=>s+getMRR(r),0)),
+    mrrSinOnb:Math.round(sinOnb.reduce((s,r)=>s+getMRR(r),0)),
+    // Period risk
+    sinWaMes:sinWaMes.length,sinFlowMes:sinFlowMes.length,sinGruposMes:sinGruposMes.length,
+    sinLoginMes:sinLoginMes.length,sinOnbMes:sinOnbMes.length,
+    mrrSinWaMes:Math.round(sinWaMes.reduce((s,r)=>s+getMRR(r),0)),
+    mrrSinFlowMes:Math.round(sinFlowMes.reduce((s,r)=>s+getMRR(r),0)),
+    mrrSinGruposMes:Math.round(sinGruposMes.reduce((s,r)=>s+getMRR(r),0)),
+    mrrSinLoginMes:Math.round(sinLoginMes.reduce((s,r)=>s+getMRR(r),0)),
+    mrrSinOnbMes:Math.round(sinOnbMes.reduce((s,r)=>s+getMRR(r),0)),
+
+  // ── Histórico 6 meses ────────────────────────────
+  hist6: (() => {
+    const months = [];
+    for (let i = -5; i <= 0; i++) {
+      const mRange = getMonthRange(off + i);
+      const lbl = fmtMonthShort(mRange.start);
+
+      // Datos duros
+      const newP  = C.filter(r=>inRange(getCA(r),mRange)&&isPaga(r));
+      // Reposo: count payments with reposo plan in this month
+      const reposoM = RAW.payments.filter(p => {
+        const d = parseSpanishLong(p['Date']) || parseSpDate(p['Date']) || parseISO(p['Date']);
+        return d && inRange(d, mRange) && (p['Plan Name']||'').toLowerCase().includes('reposo');
+      }).length;
+      const newT  = C.filter(r=>inRange(getCA(r),mRange)&&isTrial(r));
+      // Trials que INICIARON el periodo como trial, según payments (pago 0), sin importar si convirtieron
+      const trialStartsM = trialStartsFromPayments.filter(t => inRange(t.trialDate, mRange));
+      const newTpay = trialStartsM.length;
+      // % conversión (cohorte): de los trials que iniciaron en el mes, cuántos ya convirtieron
+      const convCohorte = trialStartsM.filter(t => convertedUids.has(t.uid)).length;
+      const convRate = newTpay > 0 ? Math.round(convCohorte/newTpay*1000)/10 : null;
+      // Trials convertidos a pago EN ESTE MES — derivado de la tabla payments (no de users)
+      const convM = convFromPayments.filter(c => inRange(c.convDate, mRange)).length;
+      // ── Nuevas cuentas del mes: total → nacieron pagas / nacieron trial → de trial, convertidas ──
+      const idOf = r => (r['id']||'').toString().trim();
+      const convertidasNew = newP.filter(r=>convertedUids.has(idOf(r))).length; // creadas en el mes que ya convirtieron (hoy pagas)
+      const newTotal = newP.length + newT.length;                              // todas las creadas en el mes (pagas + trial)
+      const bornPaga = newP.length - convertidasNew;                           // nacieron pagando directo
+      const bornTrial = newT.length + convertidasNew;                          // nacieron en trial (siguen trial + ya convertidas)
+      const convRateNew = bornTrial>0 ? Math.round(convertidasNew/bornTrial*1000)/10 : null;
+      const canM  = canP.filter(r=>inRange(cancelDate(r),mRange));
+      const atrM  = C.filter(r=>{
+        if((r['Vigencia del servicio']||'').trim()!=='Atrasado'||!isPaga(r))return false;
+        const pt=parseISO(r['payment till'])||parseSpDate(r['payment till']);
+        return pt&&inRange(pt,mRange);
+      });
+      const vigIni = C.filter(r=>{
+        if(!isPaga(r))return false;
+        const ca=getCA(r); if(!ca||ca>=mRange.start)return false;
+        const vig=r['Vigencia del servicio']||'';
+        if(vig==='Cancelado'){const cd=cancelDate(r);return cd&&cd>=mRange.start;}
+        return true;
+      });
+      const mrrM  = Math.round(vigIni.reduce((s,r)=>s+getMRR(r),0));
+      const churnRate = vigIni.length>0?Math.round(canM.length/vigIni.length*1000)/10:0;
+
+      // Encuesta cancelaciones
+      const survM = RAW.cancelaciones.filter(r=>{
+        const f=parseISO(r['created_at']); return f&&inRange(f,mRange);
+      });
+
+      // Onboarding
+      const onbM    = O.filter(r => inRange(getOnbPrimaryDate(r), mRange));
+      const onbAsistM = onbM.filter(r=>r['Estado del onboarding']==='Asistió').length;
+      const onbAgenM  = onbM.filter(r=>{const _s=(r['Estado del onboarding']||'').toLowerCase().replace(/ó/g,'o').replace(/í/g,'i').trim();return _s==='agendo'||_s==='agendado'||_s==='agendar reunion'||_s==='asistio'||_s==='no show'||_s==='no asistio';}).length;
+      const cobM      = newP.length>0?Math.round(onbAsistM/newP.length*100):0;
+      const asistTasaM= onbAgenM>0?Math.round(onbAsistM/onbAgenM*100):0;
+      // Meta ideal de onboarding: 5 asistencias por día hábil (lun–vie)
+      const _bd = (()=>{let c=0;const d=new Date(mRange.start);while(d<=mRange.end){const wd=d.getDay();if(wd>=1&&wd<=5)c++;d.setDate(d.getDate()+1);}return c;})();
+      const onbCapIdeal = _bd*5;                                                  // capacidad ideal del período
+      const onbTasaDia  = _bd>0?Math.round(onbAsistM/_bd*10)/10:0;                // asistencias reales por día hábil
+      const onbCumpl    = onbCapIdeal>0?Math.round(onbAsistM/onbCapIdeal*100):0;  // % cumplimiento de la meta
+
+      // ONB GHL enriched — per month
+      // Use GHL date as primary filter — only date reliable across months
+      const onbGHLM      = O.filter(r => inRange(getOnbPrimaryDate(r), mRange));
+      // Attendance: filter Asistió+GHL in range first, then dedup
+      const onbAsistAllM  = O.filter(r => (r['Estado del onboarding']||'').trim().toLowerCase().replace(/ó/g,'o').replace(/í/g,'i')==='asistio' && inRange(getOnbPrimaryDate(r), mRange));
+      const onbGHLAsistM  = onbAsistAllM; // all rows, no dedup
+
+      const onbRangeM    = O.filter(r => inRange(getOnbPrimaryDate(r), mRange));
+      const onbNSM   = onbRangeM.filter(r=>{const s=(r['Estado del onboarding']||'').trim().toLowerCase().replace(/ó/g,'o');return s==='no show'||s==='no asistio';}).length;
+      const onbPendM = onbRangeM.filter(r=>{const s=(r['Estado del onboarding']||'').toLowerCase().replace(/ó/g,'o').trim();return s==='agendo'||s==='agendado'||s==='agendar reunion';}).length;
+      const onbGHLNuevasM  = onbGHLAsistM.filter(r => getOnbTipo(r)==='nuevas');
+      const onbGHLAntiguasM= onbGHLAsistM.filter(r => getOnbTipo(r)==='antiguo');
+      const avgDiasM     = arr => { const v=arr.map(getOnbDias).filter(x=>x!==null); return v.length?Math.round(v.reduce((a,b)=>a+b,0)/v.length):null; };
+      const diasNuevasM  = avgDiasM(onbGHLNuevasM);
+      const diasAntiguasM= avgDiasM(onbGHLAntiguasM);
+      // Composición de los asistentes a onboarding: % que eran cuentas pagas vs trial
+      const onbAsistPM = onbAsistAllM.filter(r=>getOnbType(r)==='paga').length;
+      const onbAsistTM = onbAsistAllM.filter(r=>getOnbType(r)==='trial').length;
+      const onbAsistClasif = onbAsistPM + onbAsistTM;
+      const onbCompPaga  = onbAsistClasif>0 ? Math.round(onbAsistPM/onbAsistClasif*100) : null;
+      const onbCompTrial = onbAsistClasif>0 ? Math.round(onbAsistTM/onbAsistClasif*100) : null;
+
+      // AHA — tiempo al hito por mes, con ONB vs sin ONB
+      const conOnbM = newP.filter(r => (r['Onboarding']||'').trim()==='Con onboarding');
+      const sinOnbM = newP.filter(r => (r['Onboarding']||'').trim()!=='Con onboarding');
+      const ahaM = {
+        wa:     { con: ahaStats(conOnbM,'AHA WA'),     sin: ahaStats(sinOnbM,'AHA WA')     },
+        flows:  { con: ahaStats(conOnbM,'AHA flows'),  sin: ahaStats(sinOnbM,'AHA flows')  },
+        grupos: { con: ahaStats(conOnbM,'AHA grupos'), sin: ahaStats(sinOnbM,'AHA grupos') },
+      };
+
+      // Sesiones
+      const sesM = (() => {
+        const sesRows = RAW.sesiones.filter(r=>{
+          const d=parseISO(r['FECHA ATENCIÓN'])||parseSpDate(r['FECHA ATENCIÓN']);
+          return d&&inRange(d,mRange);
+        });
+        const asist = sesRows.filter(r=>r['Asistio?']==='1'||r['Asistio?']===1).length;
+        const sesU  = new Set(sesRows.map(r=>r['FECHA ATENCIÓN'])).size;
+        return {asist, sesiones:sesU};
+      })();
+
+      // Riesgo — nuevas del mes con señal
+      const newVigP = newP.filter(r=>(r['Vigencia del servicio']||'').trim()==='Vigente');
+      const rSinWA  = newVigP.filter(r=>(r['Usa API?']||'')!=='Sí'&&(r['Usa Business?']||'')!=='Sí').length;
+      const rSinFlw = newVigP.filter(r=>(v=>v===''||v==='0')((r['Usa flows']||'').toString().trim())).length;
+      const rSinOnb = newVigP.filter(r=>(r['Onboarding']||'').trim()!=='Con onboarding').length;
+
+      // Retención ONB — asistentes del mes que siguen Vigentes hoy
+      const acctMapH={};
+      C.forEach(r=>{const id=(r['id']||'').toString().trim();if(id)acctMapH[id]=r;});
+      const onbAsistIds = onbM
+        .filter(r=>r['Estado del onboarding']==='Asistió')
+        .map(r=>(r['user_id']||'').toString().trim()).filter(Boolean);
+      const onbRetN = onbAsistIds.filter(uid=>acctMapH[uid]&&acctMapH[uid]['Vigencia del servicio']==='Vigente').length;
+      const onbRetPct = onbAsistIds.length>0?Math.round(onbRetN/onbAsistIds.length*100):null;
+      const onbRetVig = onbRetN;
+
+      // Retención Sesiones — clientes con sesión en vivo creados ese mes que siguen Vigentes
+      const conSesM = C.filter(r=>inRange(getCA(r),mRange)&&isPaga(r)&&r['Sesiones en vivo']==='Asistió');
+      const sinSesM = C.filter(r=>inRange(getCA(r),mRange)&&isPaga(r)&&r['Sesiones en vivo']==='No asistió');
+      const sesRetPct = conSesM.length>0?Math.round(conSesM.filter(r=>(r['Vigencia del servicio']||'').trim()==='Vigente').length/conSesM.length*100):null;
+
+      // Retención Embudos por flujo
+      const embRetM={};
+      ['Pago Atrasado','TRIAL SIN WA','TRIAL SIN FLOW','Cancelación'].forEach(f=>{
+        const rows=RAW.embudos.filter(r=>(r['Flujo']||'').trim()===f);
+        const mesRows=rows.filter(r=>inRange(parseEmbDate(r['fecha_asignacion_etiqueta']),mRange));
+        const uids=new Set(mesRows.map(r=>(r['user_id']||'').toString().trim()).filter(Boolean));
+        const vigN=[...uids].filter(uid=>acctMapH[uid]&&acctMapH[uid]['Vigencia del servicio']==='Vigente').length;
+        embRetM[f]={
+          total:uids.size,
+          vigentes:vigN,
+          retPct:uids.size>0?Math.round(vigN/uids.size*100):null
+        };
+      });
+
+      months.push({
+        lbl,
+        // Sección 1
+        newP:newP.length, newT:newT.length, newTpay, convM, convRate, reposoM,
+        newTotal, bornPaga, bornTrial, convertidasNew, convRateNew,
+        canM:canM.length, atrM:atrM.length,
+        vigIni:vigIni.length, mrrM, churnRate,
+        retNeta:newP.length-canM.length,
+        // Sección 2 — encuesta + perfil cancelados
+        survN:survM.length,
+        survPct:canM.length>0?Math.round(survM.length/canM.length*100):0,
+        // Perfil cancelados pagas del mes
+        pSinOnb:   canM.length>0?Math.round(canM.filter(r=>(r['Onboarding']||'').trim()!=='Con onboarding').length/canM.length*100):0,
+        pSinFlow:  canM.length>0?Math.round(canM.filter(r=>(v=>v===''||v==='0')((r['Usa flows']||'').toString().trim())).length/canM.length*100):0,
+        pSinWA:    canM.length>0?Math.round(canM.filter(r=>(r['Usa API?']||'')!=='Sí'&&(r['Usa Business?']||'')!=='Sí').length/canM.length*100):0,
+        pSinSes:   canM.length>0?Math.round(canM.filter(r=>r['Sesiones en vivo']==='No asistió').length/canM.length*100):0,
+        pSinGrupos:canM.length>0?Math.round(canM.filter(r=>(v=>v===''||v==='0')((r['Usa grupos?']||'').toString().trim())).length/canM.length*100):0,
+        pSinTrial: canM.length>0?Math.round(canM.filter(r=>(r['flow trial']||'').includes('No pasó')).length/canM.length*100):0,
+        // Sección 3 — onboarding
+        onbGHLNuevas:onbGHLNuevasM.length, onbGHLAntiguas:onbGHLAntiguasM.length,
+        diasNuevasM, diasAntiguasM,
+        onbProp:onbM.length, onbAgen:onbAgenM,
+        onbAsist:onbAsistM, onbNS:onbNSM,
+        onbCob:cobM, onbAsistTasa:asistTasaM, onbCompPaga, onbCompTrial,
+        onbCapIdeal, onbTasaDia, onbCumpl,
+        onbRetPct, onbRetVig,
+        ahaM,
+        // Sesiones
+        sesAsist:sesM.asist, sesSes:sesM.sesiones,
+        sesRetPct,
+        // Embudos
+        embRetM,
+        // Riesgo nuevas
+        rNewP:newVigP.length, rSinWA, rSinFlw, rSinOnb
+      });
+    }
+    return months;
+  })()
+  };
+}
+
+
+// ── util visual: barra horizontal tipo informe de servicio ──
+function barRow(label, value, max, color, rightTxt){
+  const w = max>0 ? Math.max(2,Math.round(value/max*100)) : 0;
+  return '<tr><td class="left">'+label+'</td>'
+    +'<td style="width:150px"><div class="barwrap"><div class="bar" style="width:'+w+'%;background:'+color+'">'+(w>18?rightTxt:'')+'</div></div></td>'
+    +'<td style="width:70px">'+(w>18?'':rightTxt)+'</td></tr>';
+}
+function dpTag(deltaTxt, cls){ return '<span class="dp dp-'+cls+'">'+deltaTxt+'</span>'; }
+function deltaCls(curr, prev, higherIsBetter=true){
+  if(prev===null||prev===undefined) return 'eq';
+  const d = curr-prev;
+  if(Math.abs(d) < 0.001) return 'eq';
+  return (d>0)===higherIsBetter ? 'ok' : 'bad';
+}
+function fmtDelta(curr, prev, suffix=''){
+  if(prev===null||prev===undefined) return '—';
+  const d = Math.round((curr-prev)*10)/10;
+  return (d>=0?'+':'')+d+suffix;
+}
+
+function renderExec(m){
+  const h6 = m.hist6; // 6 meses: {lbl,newP,canM,atrM,reposoM,retNeta,mrrM,...}
+  const last = h6[5], prev = h6[4];
+  const badgePeriod = fmtMonth(m.range.start);
+  document.getElementById('x1Badge').textContent = m.nuevosMesP_n+' cuentas nuevas · '+fmt$(m.mrrActivo)+' de MRR en cartera';
+  document.getElementById('x2Badge').textContent = 'Corte '+badgePeriod;
+  document.getElementById('x3Badge').textContent = m.cancelMes+' cancelaciones · '+m.cancelConMotivo+' respuestas';
+  document.getElementById('x4Badge').textContent = 'Corte '+badgePeriod;
+
+  // ============ TAB 1: RESUMEN ============
+  const retDeltaCls = deltaCls(last.retNeta, prev.retNeta, true);
+  const atrDeltaCls = deltaCls(last.atrM, prev.atrM, false);
+  const newDeltaCls = deltaCls(last.newP, prev.newP, true);
+  const reposoDeltaCls = deltaCls(last.reposoM, prev.reposoM, false);
+
+  const kamData = (m.kam && m.kam.data) || [];
+  const conRAM = kamData.filter(k=>k.key!=='__none__');
+  const sinRAM = kamData.find(k=>k.key==='__none__') || {total:0,vig:0,can:0};
+  const conTotal = conRAM.reduce((s,k)=>s+k.total,0);
+  const conVig = conRAM.reduce((s,k)=>s+k.vig,0);
+  const conCan = conRAM.reduce((s,k)=>s+k.can,0);
+  const conValNow = conRAM.reduce((s,k)=>s+((m.kam.valueNow||{})[k.key]||0),0);
+  const sinValNow = (m.kam.valueNow||{})['__none__']||0;
+  const conChurnPct = conTotal>0? Math.round(conCan/conTotal*1000)/10 : 0;
+  const sinChurnPct = sinRAM.total>0? Math.round(sinRAM.can/sinRAM.total*1000)/10 : 0;
+  const rescatadas = sinRAM.total>0 ? Math.round(sinRAM.total*(sinChurnPct-conChurnPct)/100) : 0;
+  const mrrMedioSin = sinRAM.total>0 ? sinValNow/sinRAM.total : 0;
+  const rescateAnual = Math.max(0,Math.round(rescatadas*mrrMedioSin*12));
+
+  document.getElementById('x1Body').innerHTML = `
+  <div class="msg${newDeltaCls==='ok'&&atrDeltaCls==='bad'?' amber':''}">
+    <span class="msg-tag">El mensaje</span>
+    <span class="msg-txt">Entraron <em>${last.newP} cuentas nuevas</em> este mes${prev.newP?' ('+fmtDelta(last.newP,prev.newP)+' vs mes anterior)':''}.
+    ${last.atrM>prev.atrM?'Las cuentas atrasadas subieron a <s>'+last.atrM+'</s> (eran '+prev.atrM+'): vigilar el primer cobro.':'Las atrasadas se mantienen controladas en <em>'+last.atrM+'</em>.'}</span>
+  </div>
+
+  <div class="kpis k5">
+    <div class="kpi ${newDeltaCls==='ok'?'hi':''}">
+      <div class="kl">Cuentas nuevas</div>
+      <div class="kv green">${last.newP}</div>
+      <div class="ks">${fmtDelta(last.newP,prev.newP)} vs mes anterior</div>
+    </div>
+    <div class="kpi ${atrDeltaCls==='bad'?'lo':''}">
+      <div class="kl">Cuentas atrasadas</div>
+      <div class="kv ${atrDeltaCls==='bad'?'red':'green'}">${last.atrM}</div>
+      <div class="ks">era ${prev.atrM} el mes anterior</div>
+    </div>
+    <div class="kpi">
+      <div class="kl">Retención neta</div>
+      <div class="kv ${last.retNeta>=0?'green':'orange'}">${last.retNeta>=0?'+':''}${last.retNeta}</div>
+      <div class="ks">${fmtDelta(last.retNeta,prev.retNeta)} vs mes anterior</div>
+    </div>
+    <div class="kpi ${reposoDeltaCls==='ok'?'hi':''}">
+      <div class="kl">En plan reposo</div>
+      <div class="kv ${reposoDeltaCls==='ok'?'green':'orange'}">${last.reposoM}</div>
+      <div class="ks">${fmtDelta(last.reposoM,prev.reposoM)} vs mes anterior</div>
+    </div>
+    <div class="kpi">
+      <div class="kl">MRR en cartera</div>
+      <div class="kv blue">${fmt$(m.mrrActivo)}</div>
+      <div class="ks">de cuentas vigentes al corte</div>
+    </div>
+  </div>
+
+  <div class="g21">
+    <div class="card">
+      <div class="ch">Histórico 6 meses · datos duros</div>
+      <table>
+        <thead><tr><th class="left">Métrica</th>${h6.slice(0,5).map(mm=>'<th style="color:#888">'+mm.lbl+'</th>').join('')}<th style="background:#14151f;color:#75D31F;">${last.lbl}</th></tr></thead>
+        <tbody>
+          <tr><td class="left">Cuentas nuevas</td>${h6.slice(0,5).map(mm=>'<td style="color:#888">'+mm.newP+'</td>').join('')}<td class="big green">${last.newP}</td></tr>
+          <tr><td class="left">Atrasadas del mes</td>${h6.slice(0,5).map(mm=>'<td style="color:#888">'+mm.atrM+'</td>').join('')}<td class="big red">${last.atrM}</td></tr>
+          <tr><td class="left">Retención neta</td>${h6.slice(0,5).map(mm=>'<td style="color:#888">'+(mm.retNeta>=0?'+':'')+mm.retNeta+'</td>').join('')}<td class="big orange">${last.retNeta>=0?'+':''}${last.retNeta}</td></tr>
+          <tr><td class="left">En plan reposo</td>${h6.slice(0,5).map(mm=>'<td style="color:#888">'+mm.reposoM+'</td>').join('')}<td class="big green">${last.reposoM}</td></tr>
+        </tbody>
+      </table>
+      <div class="foot f-info">Serie completa disponible en el informe mensual de detalle (mismo origen de datos).</div>
+    </div>
+
+    <div class="card" style="border-color:#86efac;">
+      <div class="ch" style="background:#f0fdf4;border-bottom-color:#86efac;color:#166534;">La oportunidad más grande del área</div>
+      <div style="padding:15px 18px;">
+        <div style="font-size:12.5px;color:#555;line-height:1.6;margin-bottom:11px;">Las cuentas <strong>con RAM</strong> pierden ${conChurnPct}% al mes. Las cuentas <strong>sin RAM</strong> pierden ${sinChurnPct}%. Si igualáramos la segunda a la primera:</div>
+        <div style="display:flex;align-items:baseline;gap:11px;margin-bottom:6px;">
+          <span style="font-size:38px;font-weight:800;color:#166534;line-height:1;">${rescatadas}</span>
+          <span style="font-size:12.5px;color:#555;">cuentas rescatadas por mes</span>
+        </div>
+        <div style="display:flex;align-items:baseline;gap:11px;padding-top:9px;border-top:1px solid #f0ede6;">
+          <span style="font-size:30px;font-weight:800;color:#166534;line-height:1;">${fmt$(rescateAnual)}</span>
+          <span style="font-size:12.5px;color:#555;">estimado al año</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="acts">
+    <div class="act">
+      <div class="at">Entender las ${last.atrM} atrasadas</div>
+      <div class="ad">${last.atrM>prev.atrM?'Subieron vs el mes anterior ('+prev.atrM+'). Con '+last.newP+' cuentas nuevas, el riesgo se concentra en el primer cobro.':'Se mantienen controladas, seguir monitoreando el primer cobro de las '+last.newP+' cuentas nuevas.'}</div>
+    </div>
+    <div class="act">
+      <div class="at">Escalar RAM por valor de cuenta</div>
+      <div class="ad">${fmt$(rescateAnual)} anuales sobre la mesa si el efecto RAM se replica en la cartera sin cubrir (${sinRAM.total} cuentas).</div>
+    </div>
+    <div class="act">
+      <div class="at">Cobertura de onboarding</div>
+      <div class="ad">${m.cobP}% de cuentas pagas y ${m.cobT}% de trial pasaron por onboarding este mes.</div>
+    </div>
+  </div>
+  `;
+
+  // ============ TAB 2: RAM · CARTERIZACIÓN ============
+  const conMrrProm = conTotal>0 ? Math.round(conValNow/conTotal) : 0;
+  const sinMrrProm = sinRAM.total>0 ? Math.round(sinValNow/sinRAM.total) : 0;
+  const totalCartera = conTotal+sinRAM.total;
+  const totalVal = conValNow+sinValNow;
+
+  document.getElementById('x2Body').innerHTML = `
+  <div class="msg">
+    <span class="msg-tag">El mensaje</span>
+    <span class="msg-txt">Una cuenta con RAM pierde <em>${sinChurnPct>0?Math.round((1-conChurnPct/sinChurnPct)*100):0}% menos</em> y vale <em>${sinMrrProm>0?Math.round(conMrrProm/sinMrrProm*100)/100:'—'}×</em> más. El ${totalCartera>0?Math.round(conTotal/totalCartera*100):0}% de la cartera con RAM concentra el ${totalVal>0?Math.round(conValNow/totalVal*100):0}% del valor.</span>
+  </div>
+
+  <div class="kpis k4">
+    <div class="kpi hi">
+      <div class="kl">Cuentas con RAM</div>
+      <div class="kv green">${conTotal}</div>
+      <div class="ks">${conVig} vigentes · ${conCan} canceladas</div>
+    </div>
+    <div class="kpi lo">
+      <div class="kl">Cuentas sin RAM</div>
+      <div class="kv red">${sinRAM.total}</div>
+      <div class="ks">${sinRAM.vig} vigentes · ${sinRAM.can} canceladas</div>
+    </div>
+    <div class="kpi hi">
+      <div class="kl">Valor medio · con RAM</div>
+      <div class="kv green">${fmt$(conMrrProm)}</div>
+      <div class="ks">estimado por cuenta activa</div>
+    </div>
+    <div class="kpi lo">
+      <div class="kl">Valor medio · sin RAM</div>
+      <div class="kv red">${fmt$(sinMrrProm)}</div>
+      <div class="ks">estimado por cuenta activa</div>
+    </div>
+  </div>
+
+  <div class="two">
+    <div class="card">
+      <div class="ch">Dónde está el valor de la cartera</div>
+      <table>
+        <tbody>
+          ${barRow('Cuentas con RAM', conTotal, totalCartera, '#166534', totalCartera>0?Math.round(conTotal/totalCartera*1000)/10+'%':'0%')}
+          ${barRow('Valor que aportan', conValNow, totalVal, '#166534', totalVal>0?Math.round(conValNow/totalVal*1000)/10+'%':'0%')}
+          ${barRow('Cuentas sin RAM', sinRAM.total, totalCartera, '#90a4ae', totalCartera>0?Math.round(sinRAM.total/totalCartera*1000)/10+'%':'0%')}
+          ${barRow('Valor que aportan', sinValNow, totalVal, '#90a4ae', totalVal>0?Math.round(sinValNow/totalVal*1000)/10+'%':'0%')}
+        </tbody>
+      </table>
+    </div>
+    <div class="card">
+      <div class="ch">Pérdida de cuentas · lado a lado</div>
+      <table>
+        <thead><tr><th class="left">Indicador</th><th>Con RAM</th><th>Sin RAM</th></tr></thead>
+        <tbody>
+          <tr><td class="left">Cuentas canceladas (histórico cartera)</td><td class="big green">${conChurnPct}%</td><td class="big red">${sinChurnPct}%</td></tr>
+          <tr><td class="left">Implementación promedio</td><td class="big">${conRAM.length?Math.round(conRAM.reduce((s,k)=>s+k.implAvg*k.total,0)/Math.max(1,conTotal)):0}%</td><td class="big">${sinRAM.implAvg||0}%</td></tr>
+          <tr><td class="left">Valor medio por cuenta</td><td class="big green">${fmt$(conMrrProm)}</td><td class="big red">${fmt$(sinMrrProm)}</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="acts">
+    <div class="act">
+      <div class="at">RAM asignados</div>
+      <div class="ad">${conRAM.map(k=>k.label+' ('+k.total+')').join(' · ')||'Sin datos'}</div>
+    </div>
+    <div class="act">
+      <div class="at">Cuentas sin RAM asignado</div>
+      <div class="ad">${sinRAM.total} cuentas de la base total no tienen RAM asignado — la oportunidad de escalar está ahí.</div>
+    </div>
+  </div>
+  `;
+
+  // ============ TAB 3: POR QUÉ SE VAN ============
+  const motivos = (m.motivos||[]).slice(0,6);
+  const maxMot = Math.max(1,...motivos.map(x=>x.count));
+  const motColors = ['#c62828','#e65100','#ef6c00','#1565c0','#5b21b6','#00897b'];
+
+  document.getElementById('x3Body').innerHTML = `
+  <div class="msg amber">
+    <span class="msg-tag">El mensaje</span>
+    <span class="msg-txt">${m.cancelMes} cancelaciones este mes, con <em>${m.cancelConMotivo} respuestas</em> a la encuesta (${m.cancelMes>0?Math.round(m.cancelConMotivo/m.cancelMes*100):0}% tasa de respuesta).${motivos[0]?' El motivo principal fue <em>"'+motivos[0].label+'"</em>.':''}</span>
+  </div>
+
+  <div class="two" style="margin-bottom:12px;">
+    <div class="card">
+      <div class="ch">Motivos de cancelación del mes</div>
+      <table>
+        <tbody>
+          ${motivos.map((mo,i)=>barRow(mo.label, mo.count, maxMot, motColors[i%motColors.length], mo.count+' ('+pct(mo.count,m.cancelConMotivo||1)+'%)')).join('')}
+        </tbody>
+      </table>
+      <div class="foot f-bad">${motivos.length?motivos.length+' motivos distintos reportados este mes':'Sin respuestas suficientes este mes'}</div>
+    </div>
+    <div class="card">
+      <div class="ch">Perfil de los que cancelaron<span class="chs">% que NO tenía cada elemento activo</span></div>
+      <table>
+        <tbody>
+          <tr><td class="left">Sin onboarding</td><td class="big red">${m.cp_sin_onb}%</td></tr>
+          <tr><td class="left">Sin usar flows</td><td class="big red">${m.cp_sin_flow}%</td></tr>
+          <tr><td class="left">Sin WhatsApp conectado</td><td class="big red">${m.cp_sin_wa}%</td></tr>
+          <tr><td class="left">Sin sesión en vivo</td><td class="big red">${m.cp_sin_ses}%</td></tr>
+        </tbody>
+      </table>
+      <div class="foot f-warn">${m.cp_lt_avg>0?'Tiempo de vida promedio de los cancelados: <strong>'+m.cp_lt_avg+' días</strong>':'Sin datos suficientes de tiempo de vida este mes'}</div>
+    </div>
+  </div>
+
+  <div class="acts">
+    <div class="act">
+      <div class="at">Motivo principal: ${motivos[0]?motivos[0].label:'—'}</div>
+      <div class="ad">${motivos[0]?motivos[0].count+' casos este mes. Definir si es prevenible desde onboarding o requiere ajuste de producto.':'Sin datos suficientes este mes.'}</div>
+    </div>
+    <div class="act">
+      <div class="at">Cerrar la brecha de activación</div>
+      <div class="ad">${m.cp_sin_onb}% de los que se fueron nunca pasaron por onboarding — es la palanca más directa.</div>
+    </div>
+  </div>
+  `;
+
+  // ============ TAB 4: ONBOARDING Y RETENCIÓN ============
+  const act = m.activacion || {};
+  document.getElementById('x4Body').innerHTML = `
+  <div class="msg">
+    <span class="msg-tag">El mensaje</span>
+    <span class="msg-txt">Cobertura de onboarding: <em>${m.cobP}% pagas</em> y <em>${m.cobT}% trial</em>. De los asistentes, <em>${m.pctRetCon}%</em> siguen vigentes hoy${m.pctRetSin!==undefined?' vs '+m.pctRetSin+'% de los que no asistieron':''}.</span>
+  </div>
+
+  <div class="kpis k4">
+    <div class="kpi">
+      <div class="kl">Propuestas de onboarding</div>
+      <div class="kv blue">${m.onbProp}</div>
+      <div class="ks">${m.onbAgen} agendaron</div>
+    </div>
+    <div class="kpi hi">
+      <div class="kl">Asistieron</div>
+      <div class="kv green">${m.onbAsist}</div>
+      <div class="ks">${m.onbProp>0?Math.round(m.onbAsist/m.onbProp*100):0}% de las propuestas</div>
+    </div>
+    <div class="kpi">
+      <div class="kl">Cobertura pagas</div>
+      <div class="kv ${m.cobP>=50?'green':'orange'}">${m.cobP}%</div>
+      <div class="ks">meta ≥ 50%</div>
+    </div>
+    <div class="kpi">
+      <div class="kl">Cobertura trial</div>
+      <div class="kv blue">${m.cobT}%</div>
+      <div class="ks">de las nuevas trial del mes</div>
+    </div>
+  </div>
+
+  <div class="two">
+    <div class="card">
+      <div class="ch">Retención · con onboarding vs sin</div>
+      <table>
+        <thead><tr><th class="left">Indicador</th><th>Con onboarding</th><th>Sin onboarding</th></tr></thead>
+        <tbody>
+          <tr><td class="left">% vigentes hoy</td><td class="big green">${m.pctRetCon}%</td><td class="big red">${m.pctRetSin}%</td></tr>
+        </tbody>
+      </table>
+      <div class="foot ${m.pctRetCon>=m.pctRetSin?'f-ok':'f-warn'}">${m.pctRetCon>=m.pctRetSin?'El onboarding sostiene mejor la retención.':'Diferencia estrecha este mes — seguir de cerca.'}</div>
+    </div>
+    <div class="card">
+      <div class="ch">Sesiones en vivo del mes</div>
+      <table>
+        <tbody>
+          <tr><td class="left">Sesiones realizadas</td><td class="big">${m.sesSesiones}</td></tr>
+          <tr><td class="left">Asistentes totales</td><td class="big blue">${m.sesMes}</td></tr>
+          <tr><td class="left">Asistentes por sesión</td><td class="big">${m.sesPorSesion}</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="acts">
+    <div class="act">
+      <div class="at">Cuentas nuevas sin WhatsApp conectado</div>
+      <div class="ad">${m.sinWaMes} cuentas del mes sin WhatsApp — no pueden usar la plataforma. Riesgo directo de no activación.</div>
+    </div>
+    <div class="act">
+      <div class="at">Cuentas nuevas sin onboarding agendado</div>
+      <div class="ad">${m.sinOnbMes} cuentas nuevas del mes sin sesión agendada todavía.</div>
+    </div>
+  </div>
+  `;
+
+  // ============ TAB 5: PLAN DE ACCIÓN ============
+  if(!document.getElementById('planBody').innerHTML.trim()){
+    const nd=new Date(m.range.end.getFullYear(),m.range.end.getMonth()+1,15);
+    const fd=d=>d.toLocaleDateString('es-CO',{day:'numeric',month:'short'});
+    const rows=[];
+    if(m.sinWaMes>0)rows.push({t:'Preventiva',a:`Contactar ${m.sinWaMes} cuentas nuevas sin WhatsApp conectado`,r:'Onboarding',f:fd(nd),e:'s-rojo',l:'Urgente',n:'Sin WA no pueden usar la plataforma.'});
+    if(m.sinOnbMes>0)rows.push({t:'Preventiva',a:`Proponer onboarding a ${m.sinOnbMes} cuentas nuevas sin sesión agendada`,r:'Onboarding',f:fd(nd),e:'s-amarillo',l:'En progreso',n:`Cobertura actual: ${m.cobP}% pagas.`});
+    if(last.atrM>0)rows.push({t:'Reactiva',a:`Gestionar las ${last.atrM} cuentas atrasadas del mes`,r:'CX',f:fd(nd),e:'s-rojo',l:'Urgente',n:'Riesgo directo de pérdida en el primer cobro.'});
+    if(sinRAM.total>0)rows.push({t:'Estratégica',a:`Evaluar ampliar cobertura de RAM sobre ${sinRAM.total} cuentas sin asignar`,r:'KAM',f:fd(nd),e:'s-gris',l:'Pendiente',n:`Oportunidad estimada: ${fmt$(rescateAnual)}/año.`});
+    if(m.motivos&&m.motivos[0])rows.push({t:'Reactiva',a:`Diseñar respuesta al motivo principal de cancelación: "${m.motivos[0].label}"`,r:'CX Lead',f:fd(nd),e:'s-gris',l:'Pendiente',n:`${m.motivos[0].count} casos este mes.`});
+    document.getElementById('planBody').innerHTML = rows.map(r=>`
+      <tr>
+        <td>${r.t}</td>
+        <td contenteditable="true">${r.a}</td>
+        <td contenteditable="true">${r.r}</td>
+        <td contenteditable="true">${r.f}</td>
+        <td><span class="status-badge ${r.e}" onclick="rotateStatus(this)">${r.l}</span></td>
+        <td style="font-size:11px;color:#666">${r.n}</td>
+      </tr>`).join('');
+  }
+}
+
+const SC=[{l:'Urgente',c:'s-rojo'},{l:'En progreso',c:'s-amarillo'},{l:'Pendiente',c:'s-gris'},{l:'Listo',c:'s-verde'}];
+function rotateStatus(el){const i=SC.findIndex(s=>s.l===el.textContent.trim()),n=SC[(i+1)%SC.length];el.textContent=n.l;el.className='status-badge '+n.c;}
+
+function buildMonthNav(){
+  const c=document.getElementById('monthBtns'); c.innerHTML='';
+  for(let i=0;i>=-5;i--){
+    const r=getMonthRange(i);
+    const b=document.createElement('button');
+    b.className='mn-btn'+(i===currentMonthOffset?' active':'');
+    b.textContent=fmtMonth(r.start);
+    b.onclick=()=>{currentMonthOffset=i;buildMonthNav();document.getElementById('planBody').innerHTML='';renderExec(calcMonth(i));};
+    c.appendChild(b);
+  }
+}
+
+(async()=>{
+  try{
+    await loadAll();
+    document.getElementById('loadingState').style.display='none';
+    document.getElementById('appRoot').style.display='block';
+    document.getElementById('mainTabs').style.display='flex';
+    document.getElementById('monthNav').style.display='flex';
+    for(let _off=0;_off>=-23;_off--){
+      const _r=getMonthRange(_off);
+      const _hasData=RAW.cuentas.some(r=>{
+        const cd=cancelDate(r);
+        return cd&&cd>=_r.start&&cd<=_r.end&&(r['Vigencia del servicio']||'').trim()==='Cancelado';
+      })||RAW.cuentas.some(r=>{
+        const ca=getCA(r);
+        return ca&&ca>=_r.start&&ca<=_r.end;
+      });
+      if(_hasData){currentMonthOffset=_off;break;}
+    }
+    buildMonthNav();
+    try{ renderExec(calcMonth(currentMonthOffset)); }
+    catch(_e){
+      const _d=document.createElement('div');
+      _d.style.cssText='position:fixed;top:60px;left:50%;transform:translateX(-50%);background:#fdecea;color:#c62828;border:1px solid #f5c6cb;padding:12px 18px;border-radius:8px;font-size:11px;font-family:monospace;max-width:640px;z-index:9999;white-space:pre-wrap';
+      _d.textContent='Error: '+_e.message+'\n'+(_e.stack||'').split('\n').slice(0,5).join('\n');
+      document.body.appendChild(_d);
+    }
+  }catch(err){
+    document.getElementById('loadingState').innerHTML=`
+      <div style="max-width:500px;margin:0 auto;background:#fdecea;border:1px solid #f5c6cb;border-radius:12px;padding:24px 28px">
+        <h3 style="color:#c62828;margin-bottom:10px">Error al cargar los datos</h3>
+        <p style="font-size:13px;margin-bottom:12px">${err.message||err}</p>
+        <button onclick="location.reload()" style="padding:8px 18px;background:#1a1a1a;border:none;border-radius:8px;color:#fff;cursor:pointer;font-family:'Manrope',sans-serif;font-size:12px">↻ Reintentar</button>
+      </div>`;
+  }
+})();
+</script>
+<script>
+document.querySelectorAll('.tab').forEach(function(b){
+  b.addEventListener('click', function(){
+    document.querySelectorAll('.tab').forEach(function(x){ x.classList.remove('on'); });
+    document.querySelectorAll('.slide').forEach(function(x){ x.classList.remove('on'); });
+    b.classList.add('on');
+    document.getElementById(b.dataset.t).classList.add('on');
+  });
+});
+</script>
+</body>
+</html>
