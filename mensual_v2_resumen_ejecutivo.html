@@ -1791,26 +1791,30 @@ function renderExec(m){
   const sinMrrProm = sinRAM.vig>0 ? Math.round(sinValNow/sinRAM.vig) : 0;
   const totalCartera = conVig+sinRAM.vig;
   const totalVal = conValNow+sinValNow;
-  // MRR medio real de una cuenta sin RAM vigente hoy (para estimar el rescate anual)
-  const vigentesActualesSin = allC.filter(r=>isPaga(r) && (r['Vigencia del servicio']||'').trim()==='Vigente' && !tieneRAM(r));
-  const mrrMedioSinReal = vigentesActualesSin.length>0 ? vigentesActualesSin.reduce((s,r)=>s+getMRR(r),0)/vigentesActualesSin.length : 0;
-  const rescateAnual = Math.max(0,Math.round(rescatadas*mrrMedioSinReal*12));
+  // Rescate anual estimado: usa el MISMO valor de referencia por plan que el resto de la cartera (PLAN_PRICE),
+  // no el pago real (getMRR), para no mezclar dos escalas de dinero distintas en el mismo cálculo.
+  const rescateAnual = Math.max(0,Math.round(rescatadas*sinMrrProm*12));
 
   // ── Puente de MRR por cohorte (con RAM vs sin RAM), este mes ──
-  const mrrIniCon = Math.round(vigIniCon.reduce((s,r)=>s+getMRR(r),0));
-  const mrrIniSin = Math.round(vigIniSin.reduce((s,r)=>s+getMRR(r),0));
+  // IMPORTANTE: todo el puente usa PLAN_PRICE (precio de referencia por plan) — la MISMA fuente
+  // que ya usa "kam.valueNow" arriba y los movimientos de plan (mv.delta). NO se mezcla con
+  // getMRR() (pago real registrado), que es una escala de dinero distinta y produce totales
+  // que no cuadran entre sí.
+  const planPriceOf = r => PLAN_PRICE[(r['Planes Funnelchat']||'').trim()] || 0;
+  const mrrIniCon = Math.round(vigIniCon.reduce((s,r)=>s+planPriceOf(r),0));
+  const mrrIniSin = Math.round(vigIniSin.reduce((s,r)=>s+planPriceOf(r),0));
   const nuevasMesArr = allC.filter(r=>{ if(!isPaga(r)) return false; const ca=getCA(r); return ca&&inRange(ca,range); });
   const nuevasCon = nuevasMesArr.filter(tieneRAM), nuevasSin = nuevasMesArr.filter(r=>!tieneRAM(r));
-  const mrrNuevasCon = Math.round(nuevasCon.reduce((s,r)=>s+getMRR(r),0));
-  const mrrNuevasSin = Math.round(nuevasSin.reduce((s,r)=>s+getMRR(r),0));
+  const mrrNuevasCon = Math.round(nuevasCon.reduce((s,r)=>s+planPriceOf(r),0));
+  const mrrNuevasSin = Math.round(nuevasSin.reduce((s,r)=>s+planPriceOf(r),0));
   const upCon = (m.upgrades||[]).filter(mv=>tieneRAM(mv.acct)), upSin=(m.upgrades||[]).filter(mv=>!tieneRAM(mv.acct));
   const downCon = (m.downgrades||[]).filter(mv=>tieneRAM(mv.acct)), downSin=(m.downgrades||[]).filter(mv=>!tieneRAM(mv.acct));
   const mrrUpCon = Math.round(upCon.reduce((s,mv)=>s+mv.delta,0));
   const mrrUpSin = Math.round(upSin.reduce((s,mv)=>s+mv.delta,0));
   const mrrDownCon = Math.round(downCon.reduce((s,mv)=>s+Math.abs(mv.delta),0));
   const mrrDownSin = Math.round(downSin.reduce((s,mv)=>s+Math.abs(mv.delta),0));
-  const mrrCanCon = Math.round(canMesCon.reduce((s,r)=>s+getMRR(r),0));
-  const mrrCanSin = Math.round(canMesSin.reduce((s,r)=>s+getMRR(r),0));
+  const mrrCanCon = Math.round(canMesCon.reduce((s,r)=>s+planPriceOf(r),0));
+  const mrrCanSin = Math.round(canMesSin.reduce((s,r)=>s+planPriceOf(r),0));
   // Migración: cuentas que YA tienen RAM y cuya fecha de asignación cae en este mes → salen de "sin RAM"
   const migrantes = allC.filter(r=>{
     if(!tieneRAM(r) || !isPaga(r)) return false;
@@ -1818,7 +1822,7 @@ function renderExec(m){
     const ad = getKamAssignDate(r);
     return ad && inRange(ad, range);
   });
-  const mrrMigrados = Math.round(migrantes.reduce((s,r)=>s+getMRR(r),0));
+  const mrrMigrados = Math.round(migrantes.reduce((s,r)=>s+planPriceOf(r),0));
   const mrrFinalCon = mrrIniCon+mrrNuevasCon+mrrUpCon-mrrDownCon-mrrCanCon+mrrMigrados;
   const mrrFinalSin = mrrIniSin+mrrNuevasSin+mrrUpSin-mrrDownSin-mrrCanSin-mrrMigrados;
   const nrrCon = mrrIniCon>0 ? Math.round((mrrIniCon+mrrUpCon-mrrDownCon-mrrCanCon)/mrrIniCon*1000)/10 : 0;
