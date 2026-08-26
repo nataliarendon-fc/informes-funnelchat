@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Impacto de Nova · Área de Clientes · Funnelchat</title>
+<style>
+  :root{--bg:#f7f8fa;--card:#ffffff;--border:rgba(15,23,42,.08);--muted:#64748b;--ink:#0f172a;
+    --teal:#0d9488;--blue:#2563eb;--green2:#16a34a;--orange:#ea580c;--red:#dc2626;--yellow:#b45309;--purple:#7c3aed;}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:'DM Sans',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;font-size:13px;line-height:1.5}
+  .wrap{max-width:1080px;margin:0 auto;padding:28px 22px 80px}
+  h1{font-family:'Syne',sans-serif;font-size:22px;font-weight:800;margin:0 0 2px}
+  .sub{color:var(--muted);font-size:12px;margin-bottom:20px}
+  .card{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:18px 20px;margin-bottom:16px;box-shadow:0 1px 2px rgba(15,23,42,.03)}
+  .card-title{font-family:'Syne',sans-serif;font-size:14px;font-weight:800;margin-bottom:2px}
+  .card-sub{font-size:10px;color:var(--muted);margin-bottom:12px}
+  .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:16px}
+  .kpi{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:14px 16px}
+  .kpi .v{font-family:'Syne',sans-serif;font-size:24px;font-weight:800;line-height:1}
+  .kpi .l{font-size:10px;color:var(--muted);margin-top:4px}
+  table{width:100%;border-collapse:collapse}
+  th{font-size:9px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);text-align:left;padding:6px 8px;border-bottom:1px solid var(--border);font-weight:700}
+  td{font-size:11px;padding:6px 8px;border-bottom:1px solid var(--border);color:#334155}
+  .diag{background:rgba(37,99,235,.04);border:1px solid rgba(37,99,235,.15);border-radius:12px;padding:14px 16px;font-size:11px;color:#334155;margin-bottom:16px}
+  .diag b{color:var(--ink)}
+  .pill{display:inline-block;font-size:10px;padding:2px 8px;border-radius:20px;background:rgba(15,23,42,.05);color:#334155;margin:2px 4px 2px 0}
+  .cmp-good{color:var(--green2);font-weight:700}
+  .cmp-bad{color:var(--red);font-weight:700}
+  .warn{background:#fef2f2;border:1px solid #fecaca;color:#991b1b;padding:12px 16px;border-radius:10px;font-size:12px;margin-bottom:16px}
+  textarea{width:100%;min-height:120px;border:1px solid var(--border);border-radius:8px;padding:10px;font-family:monospace;font-size:11px}
+  button.load{background:var(--teal);color:#fff;border:none;border-radius:8px;padding:9px 18px;font-weight:700;font-size:12px;cursor:pointer;font-family:inherit;margin-top:8px}
+  .note{font-size:10px;color:var(--muted);font-style:italic;margin-top:8px}
+  .mnb{font-size:11px;padding:5px 10px;border-radius:7px;border:1px solid var(--border);background:#fff;color:#334155;cursor:pointer;font-family:inherit}
+  .mnb:hover{background:rgba(15,23,42,.04)}
+  .lead{font-size:11px;font-weight:700;margin:0 0 6px}
+</style>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&family=Syne:wght@700;800&display=swap" rel="stylesheet">
+</head>
+<body>
+<div class="wrap">
+  <h1>Impacto de Nova en los clientes</h1>
+  <div class="sub">¿Los clientes que usan Nova activan más, conectan más WhatsApp y se quedan más? · Área de Clientes · Funnelchat</div>
+
+  <div id="loading" class="card">Cargando datos en vivo…</div>
+  <div id="pasteBox" style="display:none">
+    <div class="warn">No se pudo cargar automáticamente (bloqueo de red al abrir local). Pega el JSON del endpoint de Apps Script y dale "Cargar".</div>
+    <textarea id="pasteArea" placeholder="Pega aquí el JSON completo…"></textarea>
+    <button class="load" onclick="loadFromPaste()">Cargar</button>
+    <div id="pasteErr" style="color:#991b1b;font-size:11px;margin-top:8px"></div>
+  </div>
+  <div id="content" style="display:none"></div>
+</div>
+
+<script>
+const API_URL='https://script.google.com/macros/s/AKfycbwNp-Hnmi1imEggg6Qz7xRP_fR57ZvcQb9hFR2WUPn1c-BdsN23x2vrnlU5zY6Rydrlng/exec';
+
+/* ── Helpers ── */
+function parseISO(s){ if(!s||!s.toString().trim())return null; s=s.toString().trim();
+  if(/^\d{4}-\d{2}-\d{2}/.test(s)){const d=new Date(s);return isNaN(d)?null:d;}
+  const m=s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/); if(m){const d=new Date(+m[3],+m[2]-1,+m[1]);return isNaN(d)?null:d;}
+  try{const d=new Date(s);return isNaN(d)?null:d;}catch{return null;} }
+function isPaga(r){const t=(r['trial']||'').toString().trim().toUpperCase();return t!=='TRUE'&&t!=='1'&&t!=='SI'&&t!=='SÍ';}
+function parseNivel(r){ let v=(r['% Nivel de implementación']||'').toString().replace('%','').replace(',','.').trim(); if(v===''||isNaN(parseFloat(v)))return null; v=parseFloat(v); if(v>0&&v<=1)v*=100; if(v>100||v<0)return null; return Math.round(v); }
+const act=(r,col)=>(r[col]||'').toString().trim()!=='';
+const conOnb=r=>(r['Onboarding']||'').toString().trim().toLowerCase()==='con onboarding';
+const conSes=r=>{const s=(r['Sesiones en vivo']||'').toString().trim().toLowerCase();return s==='asistió'||s==='asistio';};
+const vig=r=>(r['Vigencia del servicio']||'').toString().trim();
+const isVigente=r=>/vigente/i.test(vig(r));
+const isCancel=r=>/cancel/i.test(vig(r));
+const isAtrasado=r=>/atrasad|vencid|mora/i.test(vig(r));
+const getCA=r=>parseISO(r['created_at'])||parseISO(r['Fecha creación']);
+function parseNum(v){ if(v===undefined||v===null)return NaN; let s=v.toString().trim(); if(!s)return NaN;
+  s=s.replace(/[^0-9,.\-]/g,'');
+  if(s.indexOf(',')>-1&&s.indexOf('.')>-1){s=s.replace(/\./g,'').replace(',','.');}
+  else if(s.indexOf(',')>-1){s=s.replace(',','.');}
+  else if((s.match(/\./g)||[]).length>1){s=s.replace(/\./g,'');}
+  else if(s.indexOf('.')>-1){const a=s.split('.').pop();if(a.length===3)s=s.replace(/\./g,'');}
+  const n=parseFloat(s);return isNaN(n)?NaN:n; }
+function normKey(s){return (s||'').toString().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/\s+/g,' ').trim();}
+function factCat(r){ const v=BILL.col?(r[BILL.col]||'').toString().trim():''; return v||'(sin dato)'; }
+function factSortKey(label){ const s=(label||'').toLowerCase(); if(s.includes('sin dato'))return Infinity;
+  const m=s.match(/(\d[\d.,]*)\s*(millones|millon|mill|mm|mil|k|m)?/); let base=0;
+  if(m){ base=parseFloat(m[1].replace(/[.,]/g,''))||0; const u=m[2]||''; if(/millones|millon|mill|mm/.test(u))base*=1000000; else if(/mil|k/.test(u))base*=1000; }
+  if(/menos|hasta|</.test(s))return base-0.5; if(/m[a\u00e1]s|mayor|superior|>|\+/.test(s))return base*10+1; return base; }
+function factRanges(arrs){ const set=new Set(); arrs.forEach(a=>a.forEach(r=>set.add(factCat(r)))); return [...set].sort((a,b)=>factSortKey(a)-factSortKey(b)); }
+function factPct(arr,range){ const n=arr.length||1; return Math.round(arr.filter(r=>factCat(r)===range).length/n*100); }
+function pctOf(n,t){return t?Math.round(n/t*100):0;}
+function fmtNum(n){return n==null||isNaN(n)?'—':Number(n).toLocaleString('es-CO');}
+function avg(a){return a.length?Math.round(a.reduce((x,y)=>x+y,0)/a.length):null;}
+
+/* Facturación promedio mensual (BD principal, no payments) */
+let BILL={col:null};
+function pickBill(rows){ const cols=new Set(); rows.slice(0,300).forEach(r=>Object.keys(r).forEach(k=>cols.add(k))); const list=[...cols];
+  let t=list.find(c=>normKey(c)==='facturacion promedio mensual')||list.find(c=>{const n=normKey(c);return n.includes('facturacion')&&(n.includes('mensual')||n.includes('promedio'));});
+  return {col:t||null}; }
+const getBill=r=>BILL.col?parseNum(r[BILL.col]):NaN;
+
+/* ¿La celda indica uso? (tolerante a formato desconocido) */
+function used(v){ if(v===undefined||v===null)return false; const s=v.toString().trim().toLowerCase();
+  if(['','0','0.0','no','false','n/a','na','-','—','sin uso','ninguno','nunca','none'].includes(s))return false;
+  return true; }
+
+/* ── Carga ── */
+async function boot(){ try{ const r=await fetch(API_URL); run(await r.json()); }
+  catch(e){ document.getElementById('loading').style.display='none'; document.getElementById('pasteBox').style.display='block'; } }
+function showPasteErr(msg){ const el=document.getElementById('pasteErr'); if(el)el.textContent=msg; }
+function loadFromPaste(){
+  showPasteErr('');
+  const raw=(document.getElementById('pasteArea').value||'').trim();
+  if(!raw){ showPasteErr('Pega primero el JSON del endpoint.'); return; }
+  let j;
+  try{ j=JSON.parse(raw); }
+  catch(e){ showPasteErr('JSON inválido: '+e.message+'. Copia el contenido COMPLETO del endpoint (empieza con { y termina con }).'); return; }
+  if(!j.cuentas){ showPasteErr('El JSON no trae la hoja "cuentas". Pega el JSON completo del endpoint (incluye todas las hojas).'); return; }
+  try{ run(j); document.getElementById('pasteBox').style.display='none'; }
+  catch(e){ showPasteErr('Error al procesar los datos: '+e.message); }
+}
+
+let DATA=null;
+function run(json){
+  const C=(json.cuentas||[]).filter(r=>Object.keys(r).length>1);
+  BILL=pickBill(C);
+  const cols=new Set(); C.slice(0,300).forEach(r=>Object.keys(r).forEach(k=>cols.add(k)));
+  const novaCols=[...cols].filter(c=>/nova/i.test(normKey(c)));
+  const onbCol=novaCols.find(c=>/onboarding|onb|capacita|acompan/i.test(normKey(c)))||null;
+  const genCol=novaCols.find(c=>c!==onbCol)||null;
+  const valDist=col=>{ if(!col)return {}; const d={}; C.forEach(r=>{const v=(r[col]===undefined||r[col]===null||r[col].toString().trim()==='')?'(vac\u00edo)':r[col].toString().trim(); d[v]=(d[v]||0)+1;}); return d; };
+  DATA={C,novaCols,genCol,onbCol,genDist:valDist(genCol),onbDist:valDist(onbCol)};
+  buildShell();
+  applyFilters();
+}
+
+function fdate(d){ return d.toISOString().slice(0,10); }
+function buildShell(){
+  const {C,novaCols,genCol,onbCol,genDist,onbDist}=DATA;
+  const distPills=d=>Object.entries(d).sort((a,b)=>b[1]-a[1]).slice(0,8).map(([k,v])=>`<span class="pill">${k} \u00b7 ${v}</span>`).join('')||'<i>\u2014</i>';
+  const vigDist={}; C.forEach(r=>{const v=vig(r)||'(sin dato)'; vigDist[v]=(vigDist[v]||0)+1;});
+  const shell=`
+  <div class="diag">
+    <b>\ud83d\udd0e Diagn\u00f3stico</b><br>
+    Cuentas totales: <b>${C.length}</b> \u00b7 Facturaci\u00f3n: campo <b>${BILL.col?('\u00ab'+BILL.col+'\u00bb'):'\u2014no encontrado\u2014'}</b>.<br>
+    Columnas Nova detectadas: ${novaCols.length?novaCols.map(c=>`<span class="pill">${c}</span>`).join(''):'<span style="color:var(--red)">ninguna con \u00abnova\u00bb en el nombre</span>'}<br>
+    \u2192 Uso general = <b>${genCol||'\u2014'}</b> \u00b7 Uso en onboarding = <b>${onbCol||'\u2014'}</b><br>
+    Valores en <b>${genCol||'general'}</b>: ${distPills(genDist)}<br>
+    Valores en <b>${onbCol||'onboarding'}</b>: ${distPills(onbDist)}<br>
+    Vigencia (todas): ${distPills(vigDist)}
+    <div class="note">Base del an\u00e1lisis = solo cuentas <b>vigentes o atrasadas</b> (se excluyen canceladas). "Us\u00f3" = celda no vac\u00eda y distinta de 0/no/false/ninguno. Comparaciones = correlaci\u00f3n, no causalidad.</div>
+  </div>
+
+  <div class="card">
+    <div class="lead">\ud83d\udcc5 Periodo (por fecha de creaci\u00f3n de la cuenta)</div>
+    <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;font-size:11px">
+      <label>Desde <input type="date" id="fDesde" style="font-family:inherit;font-size:11px;padding:4px 6px;border:1px solid var(--border);border-radius:6px"></label>
+      <label>Hasta <input type="date" id="fHasta" style="font-family:inherit;font-size:11px;padding:4px 6px;border:1px solid var(--border);border-radius:6px"></label>
+      <button class="load" style="margin-top:0;padding:6px 12px" onclick="applyFilters()">Aplicar</button>
+      <span style="width:1px;height:20px;background:var(--border)"></span>
+      <button class="mnb" onclick="setPreset('all')">Todo</button>
+      <button class="mnb" onclick="setPreset(3)">\u00daltimos 3 meses</button>
+      <button class="mnb" onclick="setPreset(6)">6 meses</button>
+      <button class="mnb" onclick="setPreset(12)">12 meses</button>
+    </div>
+  </div>
+  <div id="dyn"></div>`;
+  document.getElementById('loading').style.display='none';
+  const c=document.getElementById('content'); c.style.display='block'; c.innerHTML=shell;
+}
+function setPreset(m){
+  const d=document.getElementById('fDesde'), h=document.getElementById('fHasta');
+  if(m==='all'){ d.value=''; h.value=''; }
+  else { const to=new Date(); const from=new Date(); from.setMonth(from.getMonth()-m); d.value=fdate(from); h.value=fdate(to); }
+  applyFilters();
+}
+function applyFilters(){
+  if(!DATA)return;
+  const dv=document.getElementById('fDesde').value, hv=document.getElementById('fHasta').value;
+  const from=dv?new Date(dv+'T00:00:00'):null, to=hv?new Date(hv+'T23:59:59'):null;
+  const dateOk=r=>{const ca=getCA(r); if(from&&(!ca||ca<from))return false; if(to&&(!ca||ca>to))return false; return true;};
+  const baseAll=DATA.C.filter(dateOk);                              // todas (incl. canceladas) para retención
+  const base=baseAll.filter(r=>isVigente(r)||isAtrasado(r));        // solo vigentes/atrasadas para activación/uso
+  renderDyn(base, from, to, baseAll);
+}
+
+/* M\u00e9tricas de resultado de un grupo */
+function outcomes(arr){ const n=arr.length||1;
+  const niv=arr.map(parseNivel).filter(v=>v!=null);
+  const lt=arr.map(r=>parseInt(r['LT'])||0).filter(v=>v>0);
+  return {
+    n:arr.length,
+    waPct:pctOf(arr.filter(r=>act(r,'AHA WA')).length,n),
+    flowPct:pctOf(arr.filter(r=>act(r,'AHA flows')).length,n),
+    grupoPct:pctOf(arr.filter(r=>act(r,'AHA grupos')).length,n),
+    nivelAvg:avg(niv),
+    onbPct:pctOf(arr.filter(conOnb).length,n),
+    sesPct:pctOf(arr.filter(conSes).length,n),
+    atrPct:pctOf(arr.filter(isAtrasado).length,n),
+    ltAvg:avg(lt),
+  };
+}
+
+const METRICS=[
+  {lbl:'% conectaron WhatsApp',key:'waPct',unit:'%',higher:true},
+  {lbl:'% activaron Flows',key:'flowPct',unit:'%',higher:true},
+  {lbl:'% crearon Grupo',key:'grupoPct',unit:'%',higher:true},
+  {lbl:'Nivel de implementaci\u00f3n',key:'nivelAvg',unit:'%',higher:true},
+  {lbl:'% con onboarding',key:'onbPct',unit:'%',higher:true},
+  {lbl:'% con sesiones en vivo',key:'sesPct',unit:'%',higher:true},
+  {lbl:'% atrasadas (riesgo de fuga)',key:'atrPct',unit:'%',higher:false},
+  {lbl:'Vida media (d\u00edas)',key:'ltAvg',unit:'d',higher:true},
+];
+function cmpTableN(groups, showDelta, deltaLbl){
+  const fmtv=(v,m,u)=>v==null?'\u2014':(m?('$'+fmtNum(v)):(v+u));
+  const head=`<tr><th>Indicador</th>${groups.map(g=>`<th>${g.label} (n=${g.o.n})</th>`).join('')}${showDelta?('<th>'+(deltaLbl||'\u0394')+'</th>'):''}</tr>`;
+  const body=METRICS.map(m=>{
+    const cells=groups.map((g,i)=>`<td style="${i===0?'font-weight:700':'color:var(--muted)'}">${fmtv(g.o[m.key],m.money,m.unit)}</td>`).join('');
+    let dtag='';
+    if(showDelta&&groups.length>=2){ const a=groups[0].o[m.key], b=groups[groups.length-1].o[m.key];
+      if(a!=null&&b!=null){ const d=a-b; if(d!==0){ const good=m.higher?d>0:d<0; dtag=`<span class="${good?'cmp-good':'cmp-bad'}">${d>0?'+':''}${m.money?fmtNum(d):d}${m.money?'':m.unit}</span>`; } else dtag='<span style="color:var(--muted)">=</span>'; } }
+    return `<tr><td>${m.lbl}</td>${cells}${showDelta?`<td>${dtag}</td>`:''}</tr>`;
+  }).join('');
+  return `<table><thead>${head}</thead><tbody>${body}</tbody></table>`;
+}
+
+function renderDyn(base, from, to, baseAll){
+  const {genCol,onbCol}=DATA;
+  const total=base.length;
+  const usedGen=r=>genCol&&used(r[genCol]);
+  const usedOnbN=r=>onbCol&&used(r[onbCol]);
+  const usedNovaAny=r=>usedGen(r)||usedOnbN(r);
+  const genUse=base.filter(usedGen), genNo=base.filter(r=>!usedGen(r));
+  const onbBase=base.filter(conOnb);
+  const onbUse=onbBase.filter(usedOnbN);
+  const oSinNovaOnb=onbBase.filter(r=>!usedOnbN(r));
+  const sinNova=base.filter(r=>!usedNovaAny(r));
+  const acomp=base.filter(r=>conOnb(r)||usedNovaAny(r));
+  const auto=base.filter(r=>!conOnb(r)&&!usedNovaAny(r));
+  const gU=outcomes(genUse), gN=outcomes(genNo);
+  const oU=outcomes(onbUse), oB=outcomes(oSinNovaOnb), oSN=outcomes(sinNova);
+  const acO=outcomes(acomp), auO=outcomes(auto);
+  // Retención: sobre TODAS las cuentas del periodo (incl. canceladas)
+  const bAll=baseAll||base;
+  const novaAll=bAll.filter(usedNovaAny), noNovaAll=bAll.filter(r=>!usedNovaAny(r));
+  const ret=arr=>{const n=arr.length||1;return {n:arr.length,
+    retencion:pctOf(arr.filter(r=>!isCancel(r)).length,n),
+    vig:pctOf(arr.filter(isVigente).length,n),
+    atr:pctOf(arr.filter(isAtrasado).length,n),
+    can:pctOf(arr.filter(isCancel).length,n)};};
+  const rNova=ret(novaAll), rNo=ret(noNovaAll);
+  const retRow=(lbl,va,vb,higherBetter)=>{let tag='';const d=va-vb;if(d!==0){const good=higherBetter?d>0:d<0;tag=`<span class="${good?'cmp-good':'cmp-bad'}">${d>0?'+':''}${d}pp</span>`;}else tag='<span style="color:var(--muted)">=</span>';return `<tr><td>${lbl}</td><td style="font-weight:700">${va}%</td><td style="color:var(--muted)">${vb}%</td><td>${tag}</td></tr>`;};
+  const retencionCard=`<div class="card">
+    <div class="card-title">\ud83d\udcc8 Retenci\u00f3n de clientes impactados por Nova</div>
+    <div class="card-sub">Sobre <b>todas</b> las cuentas del periodo (incluye canceladas, para poder medir retenci\u00f3n). Retenci\u00f3n = % que siguen activas (vigentes o atrasadas, no canceladas).</div>
+    <table><thead><tr><th>Indicador</th><th>Impactadas por Nova (n=${rNova.n})</th><th>Sin Nova (n=${rNo.n})</th><th>\u0394</th></tr></thead><tbody>
+      ${retRow('% Retenci\u00f3n (no canceladas)',rNova.retencion,rNo.retencion,true)}
+      ${retRow('% Vigentes',rNova.vig,rNo.vig,true)}
+      ${retRow('% Atrasadas',rNova.atr,rNo.atr,false)}
+      ${retRow('% Canceladas',rNova.can,rNo.can,false)}
+    </tbody></table>
+    <div class="note">"Impactadas por Nova" = usaron Nova (general o en onboarding). Recordatorio: asociaci\u00f3n, no causalidad \u2014 quien usa Nova puede ser un cliente m\u00e1s comprometido de entrada.</div>
+  </div>`;
+  const rango = (from||to)?`${from?from.toLocaleDateString('es-CO'):'inicio'} \u2192 ${to?to.toLocaleDateString('es-CO'):'hoy'}`:'todo el hist\u00f3rico';
+
+  const html=`
+  <div style="font-size:11px;color:var(--muted);margin:2px 0 12px">Periodo: <b>${rango}</b> \u00b7 base (vigentes+atrasadas): <b>${total}</b> cuentas</div>
+  <div class="kpis">
+    <div class="kpi"><div class="v" style="color:var(--teal)">${pctOf(genUse.length,total)}%</div><div class="l">Usan Nova (general) \u00b7 ${genUse.length} de ${total}</div></div>
+    <div class="kpi"><div class="v" style="color:var(--purple)">${onbBase.length?pctOf(onbUse.length,onbBase.length):0}%</div><div class="l">Usan Nova en onboarding \u00b7 ${onbUse.length} de ${onbBase.length} con onb</div></div>
+    <div class="kpi"><div class="v">${gU.flowPct}% <span style="font-size:13px;color:var(--muted)">vs ${gN.flowPct}%</span></div><div class="l">Activaron Flows \u00b7 con vs sin Nova</div></div>
+    <div class="kpi"><div class="v">${gU.atrPct}% <span style="font-size:13px;color:var(--muted)">vs ${gN.atrPct}%</span></div><div class="l">Atrasadas \u00b7 con vs sin Nova (menos es mejor)</div></div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">\ud83e\udd16 Nova en general \u2014 us\u00f3 vs no us\u00f3</div>
+    <div class="card-sub">Cuentas vigentes o atrasadas, seg\u00fan usen Nova para acciones generales. \u0394 verde = mejor en el grupo que usa Nova.</div>
+    ${genCol?cmpTableN([{label:'Usa Nova',o:gU},{label:'No usa',o:gN}],true,'\u0394'):'<div style="color:var(--red);font-size:12px">No se detect\u00f3 la columna de uso general de Nova.</div>'}
+  </div>
+  ${retencionCard}
+  ${(()=>{ const ranges=factRanges([genUse,genNo]); if(!ranges.length||!BILL.col)return '';
+    const rows=ranges.map(rg=>`<tr><td>${rg}</td><td style="font-weight:700">${factPct(genUse,rg)}%</td><td style="color:var(--muted)">${factPct(genNo,rg)}%</td></tr>`).join('');
+    return `<div class="card"><div class="card-title">\ud83d\udcb5 Facturaci\u00f3n por rango \u00b7 usa Nova vs no usa</div>
+      <div class="card-sub">Columna <b>Facturaci\u00f3n promedio mensual</b> (rangos de texto, no promedio). % de cada grupo en cada rango.</div>
+      <table><thead><tr><th>Rango de facturaci\u00f3n</th><th>Usa Nova (n=${genUse.length})</th><th>No usa (n=${genNo.length})</th></tr></thead><tbody>${rows}</tbody></table>
+    </div>`; })()}
+
+  <div class="card">
+    <div class="card-title">\ud83c\udf93 Nova en onboarding \u2014 3 grupos</div>
+    <div class="card-sub">Nova apoy\u00f3 el onboarding \u00b7 onboarding sin Nova \u00b7 y como referencia, <b>clientes sin Nova</b> (cualquier onboarding, no excluyente). \u0394 = Nova en onb \u2212 clientes sin Nova.</div>
+    ${onbCol?cmpTableN([{label:'Nova en onb',o:oU},{label:'Onboarding sin Nova',o:oB},{label:'Clientes sin Nova',o:oSN}],true,'\u0394 (Nova onb \u2212 sin Nova)'):'<div style="color:var(--red);font-size:12px">No se detect\u00f3 la columna de Nova en onboarding.</div>'}
+  </div>
+
+  <div class="card">
+    <div class="card-title">\ud83e\udd1d Con acompa\u00f1amiento vs autogestionadas</div>
+    <div class="card-sub"><b>Con acompa\u00f1amiento</b> = tuvo onboarding y/o Nova (alg\u00fan contacto de activaci\u00f3n). <b>Autogestionadas</b> = sin onboarding y sin Nova. \u0394 verde = mejor con acompa\u00f1amiento.</div>
+    ${cmpTableN([{label:'Con acompa\u00f1amiento',o:acO},{label:'Autogestionadas (sin nada)',o:auO}],true,'\u0394')}
+  </div>
+
+  <div class="card">
+    <div class="card-title">\ud83d\udccc Lectura r\u00e1pida</div>
+    <div class="card-sub">Diferencias del grupo que usa Nova (general) frente al que no.</div>
+    ${genCol?`<ul style="margin:0;padding-left:18px;font-size:12px;line-height:1.8">
+      <li><b>Activaci\u00f3n:</b> Flows ${signo(gU.flowPct-gN.flowPct)}, WhatsApp ${signo(gU.waPct-gN.waPct)}, Grupos ${signo(gU.grupoPct-gN.grupoPct)}.</li>
+      <li><b>Profundidad de uso:</b> nivel de implementaci\u00f3n ${signo(diff(gU.nivelAvg,gN.nivelAvg),'pp')}.</li>
+      <li><b>Riesgo de fuga:</b> atrasadas ${signo(gU.atrPct-gN.atrPct,'',true)}; vida media ${signo(diff(gU.ltAvg,gN.ltAvg),' d\u00edas')}.</li>
+    </ul>`:'\u2014'}
+    <div class="note">Son asociaciones: quien usa Nova puede ser un cliente m\u00e1s activo de entrada, as\u00ed que parte del efecto puede ser de selecci\u00f3n.</div>
+  </div>`;
+  document.getElementById('dyn').innerHTML=html;
+}
+function diff(a,b){ return (a!=null&&b!=null)?(a-b):null; }
+function signo(d,unit,inverse){ unit=unit||' pp'; if(d==null)return '<span style="color:var(--muted)">sin dato</span>'; if(d===0)return '<span style="color:var(--muted)">igual</span>'; const good=inverse?d<0:d>0; return `<span class="${good?'cmp-good':'cmp-bad'}">${d>0?'+':''}${d}${unit}</span>`; }
+
+boot();
+</script>
+</body>
+</html>

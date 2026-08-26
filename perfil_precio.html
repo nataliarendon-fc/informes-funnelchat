@@ -1,0 +1,409 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Perfil de cancelación por precio · Área de Clientes · Funnelchat</title>
+<style>
+  :root{
+    --bg:#f7f8fa; --card:#ffffff; --border:rgba(15,23,42,.08); --muted:#64748b;
+    --ink:#0f172a; --teal:#0d9488; --blue:#2563eb; --green2:#16a34a; --orange:#ea580c;
+    --red:#dc2626; --yellow:#b45309; --purple:#7c3aed;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:'DM Sans',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;font-size:13px;line-height:1.5}
+  .wrap{max-width:1100px;margin:0 auto;padding:28px 22px 80px}
+  h1{font-family:'Syne',sans-serif;font-size:22px;font-weight:800;margin:0 0 2px}
+  .sub{color:var(--muted);font-size:12px;margin-bottom:20px}
+  .card{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:18px 20px;margin-bottom:16px;box-shadow:0 1px 2px rgba(15,23,42,.03)}
+  .card-title{font-family:'Syne',sans-serif;font-size:14px;font-weight:800;margin-bottom:2px}
+  .card-sub{font-size:10px;color:var(--muted);margin-bottom:12px}
+  .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:16px}
+  .kpi{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:14px 16px}
+  .kpi .v{font-family:'Syne',sans-serif;font-size:24px;font-weight:800;line-height:1}
+  .kpi .l{font-size:10px;color:var(--muted);margin-top:4px}
+  .bar-row{display:flex;align-items:center;gap:8px;margin-bottom:5px}
+  .bar-lbl{font-size:11px;color:#334155;width:44%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .bar-track{flex:1;background:rgba(15,23,42,.05);border-radius:5px;height:16px;position:relative;overflow:hidden}
+  .bar-fill{height:100%;border-radius:5px}
+  .bar-val{font-size:10px;color:var(--muted);width:64px;text-align:right;white-space:nowrap}
+  table{width:100%;border-collapse:collapse}
+  th{font-size:9px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);text-align:left;padding:6px 8px;border-bottom:1px solid var(--border);font-weight:700}
+  td{font-size:11px;padding:6px 8px;border-bottom:1px solid var(--border);color:#334155}
+  .diag{background:rgba(37,99,235,.04);border:1px solid rgba(37,99,235,.15);border-radius:12px;padding:14px 16px;font-size:11px;color:#334155;margin-bottom:16px}
+  .diag b{color:var(--ink)}
+  .pill{display:inline-block;font-size:10px;padding:2px 8px;border-radius:20px;background:rgba(15,23,42,.05);color:#334155;margin:2px 4px 2px 0}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+  @media(max-width:720px){.grid2{grid-template-columns:1fr}}
+  .cmp-up{color:var(--red);font-weight:700}
+  .cmp-dn{color:var(--green2);font-weight:700}
+  .warn{background:#fef2f2;border:1px solid #fecaca;color:#991b1b;padding:12px 16px;border-radius:10px;font-size:12px;margin-bottom:16px}
+  textarea{width:100%;min-height:120px;border:1px solid var(--border);border-radius:8px;padding:10px;font-family:monospace;font-size:11px}
+  button.load{background:var(--teal);color:#fff;border:none;border-radius:8px;padding:9px 18px;font-weight:700;font-size:12px;cursor:pointer;font-family:inherit;margin-top:8px}
+  .note{font-size:10px;color:var(--muted);font-style:italic;margin-top:8px}
+  .mnb{font-size:11px;padding:5px 10px;border-radius:7px;border:1px solid var(--border);background:#fff;color:#334155;cursor:pointer;font-family:inherit}
+  .mnb:hover{background:rgba(15,23,42,.04)}
+</style>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&family=Syne:wght@700;800&display=swap" rel="stylesheet">
+</head>
+<body>
+<div class="wrap">
+  <h1>Perfil de cancelación por precio</h1>
+  <div class="sub">Clientes que declararon <strong>precio elevado</strong> como motivo de cancelación · Área de Clientes · Funnelchat</div>
+
+  <div id="loading" class="card">Cargando datos en vivo…</div>
+  <div id="pasteBox" style="display:none">
+    <div class="warn">No se pudo cargar automáticamente (bloqueo de red del entorno). Pega aquí el JSON del endpoint de Apps Script y dale "Cargar".</div>
+    <textarea id="pasteArea" placeholder="Pega aquí el JSON completo…"></textarea>
+    <button class="load" onclick="loadFromPaste()">Cargar</button>
+    <div id="pasteErr" style="color:#991b1b;font-size:11px;margin-top:8px"></div>
+  </div>
+  <div id="content" style="display:none"></div>
+</div>
+
+<script>
+const API_URL='https://script.google.com/macros/s/AKfycbwNp-Hnmi1imEggg6Qz7xRP_fR57ZvcQb9hFR2WUPn1c-BdsN23x2vrnlU5zY6Rydrlng/exec';
+
+/* ── Helpers ── */
+function parseISO(s){
+  if(!s||!s.toString().trim())return null; s=s.toString().trim();
+  if(/^\d{4}-\d{2}-\d{2}/.test(s)){const d=new Date(s);return isNaN(d)?null:d;}
+  const m=s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+  if(m){const d=new Date(parseInt(m[3]),parseInt(m[2])-1,parseInt(m[1]));return isNaN(d)?null:d;}
+  try{const d=new Date(s);return isNaN(d)?null:d;}catch{return null;}
+}
+function getCA(r){return parseISO(r['created_at'])||parseISO(r['Fecha creación']);}
+function isPaga(r){const t=(r['trial']||'').toString().trim().toUpperCase();return t!=='TRUE'&&t!=='1'&&t!=='SI'&&t!=='SÍ';}
+function getNichoInterp(r){ if(r&&r['NICHO INTERPRETADO']!==undefined) return (r['NICHO INTERPRETADO']||'').toString().trim(); for(const k in r){ if(k.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/\s+/g,' ').trim()==='nicho interpretado') return (r[k]||'').toString().trim(); } return ''; }
+function nicheOf(r){ const ni=getNichoInterp(r); if(ni) return ni; const t=(r['Tipo de negocio']||'').toString().trim(); return t||'(sin tipo)'; }
+function parseNum(v){
+  if(v===undefined||v===null)return NaN;
+  let s=v.toString().trim(); if(!s)return NaN;
+  s=s.replace(/[^0-9,.\-]/g,'');
+  if(s.indexOf(',')>-1 && s.indexOf('.')>-1){ s=s.replace(/\./g,'').replace(',','.'); }      // 1.200,50 -> 1200.50
+  else if(s.indexOf(',')>-1){ s=s.replace(',','.'); }                                          // 120,50 -> 120.50
+  else if((s.match(/\./g)||[]).length>1){ s=s.replace(/\./g,''); }                             // 1.200.000 -> 1200000
+  else if(s.indexOf('.')>-1){ const after=s.split('.').pop(); if(after.length===3)s=s.replace(/\./g,''); } // 120.000 -> 120000
+  const n=parseFloat(s); return isNaN(n)?NaN:n;
+}
+/* Facturación: campo autodetectado (sin MRR) */
+const BILL_CANDS=['Facturación promedio mensual','Facturacion promedio mensual','payment_amount','plan_value','Facturación','facturacion','monto','amount'];
+let BILL={col:null,fill:0};
+function normKey(s){ return (s||'').toString().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/\s+/g,' ').trim(); }
+function pickBillField(rows){
+  const cols=new Set(); rows.slice(0,300).forEach(r=>Object.keys(r).forEach(k=>cols.add(k))); const list=[...cols];
+  let t=list.find(c=>normKey(c)==='facturacion promedio mensual')||list.find(c=>{const n=normKey(c);return n.includes('facturacion')&&(n.includes('mensual')||n.includes('promedio'));});
+  if(t){ let f=0; rows.forEach(r=>{ if((r[t]||'').toString().trim()!=='')f++; }); return {col:t,fill:f}; }
+  let best={col:null,fill:0}; BILL_CANDS.forEach(col=>{ let f=0; rows.forEach(r=>{ if(r[col]!==undefined&&(r[col]||'').toString().trim()!=='')f++; }); if(f>best.fill)best={col,fill:f}; }); return best;
+}
+function getBill(r){ return BILL.col?parseNum(r[BILL.col]):NaN; }
+const vig=r=>(r['Vigencia del servicio']||'').toString().trim();
+const isCancel=r=>/cancel/i.test(vig(r));
+function parseNivel(r){ let v=(r['% Nivel de implementación']||'').toString().replace('%','').replace(',','.').trim(); if(v===''||isNaN(parseFloat(v)))return null; v=parseFloat(v); if(v>0&&v<=1)v*=100; if(v>100||v<0)return null; return Math.round(v); }
+const act=(r,col)=>(r[col]||'').toString().trim()!=='';
+const conOnb=r=>(r['Onboarding']||'').toString().trim().toLowerCase()==='con onboarding';
+const conSes=r=>(r['Sesiones en vivo']||'').toString().trim().toLowerCase()==='asistió'||(r['Sesiones en vivo']||'').toString().trim().toLowerCase()==='asistio';
+function segOf(r){const s=(r['Segmento de cliente (priorización de cliente)']||'').trim();return (s==='A'||s==='B'||s==='C')?('Seg '+s):'Sin segmento';}
+function planOf(r){return (r['Planes Funnelchat']||'').toString().replace(/^plan\s+/i,'').trim()||'(sin plan)';}
+function pctOf(n,tot){return tot?Math.round(n/tot*100):0;}
+function fmtNum(n){return n==null||isNaN(n)?'—':Number(n).toLocaleString('es-CO');}
+function median(arr){ if(!arr.length)return null; const s=[...arr].sort((a,b)=>a-b); const m=Math.floor(s.length/2); return s.length%2?s[m]:Math.round((s[m-1]+s[m])/2); }
+function avg(arr){ return arr.length?Math.round(arr.reduce((a,b)=>a+b,0)/arr.length):null; }
+
+/* Detección de "precio" en la encuesta */
+const PRICE_RE=/precio|costo|costos|costoso|caro|cara|econ[oó]mic|presupuesto|mensualidad|tarifa|elevad|muy alto|no.*pagar|no puedo pagar|dinero|inversi[oó]n alta/i;
+function motivoTxt(r){ return ((r['Macromotivo']||'')+' || '+(r['Motivo Cancelación']||'')+' || '+(r['Motivo cancelación']||'')+' || '+(r['Submotivo']||'')).toString(); }
+function isPrice(r){ return PRICE_RE.test(motivoTxt(r)); }
+
+/* ── Carga ── */
+async function boot(){
+  try{
+    const res=await fetch(API_URL);
+    const json=await res.json();
+    run(json);
+  }catch(e){
+    document.getElementById('loading').style.display='none';
+    document.getElementById('pasteBox').style.display='block';
+  }
+}
+function showPasteErr(msg){ const el=document.getElementById('pasteErr'); if(el)el.textContent=msg; }
+function loadFromPaste(){
+  showPasteErr('');
+  const raw=(document.getElementById('pasteArea').value||'').trim();
+  if(!raw){ showPasteErr('Pega primero el JSON del endpoint.'); return; }
+  let json;
+  try{ json=JSON.parse(raw); }
+  catch(e){ showPasteErr('JSON inválido: '+e.message+'. Copia el contenido COMPLETO del endpoint (empieza con { y termina con }).'); return; }
+  if(!json.cuentas){ showPasteErr('El JSON no trae la hoja "cuentas". Pega el JSON completo del endpoint (incluye todas las hojas).'); return; }
+  try{ run(json); document.getElementById('pasteBox').style.display='none'; }
+  catch(e){ showPasteErr('Error al procesar los datos: '+e.message); }
+}
+
+function run(json){
+  const cuentas=(json.cuentas||[]).filter(r=>Object.keys(r).length>1);
+  const cancel =(json.cancelaciones||[]).filter(r=>Object.keys(r).length>0);
+
+  /* Índices de cuentas */
+  const byId=new Map(); cuentas.forEach(r=>{const id=(r['id']||'').toString().trim(); if(id)byId.set(id,r);});
+  const emailCols=['email','correo','Email','Correo','Correo electrónico','correo_electronico','e-mail','mail'];
+  const byEmail=new Map(); cuentas.forEach(r=>{ for(const c of emailCols){ const e=(r[c]||'').toString().trim().toLowerCase(); if(e){byEmail.set(e,r);break;} } });
+
+  /* Detección de llave de cruce en la encuesta */
+  const surveyCols=cancel.length?Object.keys(cancel[0]):[];
+  const idCandidates=[...new Set(['user_id','id','User ID','ID','account_id','cuenta_id','id_cuenta','userId','user id'].concat(surveyCols.filter(c=>/(^|_|\s)id(\b|_|$)/i.test(c))))];
+  let bestId={col:null,rate:0,hit:0,tot:0};
+  idCandidates.forEach(col=>{ let hit=0,tot=0; cancel.forEach(r=>{const v=(r[col]||'').toString().trim(); if(v){tot++; if(byId.has(v))hit++;}}); const rate=tot?hit/tot:0; if(rate>bestId.rate)bestId={col,rate,hit,tot}; });
+  const emailCandidates=[...new Set(emailCols.concat(surveyCols.filter(c=>/mail|correo/i.test(c))))];
+  let bestEmail={col:null,rate:0,hit:0,tot:0};
+  emailCandidates.forEach(col=>{ let hit=0,tot=0; cancel.forEach(r=>{const v=(r[col]||'').toString().trim().toLowerCase(); if(v){tot++; if(byEmail.has(v))hit++;}}); const rate=tot?hit/tot:0; if(rate>bestEmail.rate)bestEmail={col,rate,hit,tot}; });
+
+  function joinAcct(r){
+    if(bestId.col){ const v=(r[bestId.col]||'').toString().trim(); if(v&&byId.has(v))return byId.get(v); }
+    if(bestEmail.col){ const v=(r[bestEmail.col]||'').toString().trim().toLowerCase(); if(v&&byEmail.has(v))return byEmail.get(v); }
+    return null;
+  }
+
+  /* Motivo = precio */
+  const priceRows=cancel.filter(isPrice);
+  const otherRows=cancel.filter(r=>!isPrice(r));
+  const matchedVals={}; priceRows.forEach(r=>{ const mv=[(r['Macromotivo']||'').trim(),(r['Motivo Cancelación']||r['Motivo cancelación']||'').trim()].filter(Boolean).join(' · '); if(mv)matchedVals[mv]=(matchedVals[mv]||0)+1; });
+
+  /* Cruce a perfil */
+  const joinedP=[]; let pJoin=0;
+  priceRows.forEach(r=>{const a=joinAcct(r); if(a){joinedP.push(Object.assign({},a,{__motivo:motivoTxt(r),__survDate:parseISO(r['created_at'])})); pJoin++;}});
+  const joinedO=[]; otherRows.forEach(r=>{const a=joinAcct(r); if(a)joinedO.push(Object.assign({},a,{__survDate:parseISO(r['created_at'])}));});
+
+  /* Facturación: detectar el campo con más datos entre las cuentas cruzadas */
+  BILL=pickBillField(joinedP.length?joinedP:cuentas);
+
+  DATA={cuentas,cancel,priceRows,otherRows,joinedP,joinedO,pJoin,matchedVals,bestId,bestEmail};
+  buildShell();
+  applyFilters();
+}
+
+let DATA=null;
+function fdate(d){ return d.toISOString().slice(0,10); }
+function buildShell(){
+  const {cancel,priceRows,joinedP,pJoin,matchedVals,bestId,bestEmail}=DATA;
+  const shell=`
+  <div class="diag">
+    <b>🔎 Diagnóstico</b><br>
+    Encuestas de cancelación totales: <b>${cancel.length}</b> · marcadas como <b>precio</b>: <b>${priceRows.length}</b> (${pctOf(priceRows.length,cancel.length)}%) · cruzadas con cuenta: <b>${pJoin}</b> (${pctOf(pJoin,priceRows.length)}%).<br>
+    <b>Facturación:</b> campo detectado <b>${BILL.col?('«'+BILL.col+'»'):'—ninguno—'}</b>${BILL.col?(' · con dato en '+BILL.fill+' cuentas'):''}.<br>
+    Llave de cruce detectada: <b>${bestId.col?('«'+bestId.col+'» (ID, '+Math.round(bestId.rate*100)+'% match)'):'—'}</b>${bestEmail.col&&bestEmail.rate>0.05?(' · respaldo email «'+bestEmail.col+'» ('+Math.round(bestEmail.rate*100)+'%)'):''}.<br>
+    Valores de motivo capturados como "precio": ${Object.entries(matchedVals).sort((a,b)=>b[1]-a[1]).map(([k,v])=>`<span class="pill">${k} · ${v}</span>`).join('')||'<i>ninguno</i>'}
+    <div class="note">Perfil = todas las cuentas que respondieron "precio" (sin filtrar por vigencia). El filtro de fecha usa la <b>fecha de la respuesta de cancelación</b>. Facturación a nivel de cliente (rango); no incluye MRR.</div>
+  </div>
+
+  <div class="card">
+    <div style="font-size:11px;font-weight:700;margin-bottom:6px">📅 Periodo (por fecha de la respuesta de cancelación)</div>
+    <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;font-size:11px">
+      <label>Desde <input type="date" id="fDesde" style="font-family:inherit;font-size:11px;padding:4px 6px;border:1px solid var(--border);border-radius:6px"></label>
+      <label>Hasta <input type="date" id="fHasta" style="font-family:inherit;font-size:11px;padding:4px 6px;border:1px solid var(--border);border-radius:6px"></label>
+      <button class="load" style="margin-top:0;padding:6px 12px" onclick="applyFilters()">Aplicar</button>
+      <span style="width:1px;height:20px;background:var(--border)"></span>
+      <button class="mnb" onclick="setPreset('all')">Todo</button>
+      <button class="mnb" onclick="setPreset(3)">Últimos 3 meses</button>
+      <button class="mnb" onclick="setPreset(6)">6 meses</button>
+      <button class="mnb" onclick="setPreset(12)">12 meses</button>
+    </div>
+  </div>
+  <div id="dyn"></div>`;
+  document.getElementById('loading').style.display='none';
+  const c=document.getElementById('content'); c.style.display='block'; c.innerHTML=shell;
+}
+function setPreset(m){
+  const d=document.getElementById('fDesde'), h=document.getElementById('fHasta');
+  if(m==='all'){ d.value=''; h.value=''; }
+  else { const to=new Date(), from=new Date(); from.setMonth(from.getMonth()-m); d.value=fdate(from); h.value=fdate(to); }
+  applyFilters();
+}
+function applyFilters(){
+  if(!DATA)return;
+  const dv=document.getElementById('fDesde').value, hv=document.getElementById('fHasta').value;
+  const from=dv?new Date(dv+'T00:00:00'):null, to=hv?new Date(hv+'T23:59:59'):null;
+  const inRange=r=>{ const d=r.__survDate; if(from&&(!d||d<from))return false; if(to&&(!d||d>to))return false; return true; };
+  const P=DATA.joinedP.filter(inRange), O=DATA.joinedO.filter(inRange);
+  renderDyn(P,O,from,to);
+}
+
+/* ── Render ── */
+function bar(entries,tot,color){
+  const max=Math.max(...entries.map(e=>e[1]),1);
+  return entries.map(([k,v])=>`<div class="bar-row"><div class="bar-lbl" title="${k}">${k}</div>
+    <div class="bar-track"><div class="bar-fill" style="width:${Math.round(v/max*100)}%;background:${color}"></div></div>
+    <div class="bar-val">${v} · ${pctOf(v,tot)}%</div></div>`).join('');
+}
+function dist(arr,keyFn){ const d={}; arr.forEach(r=>{const k=keyFn(r)||'(sin dato)'; d[k]=(d[k]||0)+1;}); return Object.entries(d).sort((a,b)=>b[1]-a[1]); }
+// "Facturación promedio mensual" es CATEGÓRICA (rangos de texto), no numérica.
+function factCat(r){ const v=BILL.col?(r[BILL.col]||'').toString().trim():''; return v||'(sin dato)'; }
+function factSortKey(label){
+  const s=(label||'').toLowerCase();
+  if(s.includes('sin dato')) return Infinity;
+  const m=s.match(/(\d[\d.,]*)\s*(millones|millon|mill|mm|mil|k|m)?/);
+  let base=0;
+  if(m){ base=parseFloat(m[1].replace(/[.,]/g,''))||0; const u=m[2]||''; if(/millones|millon|mill|mm/.test(u))base*=1000000; else if(/mil|k/.test(u))base*=1000; }
+  if(/menos|hasta|</.test(s)) return base-0.5;
+  if(/m[aá]s|mayor|superior|>|\+/.test(s)) return base*10+1;
+  return base;
+}
+function factDist(arr){ return dist(arr,factCat).sort((a,b)=>factSortKey(a[0])-factSortKey(b[0])); }
+
+function metrics(arr){
+  const n=arr.length||1;
+  const niv=arr.map(parseNivel).filter(v=>v!=null);
+  const lt=arr.map(r=>parseInt(r['LT'])||0).filter(v=>v>0);
+  const tick=arr.map(getBill).filter(v=>!isNaN(v)&&v>0);
+  return {
+    n:arr.length,
+    advPct:pctOf(arr.filter(r=>/advanced/i.test(r['Planes Funnelchat']||'')).length,n),
+    ticketAvg:avg(tick), ticketMed:median(tick),
+    ltAvg:avg(lt), ltMed:median(lt),
+    waPct:pctOf(arr.filter(r=>act(r,'AHA WA')).length,n),
+    flowPct:pctOf(arr.filter(r=>act(r,'AHA flows')).length,n),
+    grupoPct:pctOf(arr.filter(r=>act(r,'AHA grupos')).length,n),
+    nivelAvg:avg(niv),
+    onbPct:pctOf(arr.filter(conOnb).length,n),
+    sesPct:pctOf(arr.filter(conSes).length,n),
+  };
+}
+
+function renderDyn(P,O,from,to){
+  const n=P.length;
+  const mP=metrics(P), mO=metrics(O);
+  const tickAll=P.map(getBill).filter(v=>!isNaN(v)&&v>0);
+  const factRows=factDist(P);
+  const factMode=factRows.slice().sort((a,b)=>b[1]-a[1])[0];
+  const sinBill=P.filter(r=>factCat(r)==='(sin dato)').length;
+  const vigDist={}; P.forEach(r=>{const v=vig(r)||'(sin dato)'; vigDist[v]=(vigDist[v]||0)+1;});
+  const rango=(from||to)?`${from?from.toLocaleDateString('es-CO'):'inicio'} → ${to?to.toLocaleDateString('es-CO'):'hoy'}`:'todo el histórico';
+
+  /* Comparación precio vs otros */
+  const cmp=(lbl,vp,vo,unit,higherWorse)=>{
+    const diff=(vp!=null&&vo!=null)?vp-vo:null;
+    let tag='';
+    if(diff!=null&&vo!=0){ const worse=higherWorse?diff>0:diff<0; tag=`<span class="${worse?'cmp-up':'cmp-dn'}">${diff>0?'+':''}${diff}${unit}</span>`; }
+    return `<tr><td>${lbl}</td><td style="font-weight:700">${vp==null?'—':vp+unit}</td><td style="color:var(--muted)">${vo==null?'—':vo+unit}</td><td>${tag}</td></tr>`;
+  };
+
+  const html=`
+  <div style="font-size:11px;color:var(--muted);margin:2px 0 12px">Periodo: <b>${rango}</b> · <b>${n}</b> cancelaciones por precio · vigencia: ${Object.entries(vigDist).sort((a,b)=>b[1]-a[1]).map(([k,v])=>`<span class="pill">${k} · ${v}</span>`).join('')||'—'}</div>
+
+  <div class="kpis">
+    <div class="kpi"><div class="v" style="color:var(--red)">${n}</div><div class="l">Cancelaciones por precio (cruzadas)</div></div>
+    <div class="kpi"><div class="v">${pctOf(DATA.priceRows.length,DATA.cancel.length)}%</div><div class="l">De las respuestas de encuesta</div></div>
+    <div class="kpi"><div class="v" style="font-size:15px">${factMode?factMode[0]:'—'}</div><div class="l">Rango de facturación más común</div></div>
+    <div class="kpi"><div class="v">${mP.ltAvg!=null?mP.ltAvg+'d':'—'}</div><div class="l">Vida media antes de cancelar</div></div>
+    <div class="kpi"><div class="v">${mP.flowPct}%</div><div class="l">Activaron flows (uso)</div></div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">💰 Facturación</div>
+    <div class="card-sub">Cuánto pagaban estos clientes. "Facturación promedio mensual" es un rango (categórico); su distribución está en la gráfica de abajo.</div>
+    <div class="grid2">
+      <div>
+        <div style="font-size:11px;font-weight:700;margin-bottom:6px">Plan contratado</div>
+        ${bar(dist(P,planOf),n,'var(--teal)')}
+      </div>
+      <div>
+        <div style="font-size:11px;font-weight:700;margin-bottom:6px">Periodicidad de pago (payment_type)</div>
+        ${bar(dist(P,r=>(r['payment_type']||'(sin dato)').toString().trim()),n,'var(--blue)')}
+        <div style="margin-top:12px;font-size:11px">Rango de facturación más común: <b>${factMode?factMode[0]:'—'}</b>${sinBill>0?` <span style="color:var(--muted)">· ${sinBill} sin dato</span>`:''}</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">💵 Distribución de facturación · cuentas que se van por precio</div>
+    <div class="card-sub">Cuentas por rango de <b>Facturación promedio mensual</b> (BD Funnelchat)${BILL.col?` · columna «${BILL.col}»`:''}, ordenado de menor a mayor.</div>
+    ${factRows.length?bar(factRows,n,'var(--teal)'):'<div style="color:var(--muted);font-size:12px">Sin datos de facturación.</div>'}
+  </div>
+
+  <div class="card">
+    <div class="card-title">🧭 Perfil</div>
+    <div class="card-sub">Segmento, nicho y objetivo declarado de quienes se van por precio.</div>
+    <div class="grid2">
+      <div>
+        <div style="font-size:11px;font-weight:700;margin-bottom:6px">Segmento</div>
+        ${bar(dist(P,segOf),n,'var(--purple)')}
+        <div style="font-size:11px;font-weight:700;margin:14px 0 6px">País (top 6)</div>
+        ${bar(dist(P,r=>(r['country_name']||'(sin dato)').toString().trim()).slice(0,6),n,'var(--yellow)')}
+      </div>
+      <div>
+        <div style="font-size:11px;font-weight:700;margin-bottom:6px">Nicho (top 10 · NICHO INTERPRETADO)</div>
+        ${bar(dist(P,nicheOf).slice(0,10),n,'var(--orange)')}
+      </div>
+    </div>
+    <div style="font-size:11px;font-weight:700;margin:14px 0 6px">Objetivo declarado con Funnelchat (top 6)</div>
+    ${bar(dist(P,r=>(r['Objetivo con Funnelchat']||'(sin dato)').toString().trim()).slice(0,6),n,'var(--green2)')}
+  </div>
+
+  <div class="card">
+    <div class="card-title">⚙️ ¿Usaban? ¿Qué usaban?</div>
+    <div class="card-sub">Activación de hitos y acompañamiento. Ayuda a distinguir "se va porque es caro" de "se va porque no le sacó valor".</div>
+    <div class="grid2">
+      <div>
+        <div class="bar-row"><div class="bar-lbl">Conectaron WhatsApp (AHA)</div><div class="bar-track"><div class="bar-fill" style="width:${mP.waPct}%;background:var(--blue)"></div></div><div class="bar-val">${mP.waPct}%</div></div>
+        <div class="bar-row"><div class="bar-lbl">Activaron Flows (AHA)</div><div class="bar-track"><div class="bar-fill" style="width:${mP.flowPct}%;background:var(--teal)"></div></div><div class="bar-val">${mP.flowPct}%</div></div>
+        <div class="bar-row"><div class="bar-lbl">Crearon Grupo (AHA)</div><div class="bar-track"><div class="bar-fill" style="width:${mP.grupoPct}%;background:var(--purple)"></div></div><div class="bar-val">${mP.grupoPct}%</div></div>
+      </div>
+      <div>
+        <div class="bar-row"><div class="bar-lbl">Tuvieron onboarding</div><div class="bar-track"><div class="bar-fill" style="width:${mP.onbPct}%;background:var(--green2)"></div></div><div class="bar-val">${mP.onbPct}%</div></div>
+        <div class="bar-row"><div class="bar-lbl">Asistieron a sesiones en vivo</div><div class="bar-track"><div class="bar-fill" style="width:${mP.sesPct}%;background:var(--orange)"></div></div><div class="bar-val">${mP.sesPct}%</div></div>
+        <div style="margin-top:12px;font-size:12px">Nivel de implementación promedio: <b>${mP.nivelAvg==null?'—':mP.nivelAvg+'%'}</b></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">🆚 ¿Qué distingue al que se va por precio?</div>
+    <div class="card-sub">Comparación contra el resto de cancelados con encuesta (otros motivos). La última columna es la diferencia (rojo = peor en el grupo precio).</div>
+    <table>
+      <thead><tr><th>Indicador</th><th>Por precio</th><th>Otros motivos</th><th>Δ</th></tr></thead>
+      <tbody>
+        ${cmp('% en plan Advanced',mP.advPct,mO.advPct,'%',false)}
+        ${cmp('Vida media (días)',mP.ltAvg,mO.ltAvg,'d',false)}
+        ${cmp('% activaron flows',mP.flowPct,mO.flowPct,'%',false)}
+        ${cmp('% conectaron WhatsApp',mP.waPct,mO.waPct,'%',false)}
+        ${cmp('% crearon grupo',mP.grupoPct,mO.grupoPct,'%',false)}
+        ${cmp('Nivel implementación (%)',mP.nivelAvg,mO.nivelAvg,'%',false)}
+        ${cmp('% con onboarding',mP.onbPct,mO.onbPct,'%',false)}
+        ${cmp('% con sesiones en vivo',mP.sesPct,mO.sesPct,'%',false)}
+      </tbody>
+    </table>
+    <div class="note">Lectura: si el grupo "precio" tiene <b>uso alto</b> (activaron/nivel altos) pero se va igual, el problema es de <b>percepción de valor vs. precio</b>. Si tiene <b>uso bajo</b>, el "precio" suele ser una racionalización de que <b>no alcanzó a sacarle provecho</b>.</div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">📋 Detalle por cuenta (${n})</div>
+    <div class="card-sub">Cada cliente que se fue por precio, cruzado con su perfil.</div>
+    <div style="overflow-x:auto">
+    <table>
+      <thead><tr><th>id</th><th>Fecha resp.</th><th>Plan</th><th>Facturación</th><th>Vida (d)</th><th>Segmento</th><th>Nicho</th><th>Objetivo</th><th>Flows</th><th>Nivel</th><th>ONB</th><th>País</th></tr></thead>
+      <tbody>
+        ${P.slice().sort((a,b)=>factSortKey(factCat(a))-factSortKey(factCat(b))).map(r=>`<tr>
+          <td>${(r['id']||'').toString().slice(0,10)}</td>
+          <td>${r.__survDate?r.__survDate.toLocaleDateString('es-CO'):'—'}</td>
+          <td>${planOf(r)}</td>
+          <td>${factCat(r)}</td>
+          <td>${parseInt(r['LT'])||'—'}</td>
+          <td>${segOf(r).replace('Seg ','')}</td>
+          <td title="${nicheOf(r)}">${nicheOf(r).slice(0,20)}</td>
+          <td title="${(r['Objetivo con Funnelchat']||'')}">${(r['Objetivo con Funnelchat']||'—').toString().slice(0,18)}</td>
+          <td>${act(r,'AHA flows')?'✓':'—'}</td>
+          <td>${parseNivel(r)==null?'—':parseNivel(r)+'%'}</td>
+          <td>${conOnb(r)?'✓':'—'}</td>
+          <td>${(r['country_name']||'—').toString().slice(0,14)}</td>
+        </tr>`).join('')}
+      </tbody>
+    </table>
+    </div>
+  </div>
+  `;
+  const dyn=document.getElementById('dyn'); if(dyn)dyn.innerHTML=html;
+}
+
+boot();
+</script>
+</body>
+</html>
