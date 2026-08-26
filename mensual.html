@@ -1731,6 +1731,7 @@ function calcMonth(off){
     upgrades, downgrades, upAgg, downAgg, movTrend6, kam,
     vigP:vigP.length,vigT:vigT.length,activasInicioMes,
     nuevosMesP:nuevosMesP.length,nuevosMesT:nuevosMesT.length,
+    nuevosMesPRows:nuevosMesP,
     cancelMes:cancelMes.length,convMes:convMes,convMesNuevas:convMesNuevas,convMesPrevias:convMesPrevias,
     cancelMesArr:cancelMes,cancelMesTrial:cancelMesTrial,
     allCancelP:allCancelP,
@@ -2016,7 +2017,7 @@ function render(m){
       <div class="p-value" style="color:var(--teal)">${m.activasInicioMes.toLocaleString('es-CO')}</div>
       <div class="p-context">Base para churn · neto: ${m.activasInicioMes > m.vigP ? '▼ pérdida' : '▲ crecimiento'} de ${Math.abs(m.activasInicioMes - m.vigP)}</div>
     </div>
-    <div class="p-card c-blue"><div class="p-label">Nuevas pagas del mes</div>
+    <div class="p-card c-blue" style="cursor:pointer" onclick="descargarNuevasPagas()" title="Clic para ver/descargar el listado con id"><div class="p-label">Nuevas pagas del mes <span style="font-size:10px;color:var(--blue)">⬇</span></div>
       <div class="p-value" style="color:var(--blue)">${m.nuevosMesP}</div>
       <div class="p-delta ${dN.cls}">${dN.txt}</div>
       <div class="p-context">Trial nuevos: ${m.nuevosMesT}</div></div>
@@ -4611,6 +4612,40 @@ function setTipoCli(v){
   document.querySelectorAll('#tipoCliToggle .mn-btn').forEach(b=>b.classList.toggle('active',b.dataset.tc===v));
   document.getElementById('planBody').innerHTML='';
   render(calcMonth(currentMonthOffset));
+}
+function _csvEsc(v){ v=(v==null?'':v.toString()); return /[",\n;]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v; }
+function _descargarBlob(filename,text,mime){
+  try{ const blob=new Blob([text],{type:mime||'text/plain;charset=utf-8;'}); const url=URL.createObjectURL(blob);
+    const a=document.createElement('a'); a.href=url; a.download=filename; document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    setTimeout(()=>URL.revokeObjectURL(url),1500); return true; }catch(e){ return false; }
+}
+function cerrarListaModal(){ const el=document.getElementById('__listaModal'); if(el)el.remove(); }
+function descargarNuevasPagas(){
+  const m=window._mesMet; if(!m||!m.nuevosMesPRows){return;}
+  const rows=m.nuevosMesPRows, tipo=window._tipoCli||'pagas';
+  const cols=['id','created_at','Planes Funnelchat','Vigencia del servicio','country_name','% Nivel de implementación','Objetivo con Funnelchat','Onboarding'];
+  const present=cols.filter(c=>rows.some(r=>r[c]!==undefined))||['id'];
+  const csv='\ufeff'+present.join(';')+'\n'+rows.map(r=>present.map(c=>_csvEsc(r[c])).join(';')).join('\n');
+  const ids=rows.map(r=>(r['id']||'').toString()).filter(Boolean).join('\n');
+  const fname='cuentas_nuevas_'+tipo+'.csv';
+  cerrarListaModal();
+  const ov=document.createElement('div'); ov.id='__listaModal';
+  ov.style.cssText='position:fixed;inset:0;background:rgba(15,23,42,.45);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px';
+  ov.onclick=e=>{ if(e.target===ov)cerrarListaModal(); };
+  const box=document.createElement('div');
+  box.style.cssText='background:#fff;border-radius:14px;max-width:640px;width:100%;max-height:85vh;overflow:auto;padding:20px 22px;box-shadow:0 10px 40px rgba(0,0,0,.25)';
+  box.innerHTML='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">'
+    +'<div style="font-weight:800;font-size:15px">Cuentas nuevas del periodo · '+tipo+' · '+rows.length+'</div>'
+    +'<button onclick="cerrarListaModal()" style="border:none;background:transparent;font-size:22px;cursor:pointer;color:#64748b">&times;</button></div>'
+    +'<div style="font-size:11px;color:#64748b;margin-bottom:10px">Listado con id. Descarga el CSV o copia los id. Si la descarga no funciona (visor restringido), usa "Copiar id" o abre el informe en una pestaña normal.</div>'
+    +'<div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap">'
+    +'<button id="__dlBtn" style="background:#2563eb;color:#fff;border:none;border-radius:8px;padding:8px 14px;font-weight:700;font-size:12px;cursor:pointer">⬇ Descargar CSV</button>'
+    +'<button id="__cpBtn" style="background:#0d9488;color:#fff;border:none;border-radius:8px;padding:8px 14px;font-weight:700;font-size:12px;cursor:pointer">Copiar id</button></div>'
+    +'<textarea id="__idsArea" readonly style="width:100%;min-height:200px;font-family:monospace;font-size:11px;border:1px solid rgba(15,23,42,.12);border-radius:8px;padding:10px"></textarea>';
+  ov.appendChild(box); document.body.appendChild(ov);
+  const ta=document.getElementById('__idsArea'); ta.value=csv;
+  document.getElementById('__dlBtn').onclick=()=>{ const ok=_descargarBlob(fname,csv,'text/csv;charset=utf-8;'); if(!ok){ ta.focus(); ta.select(); } };
+  document.getElementById('__cpBtn').onclick=()=>{ ta.value=ids; ta.focus(); ta.select(); try{document.execCommand('copy');}catch(e){} const b=document.getElementById('__cpBtn'); b.textContent='¡Copiado!'; setTimeout(()=>{b.textContent='Copiar id'; ta.value=csv;},1200); };
 }
 function buildMonthNav(){
   const c=document.getElementById('monthBtns');c.innerHTML='';
