@@ -1787,6 +1787,38 @@ function renderExec(m){
   const mrrMedioSinReal = vigentesActualesSin.length>0 ? vigentesActualesSin.reduce((s,r)=>s+getMRR(r),0)/vigentesActualesSin.length : 0;
   const rescateAnual = Math.max(0,Math.round(rescatadas*mrrMedioSinReal*12));
 
+  // ── Puente de MRR por cohorte (con RAM vs sin RAM), este mes ──
+  const mrrIniCon = Math.round(vigIniCon.reduce((s,r)=>s+getMRR(r),0));
+  const mrrIniSin = Math.round(vigIniSin.reduce((s,r)=>s+getMRR(r),0));
+  const nuevasMesArr = allC.filter(r=>{ if(!isPaga(r)) return false; const ca=getCA(r); return ca&&inRange(ca,range); });
+  const nuevasCon = nuevasMesArr.filter(tieneRAM), nuevasSin = nuevasMesArr.filter(r=>!tieneRAM(r));
+  const mrrNuevasCon = Math.round(nuevasCon.reduce((s,r)=>s+getMRR(r),0));
+  const mrrNuevasSin = Math.round(nuevasSin.reduce((s,r)=>s+getMRR(r),0));
+  const upCon = (m.upgrades||[]).filter(mv=>tieneRAM(mv.acct)), upSin=(m.upgrades||[]).filter(mv=>!tieneRAM(mv.acct));
+  const downCon = (m.downgrades||[]).filter(mv=>tieneRAM(mv.acct)), downSin=(m.downgrades||[]).filter(mv=>!tieneRAM(mv.acct));
+  const mrrUpCon = Math.round(upCon.reduce((s,mv)=>s+mv.delta,0));
+  const mrrUpSin = Math.round(upSin.reduce((s,mv)=>s+mv.delta,0));
+  const mrrDownCon = Math.round(downCon.reduce((s,mv)=>s+Math.abs(mv.delta),0));
+  const mrrDownSin = Math.round(downSin.reduce((s,mv)=>s+Math.abs(mv.delta),0));
+  const mrrCanCon = Math.round(canMesCon.reduce((s,r)=>s+getMRR(r),0));
+  const mrrCanSin = Math.round(canMesSin.reduce((s,r)=>s+getMRR(r),0));
+  // Migración: cuentas que YA tienen RAM y cuya fecha de asignación cae en este mes → salen de "sin RAM"
+  const migrantes = allC.filter(r=>{
+    if(!tieneRAM(r) || !isPaga(r)) return false;
+    if((r['Vigencia del servicio']||'').trim()==='Cancelado') return false;
+    const ad = getKamAssignDate(r);
+    return ad && inRange(ad, range);
+  });
+  const mrrMigrados = Math.round(migrantes.reduce((s,r)=>s+getMRR(r),0));
+  const mrrFinalCon = mrrIniCon+mrrNuevasCon+mrrUpCon-mrrDownCon-mrrCanCon+mrrMigrados;
+  const mrrFinalSin = mrrIniSin+mrrNuevasSin+mrrUpSin-mrrDownSin-mrrCanSin-mrrMigrados;
+  const nrrCon = mrrIniCon>0 ? Math.round((mrrIniCon+mrrUpCon-mrrDownCon-mrrCanCon)/mrrIniCon*1000)/10 : 0;
+  const nrrSin = mrrIniSin>0 ? Math.round((mrrIniSin+mrrUpSin-mrrDownSin-mrrCanSin-mrrMigrados)/mrrIniSin*1000)/10 : 0;
+  const brRow=(label,cCon,nCon,cSin,nSin,cls)=>{
+    const fmtCell=(v,n)=>{ if(v===0&&n===0) return '<span style="color:#aaa">$0</span>'; const sign=v>0?'+':''; return '<span'+(cls?' class="'+cls+'"':'')+'>'+sign+fmt$(v)+'</span> <span style="color:#aaa;font-size:11px;">('+n+')</span>'; };
+    return '<tr><td class="left'+(cls?' '+cls:'')+'">'+label+'</td><td>'+fmtCell(cCon,nCon)+'</td><td>'+fmtCell(cSin,nSin)+'</td><td class="big'+(cls?' '+cls:'')+'">'+(cCon+cSin>=0?'+':'')+fmt$(cCon+cSin)+'</td></tr>';
+  };
+
   document.getElementById('x1Body').innerHTML = `
   <div class="msg${newDeltaCls==='ok'&&atrDeltaCls==='bad'?' amber':''}">
     <span class="msg-tag">El mensaje</span>
@@ -1875,30 +1907,47 @@ function renderExec(m){
   document.getElementById('x2Body').innerHTML = `
   <div class="msg">
     <span class="msg-tag">El mensaje</span>
-    <span class="msg-txt">Este mes, una cuenta con RAM perdió <em>${conChurnPct}%</em> vs <em>${sinChurnPct}%</em> sin RAM${sinMrrProm>0?' y vale <em>'+(Math.round(conMrrProm/sinMrrProm*100)/100)+'×</em> más':''}. El ${totalCartera>0?Math.round(conVig/totalCartera*100):0}% de la cartera vigente con RAM concentra el ${totalVal>0?Math.round(conValNow/totalVal*100):0}% del valor.</span>
+    <span class="msg-txt">Una cuenta con RAM retiene <em>${(100-conChurnPct).toFixed(1)}%</em> vs <em>${(100-sinChurnPct).toFixed(1)}%</em> sin RAM${sinMrrProm>0?' y vale <em>'+(Math.round(conMrrProm/sinMrrProm*100)/100)+'×</em> más':''}. El ${totalCartera>0?Math.round(conVig/totalCartera*100):0}% de la cartera vigente con RAM concentra el ${totalVal>0?Math.round(conValNow/totalVal*100):0}% del valor.</span>
   </div>
 
   <div class="kpis k4">
     <div class="kpi hi">
-      <div class="kl">Cuentas vigentes · con RAM</div>
-      <div class="kv green">${conVig}</div>
-      <div class="ks">${conTotal} en la cartera histórica</div>
+      <div class="kl">Retención · con RAM</div>
+      <div class="kv green">${(100-conChurnPct).toFixed(1)}%</div>
+      <div class="ks">pierde ${canMesCon.length} de ${vigIniCon.length} cuentas</div>
     </div>
     <div class="kpi lo">
-      <div class="kl">Cuentas vigentes · sin RAM</div>
-      <div class="kv red">${sinRAM.vig}</div>
-      <div class="ks">${sinRAM.total} en la cartera histórica</div>
+      <div class="kl">Retención · sin RAM</div>
+      <div class="kv red">${(100-sinChurnPct).toFixed(1)}%</div>
+      <div class="ks">pierde ${canMesSin.length} de ${vigIniSin.length} cuentas</div>
     </div>
     <div class="kpi hi">
-      <div class="kl">Valor medio · con RAM</div>
+      <div class="kl">MRR medio · con RAM</div>
       <div class="kv green">${fmt$(conMrrProm)}</div>
-      <div class="ks">estimado por cuenta vigente</div>
+      <div class="ks">${sinMrrProm>0?(Math.round(conMrrProm/sinMrrProm*100)/100)+'× el de una cuenta sin RAM':'estimado por cuenta vigente'}</div>
     </div>
     <div class="kpi lo">
-      <div class="kl">Valor medio · sin RAM</div>
+      <div class="kl">MRR medio · sin RAM</div>
       <div class="kv red">${fmt$(sinMrrProm)}</div>
-      <div class="ks">estimado por cuenta vigente</div>
+      <div class="ks">${sinRAM.vig} cuentas</div>
     </div>
+  </div>
+
+  <div class="card" style="margin-bottom:12px;">
+    <div class="ch">Puente de MRR por cohorte<span class="chs">la migración entre cohortes se separa del churn</span></div>
+    <table>
+      <thead><tr><th class="left">Movimiento</th><th>Con RAM · ${vigIniCon.length}→${vigIniCon.length+nuevasCon.length+migrantes.length-canMesCon.length}</th><th>Sin RAM · ${vigIniSin.length}→${vigIniSin.length+nuevasSin.length-migrantes.length-canMesSin.length}</th><th>Total</th></tr></thead>
+      <tbody>
+        <tr><td class="left">MRR inicial</td><td>${fmt$(mrrIniCon)}</td><td>${fmt$(mrrIniSin)}</td><td class="big">${fmt$(mrrIniCon+mrrIniSin)}</td></tr>
+        ${brRow('Nuevas cuentas carterizadas', mrrNuevasCon, nuevasCon.length, mrrNuevasSin, nuevasSin.length, 'green')}
+        ${brRow('Escalamiento de cartera', mrrUpCon, upCon.length, mrrUpSin, upSin.length, 'green')}
+        ${brRow('Reducción de cartera', -mrrDownCon, downCon.length, -mrrDownSin, downSin.length, 'red')}
+        ${brRow('Cuentas perdidas o en riesgo', -mrrCanCon, canMesCon.length, -mrrCanSin, canMesSin.length, 'red')}
+        <tr><td class="left red">Migración a RAM</td><td class="green">${mrrMigrados>0?'+'+fmt$(mrrMigrados):'$0'} <span style="color:#aaa;font-size:11px;">(${migrantes.length})</span></td><td class="red">${mrrMigrados>0?'−'+fmt$(mrrMigrados):'$0'} <span style="color:#aaa;font-size:11px;">(${migrantes.length})</span></td><td class="big" style="color:#aaa;">$0</td></tr>
+        <tr class="tot"><td class="left">MRR final</td><td>${fmt$(mrrFinalCon)}</td><td>${fmt$(mrrFinalSin)}</td><td style="font-size:20px;">${fmt$(mrrFinalCon+mrrFinalSin)}</td></tr>
+      </tbody>
+    </table>
+    <div class="foot f-info">NRR (solo cartera existente, sin nuevas ni migradas): ${nrrCon}% con RAM vs ${nrrSin}% sin RAM${Math.abs(nrrCon-nrrSin)>0.1?' — brecha de '+(Math.round(Math.abs(nrrCon-nrrSin)*10)/10)+'pp a favor de '+(nrrCon>nrrSin?'RAM':'sin RAM'):''}.</div>
   </div>
 
   <div class="two">
@@ -1912,6 +1961,7 @@ function renderExec(m){
           ${barRow('Valor que aportan', sinValNow, totalVal, '#90a4ae', totalVal>0?Math.round(sinValNow/totalVal*1000)/10+'%':'0%')}
         </tbody>
       </table>
+      <div class="foot f-ok">${totalCartera>0?Math.round(conVig/totalCartera*100):0}% de la cartera vigente genera ${totalVal>0?Math.round(conValNow/totalVal*100):0}% del valor</div>
     </div>
     <div class="card">
       <div class="ch">Pérdida de cuentas · lado a lado<span class="chs">cancelaciones de este mes ÷ vigentes al inicio del mes</span></div>
@@ -1920,20 +1970,26 @@ function renderExec(m){
         <tbody>
           <tr><td class="left">Churn de este mes</td><td class="big green">${conChurnPct}%</td><td class="big red">${sinChurnPct}%</td></tr>
           <tr><td class="left">Implementación promedio</td><td class="big">${conRAM.length?Math.round(conRAM.reduce((s,k)=>s+k.implAvg*k.total,0)/Math.max(1,conTotal)):0}%</td><td class="big">${sinRAM.implAvg||0}%</td></tr>
-          <tr><td class="left">Valor medio por cuenta</td><td class="big green">${fmt$(conMrrProm)}</td><td class="big red">${fmt$(sinMrrProm)}</td></tr>
+          <tr><td class="left">MRR medio por cuenta</td><td class="big green">${fmt$(conMrrProm)}</td><td class="big red">${fmt$(sinMrrProm)}</td></tr>
+          <tr><td class="left">MRR perdido este mes</td><td>${fmt$(mrrCanCon)}</td><td>${fmt$(mrrCanSin)}</td></tr>
         </tbody>
       </table>
+      <div class="foot f-warn">${mrrCanCon>0&&canMesCon.length>0&&mrrCanSin>0&&canMesSin.length>0?'MRR perdido por cuenta caída: '+fmt$(Math.round(mrrCanCon/canMesCon.length))+' con RAM vs '+fmt$(Math.round(mrrCanSin/canMesSin.length))+' sin RAM':'La cuenta con RAM cae menos — el rescate temprano rinde más ahí'}</div>
     </div>
   </div>
 
   <div class="acts">
     <div class="act">
+      <div class="at">Asignar RAM por valor, no por disponibilidad</div>
+      <div class="ad">Priorizar las ${sinRAM.vig} cuentas sin RAM de mayor MRR: mismo esfuerzo, retorno medible (${fmt$(rescateAnual)}/año estimado).</div>
+    </div>
+    <div class="act">
       <div class="at">RAM asignados</div>
-      <div class="ad">${conRAM.map(k=>k.label+' ('+k.total+')').join(' · ')||'Sin datos'}</div>
+      <div class="ad">${conRAM.map(k=>k.label+' ('+k.vig+' vigentes)').join(' · ')||'Sin datos'}</div>
     </div>
     <div class="act">
       <div class="at">Cuentas sin RAM asignado</div>
-      <div class="ad">${sinRAM.total} cuentas de la base total no tienen RAM asignado — la oportunidad de escalar está ahí.</div>
+      <div class="ad">${sinRAM.vig} cuentas vigentes sin RAM — la oportunidad de escalar está ahí.</div>
     </div>
   </div>
   `;
