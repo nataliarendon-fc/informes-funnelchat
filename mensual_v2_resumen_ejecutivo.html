@@ -1712,11 +1712,20 @@ function calcMonth(off){
 
 
 // ── util visual: barra horizontal tipo informe de servicio ──
+// El texto SIEMPRE va afuera de la barra (columna derecha), nunca adentro,
+// para que sea legible sin importar qué tan angosta quede la barra.
 function barRow(label, value, max, color, rightTxt){
   const w = max>0 ? Math.max(2,Math.round(value/max*100)) : 0;
   return '<tr><td class="left">'+label+'</td>'
-    +'<td style="width:150px"><div class="barwrap"><div class="bar" style="width:'+w+'%;background:'+color+'">'+(w>18?rightTxt:'')+'</div></div></td>'
-    +'<td style="width:70px">'+(w>18?'':rightTxt)+'</td></tr>';
+    +'<td style="width:150px"><div class="barwrap"><div class="bar" style="width:'+w+'%;background:'+color+'"></div></div></td>'
+    +'<td style="width:80px;font-weight:700;white-space:nowrap">'+rightTxt+'</td></tr>';
+}
+// variante con barra angosta fija (para listas tipo "cuánto facturan")
+function barRowSmall(label, value, max, color, rightTxt){
+  const w = max>0 ? Math.max(4,Math.round(value/max*100)) : 0;
+  return '<tr><td class="left">'+label+'</td>'
+    +'<td style="width:90px"><div class="barwrap" style="width:80px"><div class="bar" style="width:'+w+'%;background:'+color+'"></div></div></td>'
+    +'<td style="font-weight:700;white-space:nowrap">'+rightTxt+'</td></tr>';
 }
 function dpTag(deltaTxt, cls){ return '<span class="dp dp-'+cls+'">'+deltaTxt+'</span>'; }
 function deltaCls(curr, prev, higherIsBetter=true){
@@ -1998,11 +2007,57 @@ function renderExec(m){
   const motivos = (m.motivos||[]).slice(0,6);
   const maxMot = Math.max(1,...motivos.map(x=>x.count));
   const motColors = ['#c62828','#e65100','#ef6c00','#1565c0','#5b21b6','#00897b'];
+  const topMotivoLabel = motivos[0] ? motivos[0].label : null;
+
+  // ── Join encuesta de cancelación (RAW.cancelaciones) con las cuentas, para saber
+  //    si los que citan el motivo principal usaban más o menos el producto ──
+  const acctById = {};
+  allC.forEach(r=>{ const id=(r['id']||'').toString().trim(); if(id) acctById[id]=r; });
+  const cancelSurveyMes = (RAW.cancelaciones||[]).filter(r=>{ const f=parseISO(r['created_at']); return f&&inRange(f,range); });
+  const surveyAcct = r => { const uid=(r['Contact ID']||r['contact_id']||r['user_id']||'').toString().trim(); return acctById[uid]; };
+  const grupoMotivoTop = [], grupoOtros = [];
+  cancelSurveyMes.forEach(r=>{
+    const mm=(r['Macromotivo']||'').toString().trim();
+    const acct = surveyAcct(r);
+    if(!acct) return;
+    if(topMotivoLabel && mm===topMotivoLabel) grupoMotivoTop.push(acct); else grupoOtros.push(acct);
+  });
+  const usaGruposF = r => { const v=(r['Usa grupos?']||r['Usa grupos 5']||r['Usa grupos']||'').toString().trim(); return v!==''&&v!=='0'; };
+  const usaFlowF = r => { const v=(r['Usa flows']||r['Usa Flow 6']||r['Usa Flow']||'').toString().trim(); return v!==''&&v!=='0'; };
+  const usaWAF = r => (r['Usa API?']||'').trim()==='Sí' || (r['Usa Business?']||'').trim()==='Sí';
+  const getLTF = r => parseInt(r['LT'])||0;
+  const isAdvF = r => /advanced/i.test((r['Planes Funnelchat']||'').toString());
+  const pctG = (arr,fn) => arr.length? Math.round(arr.filter(fn).length/arr.length*100):0;
+  const avgG = (arr,fn) => arr.length? Math.round(arr.reduce((s,r)=>s+fn(r),0)/arr.length):0;
+  const cmpRow = (label, vTop, vOtros, suffix, higherIsBetter=true) => {
+    const d = vTop-vOtros;
+    const cls = Math.abs(d)<0.5?'eq':((d>0)===higherIsBetter?'ok':'bad');
+    const dTxt = (d>0?'+':'')+(Math.round(d*10)/10)+(suffix==='%'?'pp':suffix);
+    return '<tr><td class="left">'+label+'</td><td class="big '+(vTop>=vOtros?'green':'red')+'">'+vTop+suffix+'</td><td style="color:#888">'+vOtros+suffix+'</td><td>'+dpTag(dTxt,cls)+'</td></tr>';
+  };
+
+  // ── Churn por nicho y por objetivo: salieron (este mes) vs llegaron (este mes) ──
+  const countByField = (arr,key) => { const c={}; arr.forEach(r=>{const v=(r[key]||'').toString().trim(); if(v&&v!=='NA') c[v]=(c[v]||0)+1;}); return c; };
+  const nichoSaleN = countByField(m.cancelMesArr||[], 'Tipo de negocio');
+  const nichoLlegaN = countByField(nuevasMesArr, 'Tipo de negocio');
+  const objSaleN = countByField(m.cancelMesArr||[], 'Objetivo con Funnelchat');
+  const objLlegaN = countByField(nuevasMesArr, 'Objetivo con Funnelchat');
+  const topEntries = (obj,n=5) => Object.entries(obj).sort((a,b)=>b[1]-a[1]).slice(0,n);
+  const churnRows = (saleMap, llegaMap) => topEntries(saleMap).map(([label,sale])=>{
+    const llega = llegaMap[label]||0; const bal = llega-sale;
+    return '<tr><td class="left">'+label+'</td><td class="big red">'+sale+'</td><td style="color:#888">'+llega+'</td><td>'+dpTag((bal>=0?'+':'')+bal, bal>=0?'ok':'bad')+'</td></tr>';
+  }).join('');
+
+  // ── Facturación de los que citan el motivo principal ──
+  const factTop = countByField(grupoMotivoTop, 'Facturación promedio mensual');
+  const factTopEntries = Object.entries(factTop).sort((a,b)=>b[1]-a[1]);
+  const maxFactTop = Math.max(1,...factTopEntries.map(x=>x[1]));
+  const factTopTotal = grupoMotivoTop.length||1;
 
   document.getElementById('x3Body').innerHTML = `
   <div class="msg amber">
     <span class="msg-tag">El mensaje</span>
-    <span class="msg-txt">${m.cancelMes} cancelaciones este mes, con <em>${m.cancelConMotivo} respuestas</em> a la encuesta (${m.cancelMes>0?Math.round(m.cancelConMotivo/m.cancelMes*100):0}% tasa de respuesta).${motivos[0]?' El motivo principal fue <em>"'+motivos[0].label+'"</em>.':''}</span>
+    <span class="msg-txt">${m.cancelMes} cancelaciones este mes, con <em>${m.cancelConMotivo} respuestas</em> a la encuesta (${m.cancelMes>0?Math.round(m.cancelConMotivo/m.cancelMes*100):0}% tasa de respuesta).${topMotivoLabel?' El motivo principal fue <em>"'+topMotivoLabel+'"</em>.':''}</span>
   </div>
 
   <div class="two" style="margin-bottom:12px;">
@@ -2016,7 +2071,20 @@ function renderExec(m){
       <div class="foot f-bad">${motivos.length?motivos.length+' motivos distintos reportados este mes':'Sin respuestas suficientes este mes'}</div>
     </div>
     <div class="card">
-      <div class="ch">Perfil de los que cancelaron<span class="chs">% que NO tenía cada elemento activo</span></div>
+      <div class="ch">${topMotivoLabel?'"'+topMotivoLabel+'", ¿usaba el producto?':'Perfil de los que cancelaron'}<span class="chs">${topMotivoLabel?'vs otros motivos':''}</span></div>
+      ${topMotivoLabel && grupoMotivoTop.length>0 ? `
+      <table>
+        <thead><tr><th class="left">Indicador</th><th>${topMotivoLabel}</th><th>Otros</th><th>Δ</th></tr></thead>
+        <tbody>
+          ${cmpRow('Usan grupos', pctG(grupoMotivoTop,usaGruposF), pctG(grupoOtros,usaGruposF), '%')}
+          ${cmpRow('Activaron flows', pctG(grupoMotivoTop,usaFlowF), pctG(grupoOtros,usaFlowF), '%')}
+          ${cmpRow('Conectaron WhatsApp', pctG(grupoMotivoTop,usaWAF), pctG(grupoOtros,usaWAF), '%')}
+          ${cmpRow('Vida media (días)', avgG(grupoMotivoTop,getLTF), avgG(grupoOtros,getLTF), 'd')}
+          ${cmpRow('En plan Advanced', pctG(grupoMotivoTop,isAdvF), pctG(grupoOtros,isAdvF), '%')}
+        </tbody>
+      </table>
+      <div class="foot f-warn">Comparación entre quienes citaron este motivo (${grupoMotivoTop.length}) y el resto de respuestas (${grupoOtros.length}) este mes.</div>
+      ` : `
       <table>
         <tbody>
           <tr><td class="left">Sin onboarding</td><td class="big red">${m.cp_sin_onb}%</td></tr>
@@ -2025,54 +2093,146 @@ function renderExec(m){
           <tr><td class="left">Sin sesión en vivo</td><td class="big red">${m.cp_sin_ses}%</td></tr>
         </tbody>
       </table>
-      <div class="foot f-warn">${m.cp_lt_avg>0?'Tiempo de vida promedio de los cancelados: <strong>'+m.cp_lt_avg+' días</strong>':'Sin datos suficientes de tiempo de vida este mes'}</div>
+      <div class="foot f-warn">${m.cp_lt_avg>0?'Tiempo de vida promedio: <strong>'+m.cp_lt_avg+' días</strong>':'Sin respuestas suficientes este mes para comparar por motivo'}</div>
+      `}
     </div>
+  </div>
+
+  <div class="g21" style="margin-bottom:12px;">
+    <div class="card">
+      <div class="ch">Churn por nicho<span class="chs">salieron vs llegaron, este mes</span></div>
+      ${Object.keys(nichoSaleN).length ? `
+      <table>
+        <thead><tr><th class="left">Nicho</th><th>Salieron</th><th>Llegaron</th><th>Balance</th></tr></thead>
+        <tbody>${churnRows(nichoSaleN, nichoLlegaN)}</tbody>
+      </table>
+      <div class="foot f-bad">${topEntries(nichoSaleN,3).map(x=>x[0]).join(' + ')} concentran el mayor churn por nicho este mes</div>
+      ` : `<div style="padding:16px 18px;color:#888;font-size:12px">Sin cancelaciones con nicho registrado este mes.</div>`}
+    </div>
+    <div class="card">
+      <div class="ch">${topMotivoLabel?'"'+topMotivoLabel+'" · cuánto facturan':'Facturación de los cancelados'}</div>
+      ${factTopEntries.length ? `
+      <table>
+        <tbody>
+          ${factTopEntries.map(([label,n])=>barRowSmall(label, n, maxFactTop, '#00897b', n+' ('+pct(n,factTopTotal)+'%)')).join('')}
+        </tbody>
+      </table>
+      <div class="foot f-warn">${factTopEntries.length} rangos de facturación distintos entre quienes citaron este motivo</div>
+      ` : `<div style="padding:16px 18px;color:#888;font-size:12px">Sin datos de facturación suficientes este mes.</div>`}
+    </div>
+  </div>
+
+  <div class="card" style="margin-bottom:12px;">
+    <div class="ch">Qué venían a hacer los que se fueron<span class="chs">objetivo declarado al registrarse · salieron vs llegaron</span></div>
+    ${Object.keys(objSaleN).length ? `
+    <table>
+      <thead><tr><th class="left">Objetivo</th><th>Salieron</th><th>Llegaron</th><th>Balance</th></tr></thead>
+      <tbody>${churnRows(objSaleN, objLlegaN)}</tbody>
+    </table>
+    <div class="foot f-bad">${(()=>{ const top=topEntries(objSaleN,1)[0]; return top?'"'+top[0]+'" es el objetivo con más salidas este mes ('+top[1]+')':''; })()}</div>
+    ` : `<div style="padding:16px 18px;color:#888;font-size:12px">Sin cancelaciones con objetivo registrado este mes.</div>`}
   </div>
 
   <div class="acts">
     <div class="act">
-      <div class="at">Motivo principal: ${motivos[0]?motivos[0].label:'—'}</div>
+      <div class="at">Motivo principal: ${topMotivoLabel||'—'}</div>
       <div class="ad">${motivos[0]?motivos[0].count+' casos este mes. Definir si es prevenible desde onboarding o requiere ajuste de producto.':'Sin datos suficientes este mes.'}</div>
     </div>
     <div class="act">
       <div class="at">Cerrar la brecha de activación</div>
       <div class="ad">${m.cp_sin_onb}% de los que se fueron nunca pasaron por onboarding — es la palanca más directa.</div>
     </div>
+    <div class="act">
+      <div class="at">Nicho con más churn: ${(()=>{ const top=topEntries(nichoSaleN,1)[0]; return top?top[0]:'—'; })()}</div>
+      <div class="ad">${(()=>{ const top=topEntries(nichoSaleN,1)[0]; return top?top[1]+' salidas este mes en ese nicho.':'Sin datos suficientes este mes.'; })()}</div>
+    </div>
   </div>
   `;
 
   // ============ TAB 4: ONBOARDING Y RETENCIÓN ============
-  const act = m.activacion || {};
+  const onbNoShowPct = m.onbAgen>0 ? Math.round((m.onbNoShow||0)/m.onbAgen*100) : 0;
+  const onbTasaAsist = m.onbAgen>0 ? Math.round(m.onbAsist/m.onbAgen*100) : 0;
+  const capIdeal = last.onbCapIdeal||0;
+  const capPct = capIdeal>0 ? Math.round(m.onbAsist/capIdeal*100) : 0;
+  const retAsistPct = last.onbRetPct!==null && last.onbRetPct!==undefined ? last.onbRetPct : null;
+  const embudoNuevas = last.newP||m.nuevosMesP_n||0;
+
   document.getElementById('x4Body').innerHTML = `
   <div class="msg">
     <span class="msg-tag">El mensaje</span>
-    <span class="msg-txt">Cobertura de onboarding: <em>${m.cobP}% pagas</em> y <em>${m.cobT}% trial</em>. De los asistentes, <em>${m.pctRetCon}%</em> siguen vigentes hoy${m.pctRetSin!==undefined?' vs '+m.pctRetSin+'% de los que no asistieron':''}.</span>
+    <span class="msg-txt">Cobertura de onboarding: <em>${m.cobP}% pagas</em> y <em>${m.cobT}% trial</em>. De ${m.onbProp} propuestas, ${m.onbAgen} agendaron y <em>${m.onbAsist} asistieron</em>${retAsistPct!==null?' — de esos, <em>'+retAsistPct+'%</em> siguen vigentes hoy':''}.</span>
   </div>
 
-  <div class="kpis k4">
-    <div class="kpi">
-      <div class="kl">Propuestas de onboarding</div>
-      <div class="kv blue">${m.onbProp}</div>
-      <div class="ks">${m.onbAgen} agendaron</div>
+  <div class="kpis k5">
+    <div class="kpi ${retAsistPct!==null&&retAsistPct>=70?'hi':''}">
+      <div class="kl">Retención de asistentes</div>
+      <div class="kv ${retAsistPct!==null&&retAsistPct>=70?'green':'orange'}">${retAsistPct!==null?retAsistPct+'%':'—'}</div>
+      <div class="ks">${last.onbRetVig!==undefined?last.onbRetVig+' de '+m.onbAsist+' siguen vigentes':'sin datos'}</div>
     </div>
-    <div class="kpi hi">
-      <div class="kl">Asistieron</div>
-      <div class="kv green">${m.onbAsist}</div>
-      <div class="ks">${m.onbProp>0?Math.round(m.onbAsist/m.onbProp*100):0}% de las propuestas</div>
-    </div>
-    <div class="kpi">
-      <div class="kl">Cobertura pagas</div>
-      <div class="kv ${m.cobP>=50?'green':'orange'}">${m.cobP}%</div>
+    <div class="kpi ${m.cobP>=50?'hi':'lo'}">
+      <div class="kl">Cobertura de cuentas pagas</div>
+      <div class="kv ${m.cobP>=50?'green':'red'}">${m.cobP}%</div>
       <div class="ks">meta ≥ 50%</div>
     </div>
     <div class="kpi">
-      <div class="kl">Cobertura trial</div>
-      <div class="kv blue">${m.cobT}%</div>
+      <div class="kl">Onboardings propuestos</div>
+      <div class="kv blue">${m.onbProp}</div>
+      <div class="ks">${m.onbAgen} agendaron</div>
+    </div>
+    <div class="kpi ${capPct>=50?'hi':'lo'}">
+      <div class="kl">Asistentes</div>
+      <div class="kv ${capPct>=50?'green':'red'}">${m.onbAsist}</div>
+      <div class="ks">${capIdeal>0?'de '+capIdeal+' de capacidad · '+capPct+'%':onbTasaAsist+'% de los agendados'}</div>
+    </div>
+    <div class="kpi ${m.cobT>=30?'hi':'lo'}">
+      <div class="kl">Cobertura de trials</div>
+      <div class="kv ${m.cobT>=30?'green':'red'}">${m.cobT}%</div>
       <div class="ks">de las nuevas trial del mes</div>
     </div>
   </div>
 
-  <div class="two">
+  <div class="two" style="margin-bottom:12px;">
+    <div class="card">
+      <div class="ch">Embudo del mes<span class="chs">${embudoNuevas} cuentas nuevas</span></div>
+      <table>
+        <tbody>
+          ${barRow('Cuentas nuevas', embudoNuevas, embudoNuevas||1, '#1565c0', embudoNuevas+' (100%)')}
+          ${barRow('Invitadas a onboarding', m.onbProp, embudoNuevas||1, '#1976d2', m.onbProp+' ('+(embudoNuevas>0?Math.round(m.onbProp/embudoNuevas*100):0)+'%)')}
+          ${barRow('Se agendaron', m.onbAgen, embudoNuevas||1, '#42a5f5', m.onbAgen+' ('+(embudoNuevas>0?Math.round(m.onbAgen/embudoNuevas*100):0)+'%)')}
+          ${barRow('Asistieron', m.onbAsist, embudoNuevas||1, '#e65100', m.onbAsist+' ('+(embudoNuevas>0?Math.round(m.onbAsist/embudoNuevas*100):0)+'%)')}
+        </tbody>
+      </table>
+      <div class="foot f-warn">${m.onbProp>m.onbAgen?'El salto que se pierde es <strong>invitada → agendada</strong>: '+(m.onbProp-m.onbAgen)+' de '+m.onbProp+' no agendaron':'La mayoría de las invitadas sí agendó este mes'}</div>
+    </div>
+    <div class="card">
+      <div class="ch">Onboarding · 6 meses</div>
+      <table>
+        <thead><tr><th class="left">Métrica</th>${h6.slice(0,5).map(mm=>'<th style="color:#888">'+mm.lbl+'</th>').join('')}<th style="background:#14151f;color:#75D31F;">${last.lbl}</th></tr></thead>
+        <tbody>
+          <tr><td class="left">Nuevas pagas del mes</td>${h6.slice(0,5).map(mm=>'<td style="color:#888">'+mm.newP+'</td>').join('')}<td class="big">${last.newP}</td></tr>
+          <tr><td class="left">ONB propuesto</td>${h6.slice(0,5).map(mm=>'<td style="color:#888">'+mm.onbProp+'</td>').join('')}<td class="big green">${last.onbProp}</td></tr>
+          <tr><td class="left">Agendados</td>${h6.slice(0,5).map(mm=>'<td style="color:#888">'+mm.onbAgen+'</td>').join('')}<td class="big">${last.onbAgen}</td></tr>
+          <tr><td class="left">Asistentes</td>${h6.slice(0,5).map(mm=>'<td style="color:#888">'+mm.onbAsist+'</td>').join('')}<td class="big">${last.onbAsist}</td></tr>
+          <tr><td class="left">% Tasa asistencia</td>${h6.slice(0,5).map(mm=>'<td style="color:#888">'+mm.onbAsistTasa+'%</td>').join('')}<td class="big orange">${last.onbAsistTasa}%</td></tr>
+          <tr><td class="left">% No show</td>${h6.slice(0,5).map(mm=>'<td style="color:#888">'+(mm.onbAgen>0?Math.round(mm.onbNS/mm.onbAgen*100):0)+'%</td>').join('')}<td class="big">${onbNoShowPct}%</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="g21">
+    <div class="card">
+      <div class="ch">Sesiones en vivo · 6 meses</div>
+      <table>
+        <thead><tr><th class="left">Métrica</th>${h6.slice(0,5).map(mm=>'<th style="color:#888">'+mm.lbl+'</th>').join('')}<th style="background:#14151f;color:#75D31F;">${last.lbl}</th></tr></thead>
+        <tbody>
+          <tr><td class="left">Asistentes</td>${h6.slice(0,5).map(mm=>'<td style="color:#888">'+mm.sesAsist+'</td>').join('')}<td class="big orange">${last.sesAsist}</td></tr>
+          <tr><td class="left">Sesiones realizadas</td>${h6.slice(0,5).map(mm=>'<td style="color:#888">'+mm.sesSes+'</td>').join('')}<td class="big orange">${last.sesSes}</td></tr>
+          <tr><td class="left">Media asistentes/sesión</td>${h6.slice(0,5).map(mm=>'<td style="color:#888">'+(mm.sesSes>0?Math.round(mm.sesAsist/mm.sesSes*10)/10:0)+'</td>').join('')}<td class="big green">${last.sesSes>0?Math.round(last.sesAsist/last.sesSes*10)/10:0}</td></tr>
+          <tr><td class="left">% Retención asistentes</td>${h6.slice(0,5).map(mm=>'<td style="color:#888">'+(mm.sesRetPct!==null&&mm.sesRetPct!==undefined?mm.sesRetPct+'%':'—')+'</td>').join('')}<td class="big green">${last.sesRetPct!==null&&last.sesRetPct!==undefined?last.sesRetPct+'%':'—'}</td></tr>
+        </tbody>
+      </table>
+    </div>
     <div class="card">
       <div class="ch">Retención · con onboarding vs sin</div>
       <table>
@@ -2083,26 +2243,20 @@ function renderExec(m){
       </table>
       <div class="foot ${m.pctRetCon>=m.pctRetSin?'f-ok':'f-warn'}">${m.pctRetCon>=m.pctRetSin?'El onboarding sostiene mejor la retención.':'Diferencia estrecha este mes — seguir de cerca.'}</div>
     </div>
-    <div class="card">
-      <div class="ch">Sesiones en vivo del mes</div>
-      <table>
-        <tbody>
-          <tr><td class="left">Sesiones realizadas</td><td class="big">${m.sesSesiones}</td></tr>
-          <tr><td class="left">Asistentes totales</td><td class="big blue">${m.sesMes}</td></tr>
-          <tr><td class="left">Asistentes por sesión</td><td class="big">${m.sesPorSesion}</td></tr>
-        </tbody>
-      </table>
-    </div>
   </div>
 
   <div class="acts">
     <div class="act">
-      <div class="at">Cuentas nuevas sin WhatsApp conectado</div>
-      <div class="ad">${m.sinWaMes} cuentas del mes sin WhatsApp — no pueden usar la plataforma. Riesgo directo de no activación.</div>
+      <div class="at">Atacar invitada → agendada</div>
+      <div class="ad">${m.onbProp-m.onbAgen>0?(m.onbProp-m.onbAgen)+' invitadas no agendaron este mes.':'La mayoría de las invitadas agendó este mes.'}</div>
     </div>
     <div class="act">
-      <div class="at">Cuentas nuevas sin onboarding agendado</div>
-      <div class="ad">${m.sinOnbMes} cuentas nuevas del mes sin sesión agendada todavía.</div>
+      <div class="at">Capacidad ${capIdeal>0&&capPct<70?'ociosa':'utilizada'}: ${capIdeal>0?Math.max(0,capIdeal-m.onbAsist)+' cupos':'—'}</div>
+      <div class="ad">${capIdeal>0?capIdeal+' de capacidad ideal contra '+m.onbAsist+' asistentes ('+capPct+'%).':'Sin cálculo de capacidad disponible este mes.'}</div>
+    </div>
+    <div class="act">
+      <div class="at">Cuentas nuevas sin WhatsApp conectado</div>
+      <div class="ad">${m.sinWaMes} cuentas del mes sin WhatsApp — no pueden usar la plataforma. Riesgo directo de no activación.</div>
     </div>
   </div>
   `;
