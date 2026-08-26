@@ -1748,17 +1748,44 @@ function renderExec(m){
 
   const kamData = (m.kam && m.kam.data) || [];
   const conRAM = kamData.filter(k=>k.key!=='__none__');
-  const sinRAM = kamData.find(k=>k.key==='__none__') || {total:0,vig:0,can:0};
+  const sinRAM = kamData.find(k=>k.key==='__none__') || {total:0,vig:0,can:0,implAvg:0};
+
+  // ── Churn del MES (no histórico acumulado): cancelaciones de este mes ÷ vigentes al inicio del mes,
+  //    separado por cuentas con RAM asignado vs sin RAM asignado ──
+  const allC = m.allCuentas || [];
+  const range = m.range;
+  const tieneRAM = r => normKam(r).key !== '__none__';
+  const vigenteInicioMes = r => {
+    if(!isPaga(r)) return false;
+    const ca=getCA(r); if(!ca||ca>=range.start) return false;
+    const vig=(r['Vigencia del servicio']||'').trim();
+    if(vig==='Cancelado'){ const cd=cancelDate(r); return cd&&cd>=range.start; }
+    return true;
+  };
+  const vigIniAll = allC.filter(vigenteInicioMes);
+  const vigIniCon = vigIniAll.filter(tieneRAM);
+  const vigIniSin = vigIniAll.filter(r=>!tieneRAM(r));
+  const canMesPagas = allC.filter(r=>{ if(!isPaga(r)) return false; const cd=cancelDate(r); return cd&&inRange(cd,range); });
+  const canMesCon = canMesPagas.filter(tieneRAM);
+  const canMesSin = canMesPagas.filter(r=>!tieneRAM(r));
+  const conChurnPct = vigIniCon.length>0 ? Math.round(canMesCon.length/vigIniCon.length*1000)/10 : 0;
+  const sinChurnPct = vigIniSin.length>0 ? Math.round(canMesSin.length/vigIniSin.length*1000)/10 : 0;
+  const rescatadas = vigIniSin.length>0 ? Math.max(0,Math.round(vigIniSin.length*(sinChurnPct-conChurnPct)/100)) : 0;
+
+  // Valor de cartera EN EL MES ACTUAL (kam.valueNow ya es un corte del mes, no acumulado)
   const conTotal = conRAM.reduce((s,k)=>s+k.total,0);
   const conVig = conRAM.reduce((s,k)=>s+k.vig,0);
-  const conCan = conRAM.reduce((s,k)=>s+k.can,0);
   const conValNow = conRAM.reduce((s,k)=>s+((m.kam.valueNow||{})[k.key]||0),0);
   const sinValNow = (m.kam.valueNow||{})['__none__']||0;
-  const conChurnPct = conTotal>0? Math.round(conCan/conTotal*1000)/10 : 0;
-  const sinChurnPct = sinRAM.total>0? Math.round(sinRAM.can/sinRAM.total*1000)/10 : 0;
-  const rescatadas = sinRAM.total>0 ? Math.round(sinRAM.total*(sinChurnPct-conChurnPct)/100) : 0;
-  const mrrMedioSin = sinRAM.total>0 ? sinValNow/sinRAM.total : 0;
-  const rescateAnual = Math.max(0,Math.round(rescatadas*mrrMedioSin*12));
+  // MRR medio: usa vigentes ACTUALES como base (no el histórico total, que incluye canceladas)
+  const conMrrProm = conVig>0 ? Math.round(conValNow/conVig) : 0;
+  const sinMrrProm = sinRAM.vig>0 ? Math.round(sinValNow/sinRAM.vig) : 0;
+  const totalCartera = conVig+sinRAM.vig;
+  const totalVal = conValNow+sinValNow;
+  // MRR medio real de una cuenta sin RAM vigente hoy (para estimar el rescate anual)
+  const vigentesActualesSin = allC.filter(r=>isPaga(r) && (r['Vigencia del servicio']||'').trim()==='Vigente' && !tieneRAM(r));
+  const mrrMedioSinReal = vigentesActualesSin.length>0 ? vigentesActualesSin.reduce((s,r)=>s+getMRR(r),0)/vigentesActualesSin.length : 0;
+  const rescateAnual = Math.max(0,Math.round(rescatadas*mrrMedioSinReal*12));
 
   document.getElementById('x1Body').innerHTML = `
   <div class="msg${newDeltaCls==='ok'&&atrDeltaCls==='bad'?' amber':''}">
@@ -1843,58 +1870,55 @@ function renderExec(m){
   `;
 
   // ============ TAB 2: RAM · CARTERIZACIÓN ============
-  const conMrrProm = conTotal>0 ? Math.round(conValNow/conTotal) : 0;
-  const sinMrrProm = sinRAM.total>0 ? Math.round(sinValNow/sinRAM.total) : 0;
-  const totalCartera = conTotal+sinRAM.total;
-  const totalVal = conValNow+sinValNow;
+  // (conMrrProm, sinMrrProm, totalCartera, totalVal ya se calcularon arriba con vigentes actuales)
 
   document.getElementById('x2Body').innerHTML = `
   <div class="msg">
     <span class="msg-tag">El mensaje</span>
-    <span class="msg-txt">Una cuenta con RAM pierde <em>${sinChurnPct>0?Math.round((1-conChurnPct/sinChurnPct)*100):0}% menos</em> y vale <em>${sinMrrProm>0?Math.round(conMrrProm/sinMrrProm*100)/100:'—'}×</em> más. El ${totalCartera>0?Math.round(conTotal/totalCartera*100):0}% de la cartera con RAM concentra el ${totalVal>0?Math.round(conValNow/totalVal*100):0}% del valor.</span>
+    <span class="msg-txt">Este mes, una cuenta con RAM perdió <em>${conChurnPct}%</em> vs <em>${sinChurnPct}%</em> sin RAM${sinMrrProm>0?' y vale <em>'+(Math.round(conMrrProm/sinMrrProm*100)/100)+'×</em> más':''}. El ${totalCartera>0?Math.round(conVig/totalCartera*100):0}% de la cartera vigente con RAM concentra el ${totalVal>0?Math.round(conValNow/totalVal*100):0}% del valor.</span>
   </div>
 
   <div class="kpis k4">
     <div class="kpi hi">
-      <div class="kl">Cuentas con RAM</div>
-      <div class="kv green">${conTotal}</div>
-      <div class="ks">${conVig} vigentes · ${conCan} canceladas</div>
+      <div class="kl">Cuentas vigentes · con RAM</div>
+      <div class="kv green">${conVig}</div>
+      <div class="ks">${conTotal} en la cartera histórica</div>
     </div>
     <div class="kpi lo">
-      <div class="kl">Cuentas sin RAM</div>
-      <div class="kv red">${sinRAM.total}</div>
-      <div class="ks">${sinRAM.vig} vigentes · ${sinRAM.can} canceladas</div>
+      <div class="kl">Cuentas vigentes · sin RAM</div>
+      <div class="kv red">${sinRAM.vig}</div>
+      <div class="ks">${sinRAM.total} en la cartera histórica</div>
     </div>
     <div class="kpi hi">
       <div class="kl">Valor medio · con RAM</div>
       <div class="kv green">${fmt$(conMrrProm)}</div>
-      <div class="ks">estimado por cuenta activa</div>
+      <div class="ks">estimado por cuenta vigente</div>
     </div>
     <div class="kpi lo">
       <div class="kl">Valor medio · sin RAM</div>
       <div class="kv red">${fmt$(sinMrrProm)}</div>
-      <div class="ks">estimado por cuenta activa</div>
+      <div class="ks">estimado por cuenta vigente</div>
     </div>
   </div>
 
   <div class="two">
     <div class="card">
-      <div class="ch">Dónde está el valor de la cartera</div>
+      <div class="ch">Dónde está el valor de la cartera vigente</div>
       <table>
         <tbody>
-          ${barRow('Cuentas con RAM', conTotal, totalCartera, '#166534', totalCartera>0?Math.round(conTotal/totalCartera*1000)/10+'%':'0%')}
+          ${barRow('Cuentas con RAM', conVig, totalCartera, '#166534', totalCartera>0?Math.round(conVig/totalCartera*1000)/10+'%':'0%')}
           ${barRow('Valor que aportan', conValNow, totalVal, '#166534', totalVal>0?Math.round(conValNow/totalVal*1000)/10+'%':'0%')}
-          ${barRow('Cuentas sin RAM', sinRAM.total, totalCartera, '#90a4ae', totalCartera>0?Math.round(sinRAM.total/totalCartera*1000)/10+'%':'0%')}
+          ${barRow('Cuentas sin RAM', sinRAM.vig, totalCartera, '#90a4ae', totalCartera>0?Math.round(sinRAM.vig/totalCartera*1000)/10+'%':'0%')}
           ${barRow('Valor que aportan', sinValNow, totalVal, '#90a4ae', totalVal>0?Math.round(sinValNow/totalVal*1000)/10+'%':'0%')}
         </tbody>
       </table>
     </div>
     <div class="card">
-      <div class="ch">Pérdida de cuentas · lado a lado</div>
+      <div class="ch">Pérdida de cuentas · lado a lado<span class="chs">cancelaciones de este mes ÷ vigentes al inicio del mes</span></div>
       <table>
         <thead><tr><th class="left">Indicador</th><th>Con RAM</th><th>Sin RAM</th></tr></thead>
         <tbody>
-          <tr><td class="left">Cuentas canceladas (histórico cartera)</td><td class="big green">${conChurnPct}%</td><td class="big red">${sinChurnPct}%</td></tr>
+          <tr><td class="left">Churn de este mes</td><td class="big green">${conChurnPct}%</td><td class="big red">${sinChurnPct}%</td></tr>
           <tr><td class="left">Implementación promedio</td><td class="big">${conRAM.length?Math.round(conRAM.reduce((s,k)=>s+k.implAvg*k.total,0)/Math.max(1,conTotal)):0}%</td><td class="big">${sinRAM.implAvg||0}%</td></tr>
           <tr><td class="left">Valor medio por cuenta</td><td class="big green">${fmt$(conMrrProm)}</td><td class="big red">${fmt$(sinMrrProm)}</td></tr>
         </tbody>
